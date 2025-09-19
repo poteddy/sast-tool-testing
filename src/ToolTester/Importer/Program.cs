@@ -68,40 +68,48 @@ public class Program
                             break;
 
                         case ConsoleKey.T:
-                            var myCart = ActivatorUtilities.CreateInstance<ShowTest>(serviceProvider);
-                          await  myCart.Display();
+                            var shoTestMenu = ActivatorUtilities.CreateInstance<ShowTest>(serviceProvider);
+                          await shoTestMenu.Display();
+                            break;
+                        case ConsoleKey.P:
+                            var parseMenu = ActivatorUtilities.CreateInstance<Parse>(serviceProvider);
+                            await parseMenu.Display();
                             break;
 
-                        //case ConsoleKey.UpArrow:
-                        //    if (Console.CursorTop > 0)
-                        //    {
-                        //        Console.SetCursorPosition(Console.CursorLeft - 1,
-                        //            Console.CursorTop - 1);
-                        //        Console.Write('*');
-                        //    }
-                        //    break;
-                        //case ConsoleKey.DownArrow:
-                        //    if (Console.CursorTop < Console.BufferHeight)
-                        //    {
-                        //        Console.SetCursorPosition(Console.CursorLeft - 1,
-                        //            Console.CursorTop + 1);
-                        //        Console.Write('*');
-                        //    }
-                        //    break;
-                        //case ConsoleKey.LeftArrow:
-                        //    if (Console.CursorLeft > 1)
-                        //    {
-                        //        Console.SetCursorPosition(Console.CursorLeft - 2,
-                        //            Console.CursorTop);
-                        //        Console.Write('*');
-                        //    }
-                        //    break;
-                        //case ConsoleKey.RightArrow:
-                        //    if (Console.CursorLeft < Console.WindowWidth - 1)
-                        //    {
-                        //        Console.Write('*');
-                        //    }
-                        //    break;
+                        case ConsoleKey.V:
+                            var viewMenu = ActivatorUtilities.CreateInstance<View>(serviceProvider);
+                            await viewMenu.Display();
+                            break;
+                            //case ConsoleKey.UpArrow:
+                            //    if (Console.CursorTop > 0)
+                            //    {
+                            //        Console.SetCursorPosition(Console.CursorLeft - 1,
+                            //            Console.CursorTop - 1);
+                            //        Console.Write('*');
+                            //    }
+                            //    break;
+                            //case ConsoleKey.DownArrow:
+                            //    if (Console.CursorTop < Console.BufferHeight)
+                            //    {
+                            //        Console.SetCursorPosition(Console.CursorLeft - 1,
+                            //            Console.CursorTop + 1);
+                            //        Console.Write('*');
+                            //    }
+                            //    break;
+                            //case ConsoleKey.LeftArrow:
+                            //    if (Console.CursorLeft > 1)
+                            //    {
+                            //        Console.SetCursorPosition(Console.CursorLeft - 2,
+                            //            Console.CursorTop);
+                            //        Console.Write('*');
+                            //    }
+                            //    break;
+                            //case ConsoleKey.RightArrow:
+                            //    if (Console.CursorLeft < Console.WindowWidth - 1)
+                            //    {
+                            //        Console.Write('*');
+                            //    }
+                            //    break;
 
                     }
 
@@ -125,6 +133,8 @@ public class Program
         Console.WriteLine("x - Exit");
         Console.WriteLine("m - Show menu");
         Console.WriteLine("t - Show CWE information");
+        Console.WriteLine("p - Parse and store vulns");
+
         Console.WriteLine("##########");
     }
 }

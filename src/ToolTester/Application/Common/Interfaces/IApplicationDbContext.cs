@@ -8,6 +8,7 @@ namespace ToolTester.Application.Common.Interfaces
     {
         DbSet<CWECatalog> CWECatalogs { get; set; }
         DbSet<Relationssship> RelationsShips { get; set; }
-
+        DbSet<CWETestResult>  CWETestResults  { get; set; }
+        
     }
 }

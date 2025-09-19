@@ -25,15 +25,18 @@ public static class DependencyInjection
                     b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
 
                 );
-      
-         services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>());     
+        services.AddDbContextFactory<ApplicationDbContext>(
+     options =>
+       options.UseSqlite(connection));
+
+        services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>());
         services.AddTransient<IDateTime, DateTimeService>();
         services.AddTransient<IExcelService, ExcelService>();
         services.AddTransient<IUploadService, UploadService>();
-           
+
 
         return services;
     }
 
- 
+
 }

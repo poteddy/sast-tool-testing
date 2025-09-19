@@ -27,10 +27,10 @@ namespace ToolTester.Importer.Menus
         public async Task Display()
         {
             Console.Write("Type CWE ID: ");
-        
-                var input = Console.ReadLine();
-                if (int.TryParse(input, out int validoutput))
-                {
+
+            var input = Console.ReadLine();
+            if (int.TryParse(input, out int validoutput))
+            {
                 var cat = await context.CWECatalogs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == validoutput);
                 var rel = await context.RelationsShips.AsNoTracking().Where(d => d.CWEID == validoutput).ToListAsync();
                 JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions()
@@ -45,11 +45,11 @@ namespace ToolTester.Importer.Menus
                     var childcat = context.CWECatalogs.AsNoTracking().FirstOrDefault(d => d.Id == item.RelatedCweID);
                     sb.AppendLine($"{item.CWEID} is a {item.Nature} of {item.RelatedCweID} = {childcat.Id} {childcat.Name}");
                 }
-                                             
+
                 Console.WriteLine(sb);
 
-                }
-                         
+            }
+
         }
     }
 }

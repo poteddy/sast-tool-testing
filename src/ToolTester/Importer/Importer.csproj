@@ -20,5 +20,6 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+	  <ProjectReference Include="..\Parsers\Sarif\SarifParser\Sarif.csproj" />
 	</ItemGroup>
 </Project>
