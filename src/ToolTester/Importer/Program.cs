@@ -39,7 +39,23 @@ public class Program
 
         // See https://aka.ms/new-console-template for more information
         Console.WriteLine("Hello, World!");
-        var catalog = await XMLExtensions.ReadXML("D:\\Sourcery\\poc-results\\cwec_v4.17.xml");
+        Console.WriteLine("pulling Mitre CWE catalog from res folder of repo base");
+        var mitrecatfilepath = "..\\..\\..\\..\\..\\..\\res\\cwec_v4.17.xml";
+        if (!File.Exists(mitrecatfilepath))
+        {
+            do
+            {
+                Console.WriteLine("Pleae provide Mitre cwec_v4.17.xml path or exit");
+                mitrecatfilepath = Console.ReadLine();
+            }while (mitrecatfilepath != "exit" && !File.Exists(mitrecatfilepath));
+           
+        }
+        if (mitrecatfilepath == "exit")
+        {
+            Console.WriteLine("Exiting...");
+            Environment.Exit(0);
+        }
+        var catalog = await XMLExtensions.ReadXML(mitrecatfilepath);
 
         var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
         await context.Database.EnsureCreatedAsync();
