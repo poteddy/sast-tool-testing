@@ -28,12 +28,12 @@ namespace ToolTester.Infrastructure.Services
                     var Catalogs = context.CWECatalogs.AsNoTracking().OrderBy(d => d.Id).ToList();
                     List<Domain.Entities.Relationssship> relations = context.RelationsShips.AsNoTracking().ToList();
 
-                    List<Domain.Entities.CWETestResultBase> testResults = context.CWETestResults.AsNoTracking().Select(d => new CWETestResultBase() { Cwe = d.Cwe, PathCWe = d.PathCWe, Test = d.Test }).ToList();
+                    List<Domain.Entities.CWETestResultBase> testResults = context.CWETestResults.AsNoTracking().Select(d => new CWETestResultBase() { ScannerFoundCWE = d.ScannerFoundCWE, TestPathListedCWE = d.TestPathListedCWE, Test = d.Test }).ToList();
                     foreach (var c in Catalogs)
                     {
                         var testpath = "D:\\github\\juliet\\testcases";
 
-                        var cwes = testResults.Count(d => d.PathCWe == c.Id && d.Cwe == c.Id);
+                        var cwes = testResults.Count(d => d.TestPathListedCWE == c.Id && d.ScannerFoundCWE == c.Id);
                         if (cwes > 0)
                         {
                             _logger.LogInformation($"Test {c.Id} has {cwes} exact matches");
@@ -76,7 +76,7 @@ namespace ToolTester.Infrastructure.Services
             var thischildrelations = relations.Where(d => d.CWEID == cwe && d.Nature == relation.ToString()).ToList();
             foreach (var thisrealtion in thischildrelations)
             {
-                var parent = results.Count(d => d.PathCWe == cwe && d.Cwe == thisrealtion.RelatedCweID);
+                var parent = results.Count(d => d.TestPathListedCWE == cwe && d.ScannerFoundCWE == thisrealtion.RelatedCweID);
                 if (parent > 0)
                 {
                     _logger.LogInformation($"Test {cwe} has {parent} {relation} matches of {thisrealtion.RelatedCweID}");

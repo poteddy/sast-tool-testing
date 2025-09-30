@@ -5,8 +5,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>ToolTester.Importer</AssemblyName>
-    <RootNamespace>ToolTester.Importer</RootNamespace>
+    <AssemblyName>ToolTester.ConsoleApp</AssemblyName>
+    <RootNamespace>ToolTester.ConsoleApp</RootNamespace>
   </PropertyGroup>
 
 	<ItemGroup>

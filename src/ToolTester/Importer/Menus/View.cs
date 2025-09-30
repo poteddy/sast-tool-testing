@@ -1,19 +1,10 @@
-﻿using Importer;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ToolTester.Domain.Coomon.Interfaces;
-using ToolTester.Domain.Entities;
-using ToolTester.Infrastructure;
 using ToolTester.Infrastructure.Persistance;
-using ToolTester.Parsers.Sarif.Interfaces;
 
-namespace ToolTester.Importer.Menus
+namespace ToolTester.ConsoleApp.Menus
 {
     public class View
     {

@@ -1,54 +1,88 @@
-﻿using Importer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Data;
-using System.IO;
-using System.Text;
-using System.Text.Json;
-using System.Text.RegularExpressions;
-using ToolTester.Application.Common.Interfaces;
+using ToolTester.ConsoleApp;
 using ToolTester.Domain.Coomon.Interfaces;
-using ToolTester.Domain.Entities;
-using ToolTester.Infrastructure.Persistance;
-using ToolTester.Parsers.Sarif.Interfaces;
-using static System.Net.Mime.MediaTypeNames;
 
-namespace ToolTester.Importer.Menus
+namespace ToolTester.ConsoleApp.Menus
 {
-    internal class Parse
+    internal class Parse : IDisposable
     {
         private readonly ILogger<Program> _logger;
-        private readonly IServiceProvider serviceProvider;
+        private readonly IServiceProvider _serviceProvider;
+        private bool disposedValue;
 
         public Parse(IServiceProvider serviceProvider, ILogger<Program> logger)
         {
-            this.serviceProvider = serviceProvider;
+            _serviceProvider = serviceProvider;
             _logger = logger;
         }
 
         public async Task<int> Display()
         {
-            Console.Write("Type Parser: ");
 
-            var input = Console.ReadLine().ToLower();
-            if (input == "Sarif".ToLower())
+            Console.WriteLine("Select Parser number");
+            Console.WriteLine("1 -- Sarif");
+            var temptoolid = 0;
+            var key = Console.ReadKey();
+            switch (key.Key)
             {
-                ToolTester.Parsers.Sarif.Parser parser = new ToolTester.Parsers.Sarif.Parser();
+                case ConsoleKey.NumPad1:
+                case ConsoleKey.D1:
+                    {
+                        temptoolid = 1;
+                        Parsers.Sarif.Parser parser = new Parsers.Sarif.Parser();
 
-                Console.WriteLine("input file: ");
-                var filepath = Console.In.ReadLine();
+                        Console.WriteLine("input file: ");
+                        var filepath = Console.In.ReadLine();
+                      
+                        var parseservice = _serviceProvider.GetRequiredService<IParsingService>();
+                        var result = await parseservice.Parse(temptoolid, filepath);
+                        Console.WriteLine($"Parsed {result} items");
+                        parseservice.Dispose();
 
-                Console.WriteLine("Tool");
+                        var reportservice = _serviceProvider.GetRequiredService<IReportingService>();
+                        await reportservice.GenerateReport(temptoolid);
+                        reportservice.Dispose();
 
-                var parseservice = serviceProvider.GetRequiredService<IParsingService>();
-              var result = await  parseservice.Parse(1,filepath);
-                Console.WriteLine($"Parsed {result} items");
-                return result;
+                        return result;
+
+                    }
+
+
 
             }
 
             return 0;
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+
+                    // TODO: dispose managed state (managed objects)
+                }
+
+                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+                // TODO: set large fields to null
+                disposedValue = true;
+            }
+        }
+
+        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        // ~Parse()
+        // {
+        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        //     Dispose(disposing: false);
+        // }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

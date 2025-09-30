@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis.Sarif;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
+using ToolTester.Domain.Coomon.Interfaces;
 using ToolTester.Parsers.Sarif.Interfaces;
 
 namespace ToolTester.Parsers.Sarif
@@ -8,6 +9,7 @@ namespace ToolTester.Parsers.Sarif
     public class Parser : IParser
     {
         public static string CWE_REGEX = @"(?i)cwe-\d+";
+        private bool disposedValue;
 
         public virtual object get_scan_types()
         {
@@ -27,13 +29,13 @@ namespace ToolTester.Parsers.Sarif
         }
 
         // For simple interface of parser contract we just aggregate everything
-        public virtual List<CWEs> get_findings(Stream fs)
+        public async virtual Task<List<CWEs>> Get_findings(Stream fs)
         {
 
             using (StreamReader r = new StreamReader(fs))
             {
 
-                string json = r.ReadToEnd();
+                string json = await r.ReadToEndAsync();
 
                 SarifLog tree = JsonConvert.DeserializeObject<SarifLog>(json);
 
@@ -474,6 +476,40 @@ namespace ToolTester.Parsers.Sarif
                 finding.Date = run_date;
             }
             return finding;
+        }
+
+        List<int> IParser.Get_findings(Stream fs)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects)
+                }
+
+                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+                // TODO: set large fields to null
+                disposedValue = true;
+            }
+        }
+
+        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        // ~Parser()
+        // {
+        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        //     Dispose(disposing: false);
+        // }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
     public static class Extensions

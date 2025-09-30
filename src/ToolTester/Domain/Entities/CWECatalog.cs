@@ -36,9 +36,9 @@ namespace ToolTester.Domain.Entities
     public class CWETestResultBase
     {
         public int Id { get; set; }
-        public int PathCWe { get; set; }
+        public int TestPathListedCWE { get; set; }
         public int Test { get; set; } = 0;
-        public int Cwe { get; set; }
+        public int ScannerFoundCWE { get; set; }
     }
 
    

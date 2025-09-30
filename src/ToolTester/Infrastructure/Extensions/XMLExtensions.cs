@@ -2,11 +2,18 @@
 using System.Xml.Serialization;
 using ToolTester.Infrastructure;
 
-namespace ToolTester.Importer.Extensions
+namespace ToolTester.Infrastructure.Extensions
 {
-    internal class XMLExtensions
+    public class XMLExtensions
     {
-        internal static async Task<Weakness_Catalog> ReadXML(string path)
+        public static Weakness_Catalog ReadXML(string path)
+        {
+
+            string xml = File.ReadAllText(path);
+            var x = xml.ParseXML<Weakness_Catalog>();
+            return x;
+        }
+        public static async Task<Weakness_Catalog> ReadXMLAsync(string path)
         {
 
             string xml = File.ReadAllText(path);
@@ -16,7 +23,7 @@ namespace ToolTester.Importer.Extensions
 
 
     }
-    internal static class ParseHelpers
+    public static class ParseHelpers
     {
 
         public static Stream ToStream(this string @this)

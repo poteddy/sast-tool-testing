@@ -10,7 +10,7 @@ namespace ToolTester.Infrastructure.Persistance
 {
     public static class ApplicationDbContextSeed
     {
-        public static async Task SeedCWECatalog(this ApplicationDbContext context, Weakness_Catalog weakness_Catalog)
+        public static void SeedCWECatalog(this ApplicationDbContext context, Weakness_Catalog weakness_Catalog)
         {
 
             if (!context.CWECatalogs.Any())

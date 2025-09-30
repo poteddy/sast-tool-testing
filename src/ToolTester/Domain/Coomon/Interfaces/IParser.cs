@@ -1,8 +1,8 @@
 ﻿namespace ToolTester.Domain.Coomon.Interfaces
 {
-    public interface IParser
+    public interface IParser:IDisposable
     {        
-        List<int> get_findings(Stream fs);
+        List<int> Get_findings(Stream fs);
      
     }
 }

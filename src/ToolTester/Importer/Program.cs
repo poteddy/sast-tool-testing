@@ -1,10 +1,10 @@
-﻿namespace Importer;
+﻿namespace ToolTester.ConsoleApp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ToolTester.Application;
-using ToolTester.Importer.Extensions;
-using ToolTester.Importer.Menus;
+using ToolTester.ConsoleApp.Menus;
 using ToolTester.Infrastructure;
+using ToolTester.Infrastructure.Extensions;
 using ToolTester.Infrastructure.Persistance;
 
 public class Program
@@ -55,13 +55,13 @@ public class Program
             Console.WriteLine("Exiting...");
             Environment.Exit(0);
         }
-        var catalog = await XMLExtensions.ReadXML(mitrecatfilepath);
+        var catalog = await XMLExtensions.ReadXMLAsync(mitrecatfilepath);
 
         var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
         await context.Database.EnsureCreatedAsync();
 
         logger.LogInformation("Loading Database");
-        await ApplicationDbContextSeed.SeedCWECatalog(context, catalog);
+        context.SeedCWECatalog(catalog);
         logger.LogInformation("Loading complete");
         // Keep the console open in a console application to see logs
         // if the application exits quickly
@@ -76,7 +76,7 @@ public class Program
                 if (Console.KeyAvailable)
                 {
                     var key = Console.ReadKey(true);
-                    Console.Clear();
+                  
                     switch (key.Key)
                     {
                         case ConsoleKey.X:
@@ -90,6 +90,10 @@ public class Program
                         case ConsoleKey.P:
                             var parseMenu = ActivatorUtilities.CreateInstance<Parse>(serviceProvider);
                             await parseMenu.Display();
+                            parseMenu.Dispose();
+                            Console.WriteLine("Press any key!");
+                            Console.ReadKey();
+                            Console.Clear();
                             break;
 
                         case ConsoleKey.V:
@@ -143,7 +147,7 @@ public class Program
     }
     private static async Task ShowMenus()
     {
-
+        
         Console.WriteLine("Commands");
         Console.WriteLine("##########");
         Console.WriteLine("x - Exit");
