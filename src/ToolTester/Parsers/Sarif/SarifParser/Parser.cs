@@ -5,7 +5,7 @@ using ToolTester.Parsers.Sarif.Interfaces;
 
 namespace ToolTester.Parsers.Sarif
 {
-    public class Parser: object
+    public class Parser : IParser
     {
         public static string CWE_REGEX = @"(?i)cwe-\d+";
 

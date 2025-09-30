@@ -1,5 +1,6 @@
 ﻿using Importer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Data;
 using System.IO;
@@ -7,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ToolTester.Application.Common.Interfaces;
+using ToolTester.Domain.Coomon.Interfaces;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Parsers.Sarif.Interfaces;
@@ -17,17 +19,15 @@ namespace ToolTester.Importer.Menus
     internal class Parse
     {
         private readonly ILogger<Program> _logger;
+        private readonly IServiceProvider serviceProvider;
 
-        private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
-
-
-        public Parse(ILogger<Program> logger, IDbContextFactory<ApplicationDbContext> contextFactory)
+        public Parse(IServiceProvider serviceProvider, ILogger<Program> logger)
         {
+            this.serviceProvider = serviceProvider;
             _logger = logger;
-            _contextFactory = contextFactory;
         }
 
-        public async Task<List<CWEs>> Display()
+        public async Task<int> Display()
         {
             Console.Write("Type Parser: ");
 
@@ -36,71 +36,19 @@ namespace ToolTester.Importer.Menus
             {
                 ToolTester.Parsers.Sarif.Parser parser = new ToolTester.Parsers.Sarif.Parser();
 
-                Console.Write("input file: ");
+                Console.WriteLine("input file: ");
                 var filepath = Console.In.ReadLine();
 
-                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
-                var cwes = parser.get_findings(fs);
+                Console.WriteLine("Tool");
 
-                if (cwes.Count() > 0)
-                {
-                    foreach (var cweresult in cwes)
-                    {
-                        string pattern = $@"(?<=CWE)\d+";
-
-                        Match match = Regex.Match(cweresult.FilePath, pattern);
-
-                        if (match.Success)
-                        {
-
-
-                            var thisresult = new CWETestResult()
-                            {
-                                PathCWe = int.Parse(match.Value),
-                                Cve = cweresult.Cve + "",
-                                Cwe = cweresult.Cwe,
-                                Date = DateTime.Now,
-                                Description = cweresult.Description + "",
-                                DynamicFinding = cweresult.DynamicFinding,
-                                FilePath = cweresult.FilePath + "",
-                                FoundBy = cweresult.FoundBy,
-                                Line = cweresult.Line,
-                                Mitigation = cweresult.Mitigation + "",
-                                NumericalSeverity = cweresult.NumericalSeverity,
-                                References = cweresult.References + "",
-                                Severity = cweresult.Severity + "",
-                                StaticFinding = cweresult.StaticFinding,
-                                Test = cweresult.Test,
-                                Title = cweresult.Title + "",
-                                VulnIdFromTool = cweresult.VulnIdFromTool + ""
-
-                            };
-
-                            using (var context = this._contextFactory.CreateDbContext())
-                            {
-                                try
-                                {
-                                    context.CWETestResults.Add(thisresult);
-                                    await context.SaveChangesAsync();
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex.Message, ex);
-                                    throw;
-                                }
-
-                            }
-
-                        }
-
-                    }
-                }
-
-                return cwes;
+                var parseservice = serviceProvider.GetRequiredService<IParsingService>();
+              var result = await  parseservice.Parse(1,filepath);
+                Console.WriteLine($"Parsed {result} items");
+                return result;
 
             }
 
-            return null;
+            return 0;
         }
     }
 }

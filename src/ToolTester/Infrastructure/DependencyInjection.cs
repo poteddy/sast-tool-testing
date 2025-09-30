@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ToolTester.Application.Common.Interfaces;
+using ToolTester.Domain.Coomon.Interfaces;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Infrastructure.Services;
 
@@ -25,7 +26,8 @@ public static class DependencyInjection
         services.AddTransient<IDateTime, DateTimeService>();
         services.AddTransient<IExcelService, ExcelService>();
         services.AddTransient<IUploadService, UploadService>();
-
+        services.AddScoped<IParsingService, ParsingService>();
+        services.AddScoped<IReportingService,ReportingService>();
 
         return services;
     }
