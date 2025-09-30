@@ -5,10 +5,12 @@ using System.Data;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Parsers.Sarif.Interfaces;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace ToolTester.Importer.Menus
 {
@@ -37,51 +39,59 @@ namespace ToolTester.Importer.Menus
                 Console.Write("input file: ");
                 var filepath = Console.In.ReadLine();
 
-                FileStream fs = File.OpenRead(filepath);
+                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
                 var cwes = parser.get_findings(fs);
 
                 if (cwes.Count() > 0)
                 {
                     foreach (var cweresult in cwes)
                     {
+                        string pattern = $@"(?<=CWE)\d+";
 
-                        var thisresult = new CWETestResult()
+                        Match match = Regex.Match(cweresult.FilePath, pattern);
+
+                        if (match.Success)
                         {
-                            Cve = cweresult.Cve +"",
-                            Cwe = cweresult.Cwe,
-                            Date = DateTime.Now,
-                            Description = cweresult.Description + "",
-                            DynamicFinding = cweresult.DynamicFinding ,
-                            FilePath = cweresult.FilePath + "",
-                            FoundBy = cweresult.FoundBy,
-                            Line = cweresult.Line,
-                            Mitigation = cweresult.Mitigation + "",
-                            NumericalSeverity = cweresult.NumericalSeverity,
-                            References = cweresult.References + "",
-                            Severity = cweresult.Severity + "",
-                            StaticFinding = cweresult.StaticFinding,
-                            Test = cweresult.Test,
-                            Title = cweresult.Title + "",
-                            VulnIdFromTool = cweresult.VulnIdFromTool + ""
 
-                        };
 
-                        using (var context = this._contextFactory.CreateDbContext())
-                        {
-                            try
+                            var thisresult = new CWETestResult()
                             {
-                                context.CWETestResults.Add(thisresult);
-                                await context.SaveChangesAsync();
-                            }
-                            catch (Exception ex)
+                                PathCWe = int.Parse(match.Value),
+                                Cve = cweresult.Cve + "",
+                                Cwe = cweresult.Cwe,
+                                Date = DateTime.Now,
+                                Description = cweresult.Description + "",
+                                DynamicFinding = cweresult.DynamicFinding,
+                                FilePath = cweresult.FilePath + "",
+                                FoundBy = cweresult.FoundBy,
+                                Line = cweresult.Line,
+                                Mitigation = cweresult.Mitigation + "",
+                                NumericalSeverity = cweresult.NumericalSeverity,
+                                References = cweresult.References + "",
+                                Severity = cweresult.Severity + "",
+                                StaticFinding = cweresult.StaticFinding,
+                                Test = cweresult.Test,
+                                Title = cweresult.Title + "",
+                                VulnIdFromTool = cweresult.VulnIdFromTool + ""
+
+                            };
+
+                            using (var context = this._contextFactory.CreateDbContext())
                             {
-                                _logger.LogError(ex.Message, ex);
-                                throw;
+                                try
+                                {
+                                    context.CWETestResults.Add(thisresult);
+                                    await context.SaveChangesAsync();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex.Message, ex);
+                                    throw;
+                                }
+
                             }
-                      
+
                         }
-
-
 
                     }
                 }

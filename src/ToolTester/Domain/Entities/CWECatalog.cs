@@ -33,11 +33,21 @@ namespace ToolTester.Domain.Entities
     
     }
    
-    public class CWETestResult
+    public class CWETestResultBase
+    {
+        public int Id { get; set; }
+        public int PathCWe { get; set; }
+        public int Test { get; set; } = 0;
+        public int Cwe { get; set; }
+    }
+
+   
+    public class CWETestResult:CWETestResultBase
     {
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
-        public int Test { get; set; } = 0;
+
+       
         public string NumericalSeverity { get; set; } = string.Empty;
         public List<int?> FoundBy { get; set; }
         public string Severity { get; set; } = string.Empty;
@@ -49,7 +59,7 @@ namespace ToolTester.Domain.Entities
         public string References { get; set; } = string.Empty;
         public string VulnIdFromTool { get; set; } = string.Empty;
         public string Cve { get; set; } = string.Empty;
-        public int Cwe { get;  set; }   
+      
         public string Mitigation { get; set; } = string.Empty;
         public DateTime? Date { get; set; } = DateTime.MinValue;
     }

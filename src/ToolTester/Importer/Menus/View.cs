@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Parsers.Sarif.Interfaces;
@@ -30,34 +31,34 @@ namespace ToolTester.Importer.Menus
             {
                 try
                 {
-                    var Catalogs = context.CWECatalogs.ToList();
-                    List<Domain.Entities.Relationssship> relations = context.RelationsShips.ToList();
+                    var Catalogs = context.CWECatalogs.AsNoTracking().OrderBy(d => d.Id).ToList();
+                    List<Domain.Entities.Relationssship> relations = context.RelationsShips.AsNoTracking().ToList();
+                  
+                    List<Domain.Entities.CWETestResultBase> testResults = context.CWETestResults.AsNoTracking().Select(d => new CWETestResultBase(){ Cwe=d.Cwe, PathCWe = d.PathCWe, Test= d.Test  }).ToList();
                     foreach (var c in Catalogs)
-                    {
-
-                        var cwesubPath = string.Format("CWE{0}_", c.Id);
+                    {                      
                         var testpath = "D:\\github\\juliet\\testcases";
-                        var cwePath = string.Format(@"testcases/" + cwesubPath);
-                        var cwes = context.CWETestResults.Where(d => d.FilePath.StartsWith(cwePath) && d.Cwe == c.Id);
-                        if (cwes.Count() > 0)
+                      
+                        var cwes = testResults.Count(d => d.PathCWe == c.Id && d.Cwe == c.Id);
+                        if (cwes > 0)
                         {
-                            Console.WriteLine($"Test {c.Id} has {cwes.Count()} exact matches");
+                            Console.WriteLine($"Test {c.Id} has {cwes} exact matches");
                         }
-                        GetRelation(context, relations, RelatedNatureEnumeration.PeerOf, cwePath, c.Id);
+                        GetRelation(testResults, relations, RelatedNatureEnumeration.PeerOf,  c.Id);
 
-                        var firstgenparents = await GetRelation(context, relations, RelatedNatureEnumeration.ParentOf, cwePath, c.Id);
+                        var firstgenparents = await GetRelation(testResults, relations, RelatedNatureEnumeration.ParentOf, c.Id);
                        // if(firstgenparents.Count() > 0)  Console.WriteLine($"Test grand parents of {c.Id}");
                         foreach (var i in firstgenparents)
                         {
                         
-                            await GetRelation(context, relations, RelatedNatureEnumeration.ParentOf, cwePath, i);
+                            await GetRelation(testResults, relations, RelatedNatureEnumeration.ParentOf,  i);
                         }
-                        var firstgenchildren = await GetRelation(context, relations, RelatedNatureEnumeration.ChildOf, cwePath, c.Id);
+                        var firstgenchildren = await GetRelation(testResults, relations, RelatedNatureEnumeration.ChildOf, c.Id);
                       //  if(firstgenchildren.Count() >0) Console.WriteLine($"Test grand children of {c.Id}");
                         foreach (var i in firstgenparents)
                         {
                             
-                            await GetRelation(context, relations, RelatedNatureEnumeration.ChildOf, cwePath, i);
+                            await GetRelation(testResults, relations, RelatedNatureEnumeration.ChildOf,  i);
                         }
 
                     }
@@ -74,15 +75,15 @@ namespace ToolTester.Importer.Menus
 
 
         }
-        private async Task<List<int>> GetRelation(ApplicationDbContext context, List<Domain.Entities.Relationssship> relations, RelatedNatureEnumeration relation, string testpath, int cwe)
+        private async Task<List<int>> GetRelation(List<Domain.Entities.CWETestResultBase> results, List<Domain.Entities.Relationssship> relations, RelatedNatureEnumeration relation, int cwe)
         {
             var thischildrelations = relations.Where(d => d.CWEID == cwe && d.Nature == relation.ToString()).ToList();
             foreach (var thisrealtion in thischildrelations)
             {
-                var parent = context.CWETestResults.Where(d => d.FilePath.StartsWith(testpath) && d.Cwe == thisrealtion.RelatedCweID);
-                if (parent.Count() > 0)
+                var parent = results.Count(d => d.PathCWe == cwe && d.Cwe == thisrealtion.RelatedCweID);
+                if (parent > 0)
                 {
-                    Console.WriteLine($"Test {cwe} has {parent.Count()} {relation} matches of {thisrealtion.RelatedCweID}");
+                    Console.WriteLine($"Test {cwe} has {parent} {relation} matches of {thisrealtion.RelatedCweID}");
                 }
             }
             return thischildrelations.Select(d => d.RelatedCweID).ToList();

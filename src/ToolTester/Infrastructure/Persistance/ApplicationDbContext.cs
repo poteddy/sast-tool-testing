@@ -23,8 +23,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<CWETestResult> CWETestResults { get; set; }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseSqlite("Data Source=data.db")
-        .EnableSensitiveDataLogging(true);
+       
     }
 
 
@@ -37,7 +36,7 @@ public class BloggingContextFactory : IDesignTimeDbContextFactory<ApplicationDbC
     public ApplicationDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-        optionsBuilder.UseSqlite("Data Source=data.db");
+        optionsBuilder.UseInMemoryDatabase("ToolTester");
 
         return new ApplicationDbContext(optionsBuilder.Options);
     }
