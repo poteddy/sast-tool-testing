@@ -4,6 +4,9 @@ using Microsoft.Extensions.Logging;
 using Syncfusion.Maui.Toolkit.Hosting;
 using ToolTester.Infrastructure;
 using ToolTester.Application;
+using ToolTester.Presentation.PageModels;
+using Syncfusion.Maui.Core.Hosting;
+
 namespace ToolTester.Presentation
 {
     public static class MauiProgram
@@ -15,6 +18,7 @@ namespace ToolTester.Presentation
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
                 .ConfigureSyncfusionToolkit()
+                .ConfigureSyncfusionCore()
                 .ConfigureMauiHandlers(handlers =>
                 {
 #if IOS || MACCATALYST
@@ -34,20 +38,9 @@ namespace ToolTester.Presentation
     		builder.Services.AddLogging(configure => configure.AddDebug());
 #endif
             builder.Services.AddInfrastructureServices()
-               .AddApplicationServices();
+               .AddApplicationServices()
+               .AddPresentationServices();
 
-            //builder.Services.AddSingleton<ProjectRepository>();
-            //builder.Services.AddSingleton<TaskRepository>();
-            //builder.Services.AddSingleton<CategoryRepository>();
-            //builder.Services.AddSingleton<TagRepository>();
-            //builder.Services.AddSingleton<SeedDataService>();
-            //builder.Services.AddSingleton<ModalErrorHandler>();
-            //builder.Services.AddSingleton<MainPageModel>();
-            //builder.Services.AddSingleton<ProjectListPageModel>();
-            //builder.Services.AddSingleton<ManageMetaPageModel>();
-
-            //builder.Services.AddTransientWithShellRoute<ProjectDetailPage, ProjectDetailPageModel>("project");
-            //builder.Services.AddTransientWithShellRoute<TaskDetailPage, TaskDetailPageModel>("task");
 
             return builder.Build();
         }

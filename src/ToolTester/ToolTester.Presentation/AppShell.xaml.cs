@@ -9,6 +9,7 @@ namespace ToolTester.Presentation
         public AppShell()
         {
             InitializeComponent();
+            Routing.RegisterRoute("catalog", typeof(CatalogPage)); // Register the route
             var currentTheme = Microsoft.Maui.Controls.Application.Current!.RequestedTheme;
             ThemeSegmentedControl.SelectedIndex = currentTheme == AppTheme.Light ? 0 : 1;
         }

@@ -1,7 +1,7 @@
 ﻿using ObjCRuntime;
 using UIKit;
 
-namespace MauiApp2
+namespace ToolTester.Presentation
 {
     public class Program
     {

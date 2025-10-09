@@ -6,7 +6,7 @@ namespace ToolTester.Application.Common.Interfaces
 {
     public interface IApplicationDbContext
     {
-        DbSet<CWECatalog> CWECatalogs { get; set; }
+        DbSet<Domain.Entities.CWECatalog> CWECatalogs { get; set; }
         DbSet<Relationssship> RelationsShips { get; set; }
         DbSet<CWETestResult>  CWETestResults  { get; set; }
         
