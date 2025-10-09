@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Maui;
+﻿using Comet;
+using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using Syncfusion.Maui.Toolkit.Hosting;
 using ToolTester.Application;
@@ -6,11 +7,14 @@ using ToolTester.Infrastructure;
 using ToolTester.Infrastructure.Persistance;
 namespace ToolTester.Presentation
 {
-    public static class MauiProgram
+    public class MauiProgram
     {
-        public  static MauiApp CreateMauiApp()
+        [Body]
+        Comet.View view() => new MainPage();
+
+        public static MauiApp CreateMauiApp()
         {
-            var builder = MauiApp.CreateBuilder();
+           var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
@@ -18,7 +22,7 @@ namespace ToolTester.Presentation
                 .ConfigureMauiHandlers(handlers =>
                 {
 #if IOS || MACCATALYST
-    				handlers.AddHandler<Microsoft.Maui.Controls.CollectionView, Microsoft.Maui.Controls.Handlers.Items2.CollectionViewHandler2>();
+                    handlers.AddHandler<Microsoft.Maui.Controls.CollectionView, Microsoft.Maui.Controls.Handlers.Items2.CollectionViewHandler2>();
 #endif
                 })
                 .ConfigureFonts(fonts =>
@@ -30,7 +34,7 @@ namespace ToolTester.Presentation
                 });
 
 #if DEBUG
-    		builder.Logging.AddDebug();
+            builder.Logging.AddDebug();
     		
             builder.Services.AddLogging(configure =>
             {
@@ -44,18 +48,10 @@ namespace ToolTester.Presentation
 #endif
             builder.Services.AddInfrastructureServices()
                 .AddApplicationServices();
-            builder.Services.AddSingleton<ProjectRepository>();
-            builder.Services.AddSingleton<TaskRepository>();
-            builder.Services.AddSingleton<CategoryRepository>();
-            builder.Services.AddSingleton<TagRepository>();
-            builder.Services.AddSingleton<SeedDataService>();
-            builder.Services.AddSingleton<ModalErrorHandler>();
-            builder.Services.AddSingleton<MainPageModel>();
-            builder.Services.AddSingleton<ProjectListPageModel>();
-            builder.Services.AddSingleton<ManageMetaPageModel>();
+       
+            //builder.Services.AddSingleton<ModalErrorHandler>();
+     
 
-            builder.Services.AddTransientWithShellRoute<ProjectDetailPage, ProjectDetailPageModel>("project");
-            builder.Services.AddTransientWithShellRoute<TaskDetailPage, TaskDetailPageModel>("task");
             var mitrecatfilepath = "..\\..\\..\\..\\..\\..\\..\\res\\cwec_v4.17.xml";
             if (!File.Exists(mitrecatfilepath))
             {
