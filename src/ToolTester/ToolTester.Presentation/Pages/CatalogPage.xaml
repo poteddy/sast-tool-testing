@@ -29,7 +29,7 @@
                 <VerticalStackLayout
            Padding="30,0"
            Spacing="25">
-                  
+
                     <Image
                Source="dotnet_bot.png"
                HeightRequest="185"
@@ -40,6 +40,10 @@
                Text="Hello, World!"
                Style="{StaticResource Headline}"
                SemanticProperties.HeadingLevel="Level1" />
+
+
+                 
+                    
                     <syncfusioncommercial:SfDataGrid x:Name="dataGrid"
                                ItemsSource="{Binding Items}">
                     </syncfusioncommercial:SfDataGrid>

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -8,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ToolTester.Application.Common.Interfaces;
+using ToolTester.Application.CWECataloig.Queries;
 using ToolTester.Domain.Entities;
 using ToolTester.Presentation.Interfaces;
 using ToolTester.Presentation.Models;
@@ -23,6 +25,7 @@ public partial class CatalogPageModel : BaseViewModel // Assuming you have Obser
     private bool _isNavigatedTo;
     private bool _dataLoaded;
     private readonly ModalErrorHandler _errorHandler;
+    private readonly IMediator _mediator;
 
     public ObservableCollection<CweCatalog> Items
     {
@@ -30,15 +33,27 @@ public partial class CatalogPageModel : BaseViewModel // Assuming you have Obser
         set => SetProperty(ref _items, value); // SetProperty handles property change notification
     }
 
-    public CatalogPageModel(ModalErrorHandler errorHandler)
+    public CatalogPageModel(ModalErrorHandler errorHandler, IMediator mediator)
     {
         _errorHandler = errorHandler;
+        _mediator = mediator;
     }
     public async Task LoadItemsAsync()
     {
-       
+
         ObservableCollection<CweCatalog> cWECatalogs = new ObservableCollection<CweCatalog>();
-        cWECatalogs.Add(new CweCatalog() { Name = "hello do i work" });
+        var result = await _mediator.Send(new GetCweCatalogsWithPaginationQuery());
+        foreach (var catalog in result.Items)
+        {
+            cWECatalogs.Add(new CweCatalog()
+            {
+                Name = catalog.Name,
+                Abstraction = catalog.Abstraction,
+                Description = catalog.Description,
+                Status = catalog.Status,
+                Id = catalog.Id,
+            });
+        }
         Items = new ObservableCollection<CweCatalog>(cWECatalogs);
     }
 
@@ -72,7 +87,7 @@ public partial class CatalogPageModel : BaseViewModel // Assuming you have Obser
     {
         if (!_dataLoaded)
         {
-           
+
             //await InitData(_seedDataService);
             _dataLoaded = true;
             await Refresh();
@@ -90,7 +105,7 @@ public partial class CatalogPageModel : BaseViewModel // Assuming you have Obser
         try
         {
             IsRefreshing = true;
-            LoadItemsAsync().FireAndForgetSafeAsync(_errorHandler); 
+            LoadItemsAsync().FireAndForgetSafeAsync(_errorHandler);
         }
         catch (Exception e)
         {

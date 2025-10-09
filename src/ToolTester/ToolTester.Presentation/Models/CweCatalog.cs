@@ -5,12 +5,12 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
-using ToolTester.Application.CWECatalog.DTO;
+using ToolTester.Application.CWECataloig.DTO;
 using ToolTester.Presentation.Interfaces;
 
 namespace ToolTester.Presentation.Models
 {
-    public class CweCatalog:ToolTester.Application.CWECatalog.DTO.CWECatalogDTO,IFromDto
+    public class CweCatalog:CWECatalogDTO,IFromDto
     {
         // we want to be able to change this Name property in run-time and to 
         // reflect changes so we make it bindable (other props will remain without 

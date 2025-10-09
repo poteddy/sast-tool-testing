@@ -7,18 +7,18 @@ using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
 using ToolTester.Domain.Entities;
 
-namespace ToolTester.Application.CWECatalog.DTO
+namespace ToolTester.Application.CWECataloig.DTO
 {
-    public class CWECatalogDTO:IMapFrom<Domain.Entities.CWECatalog>
+    public class CWECatalogDTO:IMapFrom<CWECatalog>
     {
         public void Mapping(Profile profile)
         {
-            profile.CreateMap<CWECatalogDTO, Domain.Entities.CWECatalog>()
+            profile.CreateMap<CWECatalogDTO, CWECatalog>()
                  .ForAllMembers(opt => opt.IgnoreSourceWhenDefault());
 
 
 
-            profile.CreateMap<Domain.Entities.CWECatalog, CWECatalogDTO>()
+            profile.CreateMap<CWECatalog, CWECatalogDTO>()
                  .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
         }
