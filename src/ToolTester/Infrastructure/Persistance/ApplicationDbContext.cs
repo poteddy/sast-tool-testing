@@ -19,8 +19,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
     public DbSet<CWECatalog> CWECatalogs { get; set; }
 
-    public DbSet<Relationssship> RelationsShips { get; set; }
+    public DbSet<Relationship> Relationships { get; set; }
     public DbSet<CWETestResult> CWETestResults { get; set; }
+    public DbSet<JulietCoverage> JulietCoverages { get; set; }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
        

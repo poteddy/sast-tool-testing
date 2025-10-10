@@ -61,7 +61,7 @@ public class Program
         await context.Database.EnsureCreatedAsync();
 
         logger.LogInformation("Loading Database");
-        context.SeedCWECatalog(catalog);
+        //context.SeedCWECatalog(catalog);
         logger.LogInformation("Loading complete");
         // Keep the console open in a console application to see logs
         // if the application exits quickly

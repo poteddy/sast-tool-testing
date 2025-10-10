@@ -10,6 +10,8 @@ namespace ToolTester.Presentation
         {
             InitializeComponent();
             Routing.RegisterRoute("catalog", typeof(CatalogPage)); // Register the route
+            Routing.RegisterRoute("relationships", typeof(RelationshipsPage)); // Register the route
+            Routing.RegisterRoute("julietproject", typeof(JulietCoveragePage)); // Register the route
             var currentTheme = Microsoft.Maui.Controls.Application.Current!.RequestedTheme;
             ThemeSegmentedControl.SelectedIndex = currentTheme == AppTheme.Light ? 0 : 1;
         }

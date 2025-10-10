@@ -4,9 +4,9 @@ using MediatR;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Mapping;
 using ToolTester.Application.Common.Models;
-using ToolTester.Application.CWECataloig.DTO;
+using ToolTester.Application.CWECatalogs.DTO;
 
-namespace ToolTester.Application.CWECataloig.Queries
+namespace ToolTester.Application.CWECatalogs.Queries
 {
    
 

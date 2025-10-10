@@ -10,7 +10,11 @@ namespace ToolTester.Presentation.PageModels
         }
 
         [RelayCommand]
-        private  Task NavigateToCatalogPage(CatalogPage project)
-        => Shell.Current.GoToAsync("catalog");
+        private  Task NavigateToCatalogPage(RelationshipsPage project)
+        => Shell.Current.GoToAsync("relationships");
+
+        [RelayCommand]
+        private  Task NavigateToJulietPage(JulietCoveragePage project)
+        => Shell.Current.GoToAsync("julietproject");
     }
 }

@@ -26,7 +26,7 @@ namespace ToolTester.Infrastructure.Services
                 try
                 {
                     var Catalogs = context.CWECatalogs.AsNoTracking().OrderBy(d => d.Id).ToList();
-                    List<Domain.Entities.Relationssship> relations = context.RelationsShips.AsNoTracking().ToList();
+                    List<Domain.Entities.Relationship> relations = context.Relationships.AsNoTracking().ToList();
 
                     List<Domain.Entities.CWETestResultBase> testResults = context.CWETestResults.AsNoTracking().Select(d => new CWETestResultBase() { ScannerFoundCWE = d.ScannerFoundCWE, TestPathListedCWE = d.TestPathListedCWE, Test = d.Test }).ToList();
                     foreach (var c in Catalogs)
@@ -71,7 +71,7 @@ namespace ToolTester.Infrastructure.Services
 
             return report;
         }
-        private async Task<List<int>> GetRelation(List<Domain.Entities.CWETestResultBase> results, List<Domain.Entities.Relationssship> relations, RelatedNatureEnumeration relation, int cwe)
+        private async Task<List<int>> GetRelation(List<Domain.Entities.CWETestResultBase> results, List<Domain.Entities.Relationship> relations, RelatedNatureEnumeration relation, int cwe)
         {
             var thischildrelations = relations.Where(d => d.CWEID == cwe && d.Nature == relation.ToString()).ToList();
             foreach (var thisrealtion in thischildrelations)

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ToolTester.Presentation.Pages.RelationshipsPage"
+             xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
+             xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"           
+             xmlns:syncfusion="http://schemas.syncfusion.com/maui/toolkit"    
+             xmlns:syncfusioncommercial="clr-namespace:Syncfusion.Maui.DataGrid;assembly=Syncfusion.Maui.DataGrid"
+             Title="Relationships">
+
+
+    <ContentPage.Behaviors>
+        <toolkit:EventToCommandBehavior
+           EventName="NavigatedTo"
+           Command="{Binding NavigatedToCommand}" />
+        <toolkit:EventToCommandBehavior
+           EventName="NavigatedFrom"
+           Command="{Binding NavigatedFromCommand}" />
+        <toolkit:EventToCommandBehavior
+           EventName="Appearing"                
+           Command="{Binding AppearingCommand}" />
+    </ContentPage.Behaviors>
+
+    <pullToRefresh:SfPullToRefresh
+                   IsRefreshing="{Binding IsRefreshing}"
+                   RefreshCommand="{Binding RefreshCommand}">
+        <pullToRefresh:SfPullToRefresh.PullableContent>
+            <Grid>
+                <ScrollView>
+                    <VerticalStackLayout
+      Spacing="25"
+      Margin="0"
+      VerticalOptions="Start">
+                        <syncfusion:SfCartesianChart>
+                            <syncfusion:SfCartesianChart.Legend>
+                                <syncfusion:ChartLegend/>
+                            </syncfusion:SfCartesianChart.Legend>
+                            <syncfusion:SfCartesianChart.XAxes>
+                                <syncfusion:NumericalAxis/>
+                            </syncfusion:SfCartesianChart.XAxes>
+
+                            <syncfusion:SfCartesianChart.YAxes>
+                                <syncfusion:NumericalAxis/>
+                            </syncfusion:SfCartesianChart.YAxes>
+
+                            <syncfusion:SfCartesianChart.ZoomPanBehavior>
+                                <syncfusion:ChartZoomPanBehavior EnablePanning = "True" EnableDoubleTap="True" EnablePinchZooming="True"/>
+                            </syncfusion:SfCartesianChart.ZoomPanBehavior>
+                            <syncfusion:ChartSeriesCollection>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Items}"
+                             XAxisName="CWE ID"                                                      
+                             YAxisName="Related ID"                                                          
+                             XBindingPath="CWEID"                                                                                 
+                             YBindingPath="RelatedCweID"
+                                         IsVisibleOnLegend="True"             
+                              PointHeight="5"
+                                PointWidth="5"/>
+                            </syncfusion:ChartSeriesCollection>
+                          
+                        </syncfusion:SfCartesianChart>
+
+                        <syncfusioncommercial:SfDataGrid x:Name="dataGrid"
+                               ItemsSource="{Binding Items}">
+                        </syncfusioncommercial:SfDataGrid>
+
+
+                        <!--<Button
+               x:Name="CounterBtn"
+               Text="Click me" 
+               SemanticProperties.Hint="Counts the number of times you click"
+               Clicked="OnCounterClicked"
+               HorizontalOptions="Fill" />-->
+
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Grid>
+
+        </pullToRefresh:SfPullToRefresh.PullableContent>
+    </pullToRefresh:SfPullToRefresh>
+</ContentPage>

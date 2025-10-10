@@ -15,6 +15,9 @@ namespace ToolTester.Presentation
             services.AddSingleton<ModalErrorHandler>();
             services.AddSingleton<MainPageModel>();
             services.AddSingleton<CatalogPageModel>();
+            services.AddSingleton<RelationshipsPageModel>();
+            services.AddSingleton<JulietCoveragesPageModel>();
+
         
             //builder.Services.AddSingleton<ProjectRepository>();
             //builder.Services.AddSingleton<TaskRepository>();

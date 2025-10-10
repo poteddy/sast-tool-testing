@@ -1,26 +1,27 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="ToolTester.Presentation.Pages.CatalogPage"
-             xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
-             xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
-             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"           
-             xmlns:syncfusion="http://schemas.syncfusion.com/maui/toolkit"    
-             xmlns:syncfusioncommercial="clr-namespace:Syncfusion.Maui.DataGrid;assembly=Syncfusion.Maui.DataGrid"
-             Title="CatalogPage">
+             x:Class="ToolTester.Presentation.Pages.JulietCoveragePage"             
+            xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
+            xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
+            xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"           
+            xmlns:syncfusion="http://schemas.syncfusion.com/maui/toolkit"    
+            xmlns:syncfusioncommercial="clr-namespace:Syncfusion.Maui.DataGrid;assembly=Syncfusion.Maui.DataGrid"
+       
+             Title="JulietCoveragePage">
+
 
     <ContentPage.Behaviors>
-        <toolkit:EventToCommandBehavior
+    <toolkit:EventToCommandBehavior
            EventName="NavigatedTo"
            Command="{Binding NavigatedToCommand}" />
-        <toolkit:EventToCommandBehavior
+    <toolkit:EventToCommandBehavior
            EventName="NavigatedFrom"
            Command="{Binding NavigatedFromCommand}" />
-        <toolkit:EventToCommandBehavior
+    <toolkit:EventToCommandBehavior
            EventName="Appearing"                
            Command="{Binding AppearingCommand}" />
-    </ContentPage.Behaviors>
-
+</ContentPage.Behaviors>
     <pullToRefresh:SfPullToRefresh
                    IsRefreshing="{Binding IsRefreshing}"
                    RefreshCommand="{Binding RefreshCommand}">
@@ -30,12 +31,7 @@
            Padding="30,0"
            Spacing="25">
 
-                    <Image
-               Source="dotnet_bot.png"
-               HeightRequest="185"
-               Aspect="AspectFit"
-               SemanticProperties.Description="dot net bot in a hovercraft number nine" />
-
+    
                     <Label
                Text="Hello, World!"
                Style="{StaticResource Headline}"
@@ -50,12 +46,26 @@
                         <syncfusion:SfCartesianChart.YAxes>
                             <syncfusion:NumericalAxis/>
                         </syncfusion:SfCartesianChart.YAxes>
+                        <syncfusion:SfCartesianChart.Legend>
+                            <syncfusion:ChartLegend/>
+                        </syncfusion:SfCartesianChart.Legend>
+                       
 
+                        <syncfusion:SfCartesianChart.ZoomPanBehavior>
+                            <syncfusion:ChartZoomPanBehavior EnablePanning = "True" EnableDoubleTap="True" EnablePinchZooming="True"/>
+                        </syncfusion:SfCartesianChart.ZoomPanBehavior>
+                        <syncfusion:SfCartesianChart.TooltipBehavior>
+                            <syncfusion:ChartTooltipBehavior />
+                        </syncfusion:SfCartesianChart.TooltipBehavior>
                         <syncfusion:ColumnSeries ItemsSource="{Binding Items}"
-                        XBindingPath="Id"
-                        YBindingPath="Status"/>
+                        XBindingPath="CWE_ID"
+                        YBindingPath="Covered"  
+                        EnableTooltip="True"
+                        XAxisName="CWE ID"                                                      
+                        YAxisName="Test cases"        
+                           />
                     </syncfusion:SfCartesianChart>
-                    
+
                     <syncfusioncommercial:SfDataGrid x:Name="dataGrid"
                                ItemsSource="{Binding Items}">
                     </syncfusioncommercial:SfDataGrid>

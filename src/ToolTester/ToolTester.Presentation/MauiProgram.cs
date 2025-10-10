@@ -1,8 +1,13 @@
 ﻿using CommunityToolkit.Maui;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Syncfusion.Maui.Core.Hosting;
 using Syncfusion.Maui.Toolkit.Hosting;
+using System.Reflection;
 using ToolTester.Application;
+using ToolTester.Application.Common.Interfaces;
+using ToolTester.Application.Common.Models;
 using ToolTester.Infrastructure;
 using ToolTester.Infrastructure.Extensions;
 using ToolTester.Infrastructure.Persistance;
@@ -13,7 +18,16 @@ namespace ToolTester.Presentation
     {
         public static MauiApp CreateMauiApp()
         {
+
             var builder = MauiApp.CreateBuilder();
+            var a = Assembly.GetExecutingAssembly();
+            var appSettings = $"{a.GetName().Name}.appsettings.json";
+            using var stream = a.GetManifestResourceStream(appSettings);
+            var config = new ConfigurationBuilder()
+            .AddJsonStream(stream)
+            .Build();
+            builder.Configuration.AddConfiguration(config);
+
             builder
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
@@ -42,27 +56,24 @@ namespace ToolTester.Presentation
                .AddPresentationServices();
            
             var app = builder.Build();
-            var mitrecatfilepath = "..\\..\\..\\..\\..\\..\\..\\res\\cwec_v4.17.xml";
-            if (!File.Exists(mitrecatfilepath))
-            {
-                do
-                {
-                    Console.WriteLine("Pleae provide Mitre cwec_v4.17.xml path or exit");
-                    mitrecatfilepath = Console.ReadLine();
-                } while (mitrecatfilepath != "exit" && !File.Exists(mitrecatfilepath));
+            var syncfusionSetting = config.GetRequiredSection("SyncfusionSetting").Get<SyncfusionSetting>();
 
-            }
-            if (mitrecatfilepath == "exit")
+            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(syncfusionSetting.Registration_Key);
+
+            var JulietzipPath = config.GetRequiredSection("JulietProjectSetting").Get<JulietProjectSetting>().Path;
+            if (!File.Exists(JulietzipPath))
             {
-                Console.WriteLine("Exiting...");
-                Environment.Exit(0);
+                //do counts here
+                Console.WriteLine(  );
             }
-            var catalog =  XMLExtensions.ReadXML(mitrecatfilepath);
+
+          
             var context = app.Services.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureCreated();
-
-            context.SeedCWECatalog(catalog);
+            var contextseed = app.Services.GetRequiredService<IApplicationDbContextSeed>();
+            contextseed.SeedCWECatalog();
             return app;
         }
     }
+    
 }

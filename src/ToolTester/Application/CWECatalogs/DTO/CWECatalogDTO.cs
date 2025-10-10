@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
 using ToolTester.Domain.Entities;
 
-namespace ToolTester.Application.CWECataloig.DTO
+namespace ToolTester.Application.CWECatalogs.DTO
 {
     public class CWECatalogDTO:IMapFrom<CWECatalog>
     {

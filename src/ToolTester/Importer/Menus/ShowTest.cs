@@ -25,7 +25,7 @@ namespace ToolTester.ConsoleApp.Menus
             if (int.TryParse(input, out int validoutput))
             {
                 var cat = await context.CWECatalogs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == validoutput);
-                var rel = await context.RelationsShips.AsNoTracking().Where(d => d.CWEID == validoutput).ToListAsync();
+                var rel = await context.Relationships.AsNoTracking().Where(d => d.CWEID == validoutput).ToListAsync();
                 JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions()
                 {
                     WriteIndented = true

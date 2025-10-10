@@ -23,11 +23,13 @@ public static class DependencyInjection
 
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>());
+        services.AddScoped<IApplicationDbContextSeed, ApplicationDbContextSeed>();
         services.AddTransient<IDateTime, DateTimeService>();
         services.AddTransient<IExcelService, ExcelService>();
         services.AddTransient<IUploadService, UploadService>();
         services.AddScoped<IParsingService, ParsingService>();
         services.AddScoped<IReportingService,ReportingService>();
+        services.AddScoped<IZipfileService,ZipfileService>();
 
         return services;
     }

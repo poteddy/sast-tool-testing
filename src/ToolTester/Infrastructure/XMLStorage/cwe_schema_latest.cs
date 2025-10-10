@@ -20,97 +20,119 @@ namespace ToolTester.Infrastructure;
 [System.SerializableAttribute()]
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
-[System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://cwe.mitre.org/cwe-7")]
-[System.Xml.Serialization.XmlRootAttribute(Namespace="http://cwe.mitre.org/cwe-7", IsNullable=false)]
-public partial class Weakness_Catalog {
-    
+[System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://cwe.mitre.org/cwe-7")]
+[System.Xml.Serialization.XmlRootAttribute(Namespace = "http://cwe.mitre.org/cwe-7", IsNullable = false)]
+public partial class Weakness_Catalog
+{
+
     private WeaknessType[] weaknessesField;
-    
+
     private CategoryType[] categoriesField;
-    
+
     private ViewType[] viewsField;
-    
+
     private ExternalReferenceType[] external_ReferencesField;
-    
+
     private string nameField;
-    
+
     private string versionField;
-    
+
     private System.DateTime dateField;
-    
+
     /// <remarks/>
-    [System.Xml.Serialization.XmlArrayItemAttribute("Weakness", IsNullable=false)]
-    public WeaknessType[] Weaknesses {
-        get {
+    [System.Xml.Serialization.XmlArrayItemAttribute("Weakness", IsNullable = false)]
+    public WeaknessType[] Weaknesses
+    {
+        get
+        {
             return this.weaknessesField;
         }
-        set {
+        set
+        {
             this.weaknessesField = value;
         }
     }
-    
+
     /// <remarks/>
-    [System.Xml.Serialization.XmlArrayItemAttribute("Category", IsNullable=false)]
-    public CategoryType[] Categories {
-        get {
+    [System.Xml.Serialization.XmlArrayItemAttribute("Category", IsNullable = false)]
+    public CategoryType[] Categories
+    {
+        get
+        {
             return this.categoriesField;
         }
-        set {
+        set
+        {
             this.categoriesField = value;
         }
     }
-    
+
     /// <remarks/>
-    [System.Xml.Serialization.XmlArrayItemAttribute("View", IsNullable=false)]
-    public ViewType[] Views {
-        get {
+    [System.Xml.Serialization.XmlArrayItemAttribute("View", IsNullable = false)]
+    public ViewType[] Views
+    {
+        get
+        {
             return this.viewsField;
         }
-        set {
+        set
+        {
             this.viewsField = value;
         }
     }
-    
+
     /// <remarks/>
-    [System.Xml.Serialization.XmlArrayItemAttribute("External_Reference", IsNullable=false)]
-    public ExternalReferenceType[] External_References {
-        get {
+    [System.Xml.Serialization.XmlArrayItemAttribute("External_Reference", IsNullable = false)]
+    public ExternalReferenceType[] External_References
+    {
+        get
+        {
             return this.external_ReferencesField;
         }
-        set {
+        set
+        {
             this.external_ReferencesField = value;
         }
     }
-    
+
     /// <remarks/>
     [System.Xml.Serialization.XmlAttributeAttribute()]
-    public string Name {
-        get {
+    public string Name
+    {
+        get
+        {
             return this.nameField;
         }
-        set {
+        set
+        {
             this.nameField = value;
         }
     }
-    
+
     /// <remarks/>
     [System.Xml.Serialization.XmlAttributeAttribute()]
-    public string Version {
-        get {
+    public string Version
+    {
+        get
+        {
             return this.versionField;
         }
-        set {
+        set
+        {
             this.versionField = value;
         }
     }
-    
+
     /// <remarks/>
-    [System.Xml.Serialization.XmlAttributeAttribute(DataType="date")]
-    public System.DateTime Date {
-        get {
+    [System.Xml.Serialization.XmlAttributeAttribute(DataType = "date")]
+    public System.DateTime Date
+    {
+        get
+        {
             return this.dateField;
         }
-        set {
+        set
+        {
             this.dateField = value;
         }
     }

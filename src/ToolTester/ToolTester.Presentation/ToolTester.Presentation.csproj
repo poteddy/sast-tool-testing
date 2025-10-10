@@ -63,6 +63,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <None Remove="appsettings.json" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
 	</ItemGroup>
@@ -84,6 +88,12 @@
 	  <MauiXaml Update="Pages\CatalogPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Pages\JulietCoveragePage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\RelationshipsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Platforms\Windows\App.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -92,6 +102,16 @@
 	<ItemGroup>
 	  <Folder Include="Controls\" />
 	  <Folder Include="Pages\Controls\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="appsettings.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="Pages\RelationshipsPage.xaml.cs">
+	    <DependentUpon>RelationshipsPage.xaml</DependentUpon>
+	  </Compile>
 	</ItemGroup>
 	
 </Project>

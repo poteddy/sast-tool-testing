@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ToolTester.Application.Common.Interfaces;
-using ToolTester.Application.CWECataloig.Queries;
+using ToolTester.Application.CWECatalogs.Queries;
 using ToolTester.Domain.Entities;
 using ToolTester.Presentation.Interfaces;
 using ToolTester.Presentation.Models;
