@@ -33,9 +33,6 @@
       Margin="0"
       VerticalOptions="Start">
                         <syncfusion:SfCartesianChart>
-                            <syncfusion:SfCartesianChart.Legend>
-                                <syncfusion:ChartLegend/>
-                            </syncfusion:SfCartesianChart.Legend>
                             <syncfusion:SfCartesianChart.XAxes>
                                 <syncfusion:NumericalAxis/>
                             </syncfusion:SfCartesianChart.XAxes>
@@ -47,15 +44,62 @@
                             <syncfusion:SfCartesianChart.ZoomPanBehavior>
                                 <syncfusion:ChartZoomPanBehavior EnablePanning = "True" EnableDoubleTap="True" EnablePinchZooming="True"/>
                             </syncfusion:SfCartesianChart.ZoomPanBehavior>
+                            <syncfusion:SfCartesianChart.Legend>
+                                <syncfusion:ChartLegend/>
+                            </syncfusion:SfCartesianChart.Legend>
                             <syncfusion:ChartSeriesCollection>
-                                <syncfusion:ScatterSeries ItemsSource="{Binding Items}"
-                             XAxisName="CWE ID"                                                      
-                             YAxisName="Related ID"                                                          
-                             XBindingPath="CWEID"                                                                                 
-                             YBindingPath="RelatedCweID"
-                                         IsVisibleOnLegend="True"             
-                              PointHeight="5"
-                                PointWidth="5"/>
+                                
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[0].Items}"
+                          XBindingPath="CWEID"                                                                                 
+                          YBindingPath="RelatedCweID"
+                             IsVisibleOnLegend="True"                         
+                           PointHeight="5"
+                             PointWidth="5"/>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[1].Items}"
+XBindingPath="CWEID"                                                                                 
+YBindingPath="RelatedCweID"
+   IsVisibleOnLegend="True"                         
+ PointHeight="5"
+   PointWidth="5"/>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[2].Items}"
+XBindingPath="CWEID"                                                                                 
+YBindingPath="RelatedCweID"
+   IsVisibleOnLegend="True"                         
+ PointHeight="5"
+   PointWidth="5"/>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[3].Items}"
+XBindingPath="CWEID"                                                                                 
+YBindingPath="RelatedCweID"
+   IsVisibleOnLegend="True"                         
+ PointHeight="5"
+   PointWidth="5"/>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[4].Items}"
+XBindingPath="CWEID"                                                                                 
+YBindingPath="RelatedCweID"
+   IsVisibleOnLegend="True"                         
+ PointHeight="5"
+   PointWidth="5"/>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[5].Items}"
+XBindingPath="CWEID"                                                                                 
+YBindingPath="RelatedCweID"
+   IsVisibleOnLegend="True"                         
+ PointHeight="5"
+   PointWidth="5"/>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[6].Items}"
+XBindingPath="CWEID"                                                                                 
+YBindingPath="RelatedCweID"
+   IsVisibleOnLegend="True"                         
+ PointHeight="5"
+   PointWidth="5"/>
+                                <syncfusion:ScatterSeries ItemsSource="{Binding Groups[7].Items}"
+XBindingPath="CWEID"                                                                                 
+YBindingPath="RelatedCweID"
+   IsVisibleOnLegend="True"                         
+ PointHeight="5"
+   PointWidth="5"/>
+
+
+
                             </syncfusion:ChartSeriesCollection>
                           
                         </syncfusion:SfCartesianChart>

@@ -18,12 +18,19 @@ namespace ToolTester.Presentation.PageModels
     public partial class RelationshipsPageModel :BaseViewModel
     {
         private ObservableCollection<Relationship> _items;
+        private ObservableCollection<GroupRelations> _groups;
+
         private bool _isNavigatedTo;
         private bool _dataLoaded;
         private readonly ModalErrorHandler _errorHandler;
         private readonly IMediator _mediator;
 
-        public ObservableCollection<GroupRelations> Groups;
+        public ObservableCollection<GroupRelations> Groups
+        {
+
+            get => _groups;
+            set => SetProperty(ref _groups, value); // SetProperty handles property change notification
+        }
         public ObservableCollection<Relationship> Items
         {
             get => _items;
@@ -37,7 +44,7 @@ namespace ToolTester.Presentation.PageModels
 
         public async Task LoadItemsAsync()
         {
-
+            Groups = new ObservableCollection<GroupRelations>();
             ObservableCollection<Relationship> items = new ObservableCollection<Relationship>();
             var query = new GetRelationshipsWithPaginationQuery()
             {
@@ -47,9 +54,14 @@ namespace ToolTester.Presentation.PageModels
             foreach (var group in result.Items.GroupBy(d=>d.Nature))
             {
                 var key = group.Key;
+                var grouprelation = new GroupRelations();
+
+                grouprelation.Nature = key;
+                grouprelation.Items = new List<Relationship>();
+               
                 foreach (var item in group)
                 {
-                    items.Add(new Relationship()
+                    grouprelation.Items.Add(new  Relationship()
                     {
                         Id = item.Id,
                         CWEID = item.CWEID,
@@ -60,8 +72,9 @@ namespace ToolTester.Presentation.PageModels
                         RelatedCweID = item.RelatedCweID
                     });
                 }
+                _groups.Add(grouprelation);
             }
-            Items = new ObservableCollection<Relationship>(items);
+          
            // ObservableCollection<GroupRelations> groupds = new ObservableCollection<GroupRelations>((IEnumerable<GroupRelations>)result.Items.GroupBy(d => d.Nature));
         }
 
