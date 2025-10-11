@@ -60,18 +60,11 @@ namespace ToolTester.Presentation
 
             Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(syncfusionSetting.Registration_Key);
 
-            var JulietzipPath = config.GetRequiredSection("JulietProjectSetting").Get<JulietProjectSetting>().Path;
-            if (!File.Exists(JulietzipPath))
-            {
-                //do counts here
-                Console.WriteLine(  );
-            }
-
+            
           
             var context = app.Services.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureCreated();
-            var contextseed = app.Services.GetRequiredService<IApplicationDbContextSeed>();
-            contextseed.SeedCWECatalog();
+         
             return app;
         }
     }

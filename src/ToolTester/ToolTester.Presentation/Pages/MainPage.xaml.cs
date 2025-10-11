@@ -6,10 +6,10 @@ namespace ToolTester.Presentation.Pages
     public partial class MainPage : ContentPage
     {
        
-        public MainPage()
+        public MainPage(MainPageModel  mainPageModel)
         {
             InitializeComponent();
-            
+            BindingContext = mainPageModel;
         }
 
       
