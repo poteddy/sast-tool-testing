@@ -33,6 +33,8 @@
       Margin="0"
       VerticalOptions="Start">
                     <syncfusion:SfCartesianChart>
+                        
+
                         <syncfusion:SfCartesianChart.XAxes>
                             <syncfusion:NumericalAxis/>
                         </syncfusion:SfCartesianChart.XAxes>
@@ -47,53 +49,69 @@
                         <syncfusion:SfCartesianChart.Legend>
                             <syncfusion:ChartLegend/>
                         </syncfusion:SfCartesianChart.Legend>
+                        <syncfusion:SfCartesianChart.TooltipBehavior>
+                            <syncfusion:ChartTooltipBehavior />
+                        </syncfusion:SfCartesianChart.TooltipBehavior>
 
-
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[0].Items}"
-                                                           
+                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[0].Items}" 
+                                                  Label= "{Binding Groups[0].Nature}"       
                           XBindingPath="CWEID"                                                                                 
-                          YBindingPath="RelatedCweID"                
+                          YBindingPath="RelatedCweID"       
+                                                  EnableTooltip="True"
                            PointHeight="5"
                              PointWidth="5"/>
                         <syncfusion:ScatterSeries ItemsSource="{Binding Groups[1].Items}"
+                                                  Label= "{Binding Groups[1].Nature}"
 XBindingPath="CWEID"                                                                                 
 YBindingPath="RelatedCweID"
+                                                  EnableTooltip="True"
    IsVisibleOnLegend="True"                         
  PointHeight="5"
    PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[2].Items}"
+                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[2].Items}" 
+                                                  Label = "{Binding Groups[2].Nature}"
 XBindingPath="CWEID"                                                                                 
 YBindingPath="RelatedCweID"
+                                                  EnableTooltip="True"
    IsVisibleOnLegend="True"                         
  PointHeight="5"
    PointWidth="5"/>
                         <syncfusion:ScatterSeries ItemsSource="{Binding Groups[3].Items}"
+                                                  Label= "{Binding Groups[3].Nature}"
 XBindingPath="CWEID"                                                                                 
 YBindingPath="RelatedCweID"
    IsVisibleOnLegend="True"                         
  PointHeight="5"
    PointWidth="5"/>
                         <syncfusion:ScatterSeries ItemsSource="{Binding Groups[4].Items}"
+                                                  Label= "{Binding Groups[4].Nature}"
 XBindingPath="CWEID"                                                                                 
 YBindingPath="RelatedCweID"
+                                                  EnableTooltip="True"
    IsVisibleOnLegend="True"                         
  PointHeight="5"
    PointWidth="5"/>
                         <syncfusion:ScatterSeries ItemsSource="{Binding Groups[5].Items}"
+                                                  Label= "{Binding Groups[5].Nature}"
 XBindingPath="CWEID"                                                                                 
 YBindingPath="RelatedCweID"
+                                                  EnableTooltip="True"
    IsVisibleOnLegend="True"                         
  PointHeight="5"
    PointWidth="5"/>
                         <syncfusion:ScatterSeries ItemsSource="{Binding Groups[6].Items}"
+                                                  Label= "{Binding Groups[6].Nature}"
 XBindingPath="CWEID"                                                                                 
 YBindingPath="RelatedCweID"
+                                                  EnableTooltip="True"
    IsVisibleOnLegend="True"                         
  PointHeight="5"
    PointWidth="5"/>
                         <syncfusion:ScatterSeries ItemsSource="{Binding Groups[7].Items}"
+                                                   Label= "{Binding Groups[7].Nature}"
 XBindingPath="CWEID"                                                                                 
 YBindingPath="RelatedCweID"
+                                                  EnableTooltip="True"
    IsVisibleOnLegend="True"                         
  PointHeight="5"
    PointWidth="5"/>

@@ -80,7 +80,7 @@ namespace ToolTester.Presentation.PageModels
                 }
                 groupitems.Add(grouprelation);
             }
-
+            //Maui requires this to do initial load. 
             Items = new ObservableCollection<Relationship>(items);
             Groups = new ObservableCollection<GroupRelations>(groupitems);
             // ObservableCollection<GroupRelations> groupds = new ObservableCollection<GroupRelations>((IEnumerable<GroupRelations>)result.Items.GroupBy(d => d.Nature));
