@@ -47,8 +47,9 @@
                             <syncfusion:ChartZoomPanBehavior EnablePanning = "True" EnableDoubleTap="True" EnablePinchZooming="True"/>
                         </syncfusion:SfCartesianChart.ZoomPanBehavior>
                         <syncfusion:SfCartesianChart.Legend>
-                            <syncfusion:ChartLegend/>
+                            <syncfusion:ChartLegend ToggleSeriesVisibility="True"/>
                         </syncfusion:SfCartesianChart.Legend>
+                    
                         <syncfusion:SfCartesianChart.TooltipBehavior>
                             <syncfusion:ChartTooltipBehavior />
                         </syncfusion:SfCartesianChart.TooltipBehavior>
