@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MediatR;
 using Syncfusion.Maui.Toolkit.Charts;
 using System;
@@ -17,17 +18,18 @@ namespace ToolTester.Presentation.PageModels
 {
     public partial class RelationshipsPageModel :BaseViewModel
     {
-        private ObservableCollection<Relationship> _items;
-        private ObservableCollection<GroupRelations> _groups;
+        private ObservableCollection<Relationship> _items = [];
+
 
         private bool _isNavigatedTo;
         private bool _dataLoaded;
         private readonly ModalErrorHandler _errorHandler;
         private readonly IMediator _mediator;
 
+        
+        private ObservableCollection<GroupRelations> _groups = [];
         public ObservableCollection<GroupRelations> Groups
         {
-
             get => _groups;
             set => SetProperty(ref _groups, value); // SetProperty handles property change notification
         }
@@ -44,13 +46,14 @@ namespace ToolTester.Presentation.PageModels
 
         public async Task LoadItemsAsync()
         {
-            Groups = new ObservableCollection<GroupRelations>();
-            ObservableCollection<Relationship> items = new ObservableCollection<Relationship>();
-            var query = new GetRelationshipsWithPaginationQuery()
+        var query = new GetRelationshipsWithPaginationQuery()
             {
                PageSize =10000
             };
             var result = await _mediator.Send(query);
+            ObservableCollection<Relationship> items = new ObservableCollection<Relationship>();
+            ObservableCollection<GroupRelations> groupitems = new ObservableCollection<GroupRelations>();
+
             foreach (var group in result.Items.GroupBy(d=>d.Nature))
             {
                 var key = group.Key;
@@ -61,7 +64,7 @@ namespace ToolTester.Presentation.PageModels
                
                 foreach (var item in group)
                 {
-                    grouprelation.Items.Add(new  Relationship()
+                    var rel = new Relationship()
                     {
                         Id = item.Id,
                         CWEID = item.CWEID,
@@ -70,12 +73,17 @@ namespace ToolTester.Presentation.PageModels
                         Oridinal = item.Oridinal,
                         OrderSpecified = item.OrderSpecified,
                         RelatedCweID = item.RelatedCweID
-                    });
+                    };
+                  
+                    items.Add(rel);
+                    grouprelation.Items.Add(rel);
                 }
-                _groups.Add(grouprelation);
+                groupitems.Add(grouprelation);
             }
-          
-           // ObservableCollection<GroupRelations> groupds = new ObservableCollection<GroupRelations>((IEnumerable<GroupRelations>)result.Items.GroupBy(d => d.Nature));
+
+            Items = new ObservableCollection<Relationship>(items);
+            Groups = new ObservableCollection<GroupRelations>(groupitems);
+            // ObservableCollection<GroupRelations> groupds = new ObservableCollection<GroupRelations>((IEnumerable<GroupRelations>)result.Items.GroupBy(d => d.Nature));
         }
 
         [RelayCommand]
