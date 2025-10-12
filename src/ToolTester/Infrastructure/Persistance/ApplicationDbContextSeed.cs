@@ -62,8 +62,19 @@ namespace ToolTester.Infrastructure.Persistance
                                     Status = weakness.Status.ToString(),
 
                                 };
-
                                 _context.CWECatalogs.Add(cwe);
+
+                                var cweself = new Domain.Entities.Relationship()
+                                {
+                                    CWEID = cwe.Id,
+                                    RelatedCweID = cwe.Id,
+
+                                    Nature = RelatedNatureEnumeration.Self.ToString(),
+                                    OrderSpecified =false,
+                                    Oridinal = "missing"
+                                };
+                                _context.Relationships.Add(cweself);
+
                                 if (weakness.Related_Weaknesses != null)
                                 {
                                     List<Relationship> currentlist = new List<Relationship>();

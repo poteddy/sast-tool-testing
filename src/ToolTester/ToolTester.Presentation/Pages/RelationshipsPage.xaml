@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="ToolTester.Presentation.Pages.RelationshipsPage"
-             x:DataType="PageModels:RelationshipsPageModel"
-             xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"  
              xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"           
              xmlns:syncfusion="http://schemas.syncfusion.com/maui/toolkit"    
+             xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
+         
+             x:Class="ToolTester.Presentation.Pages.RelationshipsPage"
+             x:DataType="PageModels:RelationshipsPageModel"
+           
              Title="Relationships">
 
 

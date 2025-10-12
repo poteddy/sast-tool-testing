@@ -3201,6 +3201,8 @@ public enum RelatedNatureEnumeration {
     
     /// <remarks/>
     PeerOf,
+
+    Self
 }
 
 /// <remarks/>

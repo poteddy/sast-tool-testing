@@ -17,6 +17,9 @@ namespace ToolTester.Presentation
             services.AddSingleton<CatalogPageModel>();
             services.AddSingleton<RelationshipsPageModel>();
             services.AddSingleton<JulietCoveragesPageModel>();
+            services.AddSingleton<ParsePageModel>();
+            services.AddSingleton<ReportPageModel>();
+
 
         
             //builder.Services.AddSingleton<ProjectRepository>();

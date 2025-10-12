@@ -79,5 +79,13 @@ namespace ToolTester.Presentation.PageModels
         [RelayCommand]
         private  Task NavigateToJulietPage(JulietCoveragePage project)
         => Shell.Current.GoToAsync("julietproject");
+
+        [RelayCommand]
+        private  Task NavigateToParsePage(ParsePage project)
+        => Shell.Current.GoToAsync("parse");
+
+     [RelayCommand]
+        private  Task NavigateToReportPage(ReportPage project)
+        => Shell.Current.GoToAsync("report");
     }
 }
