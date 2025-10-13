@@ -22,6 +22,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Relationship> Relationships { get; set; }
     public DbSet<CWETestResult> CWETestResults { get; set; }
     public DbSet<JulietCoverage> JulietCoverages { get; set; }
+
+    public DbSet<Report> Reports { get; set; }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
        

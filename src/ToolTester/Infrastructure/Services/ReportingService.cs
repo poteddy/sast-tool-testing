@@ -19,35 +19,45 @@ namespace ToolTester.Infrastructure.Services
             _logger = logger;
             _contextFactory = contextFactory;
         }
-        public async Task<StringBuilder> GenerateReport(int testid)
+        public async Task<StringBuilder> GenerateReport(int scanid,int toolid)
         {
             using (var context = this._contextFactory.CreateDbContext())
             {
                 try
                 {
-                    var Catalogs = context.CWECatalogs.AsNoTracking().OrderBy(d => d.Id).ToList();
+                    var Catalogs = context.CWECatalogs.AsNoTracking().OrderBy(d => d.CweId).ToList();
                     List<Domain.Entities.Relationship> relations = context.Relationships.AsNoTracking().ToList();
 
                     List<Domain.Entities.CWETestResultBase> testResults = context.CWETestResults.AsNoTracking().Select(d => new CWETestResultBase() { ScannerFoundCWE = d.ScannerFoundCWE, TestPathListedCWE = d.TestPathListedCWE, Test = d.Test }).ToList();
                     foreach (var c in Catalogs)
                     {
-                        var testpath = "D:\\github\\juliet\\testcases";
-
-                        var cwes = testResults.Count(d => d.TestPathListedCWE == c.Id && d.ScannerFoundCWE == c.Id);
+                      
+                        var cwes = testResults.Count(d => d.TestPathListedCWE == c.CweId && d.ScannerFoundCWE == c.CweId);
                         if (cwes > 0)
                         {
-                            _logger.LogInformation($"Test {c.Id} has {cwes} exact matches");
-                        }
-                        GetRelation(testResults, relations, RelatedNatureEnumeration.PeerOf, c.Id);
+                            var thirereport = new Report()
+                            {
+                                CweId = c.CweId,
+                                RelatedId = c.CweId,
+                                Count = cwes,
+                                ScanId = scanid,
+                                ToolId = toolid,
+                            };
 
-                        var firstgenparents = await GetRelation(testResults, relations, RelatedNatureEnumeration.ParentOf, c.Id);
+                            context.Reports.Add(thirereport);
+                            await context.SaveChangesAsync();
+                            _logger.LogInformation($"Test {c.CweId} has {cwes} exact matches");
+                        }
+                        GetRelation(testResults, relations, RelatedNatureEnumeration.PeerOf, c.CweId);
+
+                        var firstgenparents = await GetRelation(testResults, relations, RelatedNatureEnumeration.ParentOf, c.CweId);
                         // if(firstgenparents.Count() > 0)  _logger.Information($"Test grand parents of {c.Id}");
                         foreach (var i in firstgenparents)
                         {
 
                             await GetRelation(testResults, relations, RelatedNatureEnumeration.ParentOf, i);
                         }
-                        var firstgenchildren = await GetRelation(testResults, relations, RelatedNatureEnumeration.ChildOf, c.Id);
+                        var firstgenchildren = await GetRelation(testResults, relations, RelatedNatureEnumeration.ChildOf, c.CweId);
                         //  if(firstgenchildren.Count() >0) _logger.Information($"Test grand children of {c.Id}");
                         foreach (var i in firstgenparents)
                         {
@@ -73,7 +83,7 @@ namespace ToolTester.Infrastructure.Services
         }
         private async Task<List<int>> GetRelation(List<Domain.Entities.CWETestResultBase> results, List<Domain.Entities.Relationship> relations, RelatedNatureEnumeration relation, int cwe)
         {
-            var thischildrelations = relations.Where(d => d.CWEID == cwe && d.Nature == relation.ToString()).ToList();
+            var thischildrelations = relations.Where(d => d.CweId == cwe && d.Nature == relation.ToString()).ToList();
             foreach (var thisrealtion in thischildrelations)
             {
                 var parent = results.Count(d => d.TestPathListedCWE == cwe && d.ScannerFoundCWE == thisrealtion.RelatedCweID);

@@ -4,8 +4,8 @@
     {
         public int Id { get; set; }
 
-        public int CWEID { get; set; }
-     
+        public int CweId { get; set; }
+        public CWECatalog CWECatalog { get; set; }
         public int RelatedCweID { get; set; }
 
         public string Nature { get; set; }

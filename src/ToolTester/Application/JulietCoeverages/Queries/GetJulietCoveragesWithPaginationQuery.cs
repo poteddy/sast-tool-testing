@@ -30,7 +30,7 @@ namespace ToolTester.Application.JulietCoeverages.Queries
         public async Task<PaginatedList<JulietCoverageDTO>> Handle(GetJulietCoveragesWithPaginationQuery request, CancellationToken cancellationToken)
         {
             return await _context.JulietCoverages
-                .OrderBy(x => x.CWE_ID)
+                .OrderBy(x => x.CweId)
                 .ProjectTo<JulietCoverageDTO>(_mapper.ConfigurationProvider)
                 .PaginatedListAsync(request.PageNumber, request.PageSize);
         }

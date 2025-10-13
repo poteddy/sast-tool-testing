@@ -41,7 +41,7 @@ namespace ToolTester.ConsoleApp.Menus
                         parseservice.Dispose();
 
                         var reportservice = _serviceProvider.GetRequiredService<IReportingService>();
-                        await reportservice.GenerateReport(temptoolid);
+                        await reportservice.GenerateReport(result,temptoolid);
                         reportservice.Dispose();
 
                         return result;

@@ -5,10 +5,11 @@ using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Mapping;
 using ToolTester.Application.Common.Models;
 using ToolTester.Application.CWETestResultBases.DTO;
+using ToolTester.Domain.Entities;
 
 namespace ToolTester.Application.CWETestResultBases.Queries
 {
-    
+
     public record GetCweTestResultBasesWithPaginationQuery : IRequest<PaginatedList<CweTestResultBaseDTO>>
     {
         public int Id { get; init; }
@@ -29,7 +30,13 @@ namespace ToolTester.Application.CWETestResultBases.Queries
 
         public async Task<PaginatedList<CweTestResultBaseDTO>> Handle(GetCweTestResultBasesWithPaginationQuery request, CancellationToken cancellationToken)
         {
-            return await _context.CWETestResults
+            return await _context.CWETestResults.Select(b => new CWETestResultBase
+            {
+                Id = b.Id,
+                ScannerFoundCWE = b.ScannerFoundCWE,
+                Test = b.Test,
+                TestPathListedCWE = b.TestPathListedCWE
+            })
                 .OrderBy(x => x.TestPathListedCWE)
                 .ProjectTo<CweTestResultBaseDTO>(_mapper.ConfigurationProvider)
                 .PaginatedListAsync(request.PageNumber, request.PageSize);

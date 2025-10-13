@@ -40,7 +40,7 @@ namespace ToolTester.Presentation.PageModels
                 var result = await _parsingService.Parse(temptoolid, filepath);
                 Console.WriteLine($"Parsed {result} items");
 
-            //    await _reportingService.GenerateReport(temptoolid);
+                await _reportingService.GenerateReport(result,temptoolid);
 
             }
 

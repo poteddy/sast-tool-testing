@@ -3,6 +3,7 @@ using MediatR;
 using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Relationships.Queries;
+using ToolTester.Application.Reports.Quiries;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 using ToolTester.Presentation.Ulitlities;
@@ -19,8 +20,13 @@ namespace ToolTester.Presentation.PageModels
         private readonly ModalErrorHandler _errorHandler;
         private readonly IMediator _mediator;
 
+        private ObservableCollection<RelatedItemsInTest> _relateditems = [];
 
-
+        public ObservableCollection<RelatedItemsInTest> ReletedItems
+        {
+            get => _relateditems;
+            set => SetProperty(ref _relateditems, value); // SetProperty handles property change notification
+        }
         public ObservableCollection<CweTestResults> Items
         {
             get => _items;
@@ -47,7 +53,27 @@ namespace ToolTester.Presentation.PageModels
             var relresul = await _mediator.Send(relquery);
             ObservableCollection<CweTestResults> items = new ObservableCollection<CweTestResults>();
 
+            var repquery = new GetReportsWithPaginationQuery()
+            {
+                PageSize = 10000
+            };
+            var represult = await _mediator.Send(repquery);
+            ObservableCollection<RelatedItemsInTest> relatedItemsInTests = new ObservableCollection<RelatedItemsInTest>();
 
+            foreach(var item in represult.Items )
+            {
+                var rep = new RelatedItemsInTest()
+                {
+                    Id = item.Id,
+                    CweId = item.CweId,
+                    RelatedId = item.RelatedId,
+                    ScanId = item.ScanId,
+                    ToolId = item.ToolId,
+                    Count = item.Count
+                };
+                relatedItemsInTests.Add(rep);
+            }
+            ReletedItems = new ObservableCollection<RelatedItemsInTest>(relatedItemsInTests);
 
 
             foreach (var item in result.Items)

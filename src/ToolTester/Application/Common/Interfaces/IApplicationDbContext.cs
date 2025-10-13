@@ -10,6 +10,6 @@ namespace ToolTester.Application.Common.Interfaces
         DbSet<Relationship> Relationships { get; set; }
         DbSet<CWETestResult>  CWETestResults  { get; set; }
         DbSet<JulietCoverage>  JulietCoverages  { get; set; }
-        
+        DbSet<Report> Reports { get; set; }
     }
 }

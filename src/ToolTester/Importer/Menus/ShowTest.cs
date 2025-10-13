@@ -24,8 +24,8 @@ namespace ToolTester.ConsoleApp.Menus
             var input = Console.ReadLine();
             if (int.TryParse(input, out int validoutput))
             {
-                var cat = await context.CWECatalogs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == validoutput);
-                var rel = await context.Relationships.AsNoTracking().Where(d => d.CWEID == validoutput).ToListAsync();
+                var cat = await context.CWECatalogs.AsNoTracking().FirstOrDefaultAsync(d => d.CweId == validoutput);
+                var rel = await context.Relationships.AsNoTracking().Where(d => d.CweId == validoutput).ToListAsync();
                 JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions()
                 {
                     WriteIndented = true
@@ -35,8 +35,8 @@ namespace ToolTester.ConsoleApp.Menus
                 sb.AppendLine(JsonSerializer.Serialize(cat, jsonSerializerOptions));
                 foreach (var item in rel)
                 {
-                    var childcat = context.CWECatalogs.AsNoTracking().FirstOrDefault(d => d.Id == item.RelatedCweID);
-                    sb.AppendLine($"{item.CWEID} is a {item.Nature} of {item.RelatedCweID} = {childcat.Id} {childcat.Name}");
+                    var childcat = context.CWECatalogs.AsNoTracking().FirstOrDefault(d => d.CweId == item.RelatedCweID);
+                    sb.AppendLine($"{item.CweId} is a {item.Nature} of {item.RelatedCweID} = {childcat.CweId} {childcat.Name}");
                 }
 
                 Console.WriteLine(sb);

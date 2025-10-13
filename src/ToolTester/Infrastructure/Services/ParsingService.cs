@@ -35,8 +35,8 @@ namespace ToolTester.Infrastructure.Services
                 var parser = new ToolTester.Parsers.Sarif.Parser();
                 FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
                 var cwes = await parser.Get_findings(fs);
-                await SaveReport(cwes);
-                return cwes.Count;
+                return await SaveReport(cwes, ToolId);
+
             }
 
             else if (ToolId == 2)
@@ -46,8 +46,25 @@ namespace ToolTester.Infrastructure.Services
 
             return 0;
         }
-        private async Task<bool> SaveReport(List<CWEs> cwes)
+        private async Task<int> SaveReport(List<CWEs> cwes, int Toolid)
         {
+            int ScanId = 1;
+            using (var context = this._contextFactory.CreateDbContext())
+            {
+                if (!context.CWETestResults.Any()) ScanId = 1;
+                else
+                {
+                    var x = context.CWETestResults.Max(d => d.ScanId);
+                    if (x > 0)
+                    {
+                        ScanId = x + 1;
+                    }
+                }
+
+            }
+
+
+
             if (cwes.Count > 0)
             {
                 foreach (var cweresult in cwes)
@@ -78,8 +95,9 @@ namespace ToolTester.Infrastructure.Services
                             StaticFinding = cweresult.StaticFinding,
                             Test = cweresult.Test,
                             Title = cweresult.Title + "",
-                            VulnIdFromTool = cweresult.VulnIdFromTool + ""
-
+                            VulnIdFromTool = cweresult.VulnIdFromTool + "",
+                            Toolid = Toolid,
+                            ScanId = ScanId,
                         };
 
                         using (var context = this._contextFactory.CreateDbContext())
@@ -101,10 +119,10 @@ namespace ToolTester.Infrastructure.Services
                     }
 
                 }
-                return true;
+                return ScanId;
 
             }
-            return false;
+            return -1;
         }
 
 

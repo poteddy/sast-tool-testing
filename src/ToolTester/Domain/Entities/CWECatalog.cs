@@ -5,7 +5,9 @@ namespace ToolTester.Domain.Entities
 {
     public class CWECatalog : IEntity
     {
-        public int Id { get; set; }
+        public int Id {  get; set; }
+        public int CweId { get; set; }
+        
 
         public string Name { get; set; }
         public string Description { get; set; }

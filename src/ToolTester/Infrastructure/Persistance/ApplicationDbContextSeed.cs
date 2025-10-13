@@ -51,13 +51,13 @@ namespace ToolTester.Infrastructure.Persistance
                         {
 
 
-                            if (!_context.CWECatalogs.Any(d => d.Id == int.Parse(weakness.ID)) && !listcwe.Any(D => D.Id == int.Parse(weakness.ID)))
+                            if (!_context.CWECatalogs.Any(d => d.CweId == int.Parse(weakness.ID)) && !listcwe.Any(D => D.CweId == int.Parse(weakness.ID)))
                             {
                                 var cwe = new Domain.Entities.CWECatalog()
                                 {
                                     Abstraction = weakness.Abstraction.ToString(),
                                     Description = weakness.Description,
-                                    Id = int.Parse(weakness.ID),
+                                    CweId = int.Parse(weakness.ID),
                                     Name = weakness.Name,
                                     Status = weakness.Status.ToString(),
 
@@ -66,8 +66,8 @@ namespace ToolTester.Infrastructure.Persistance
 
                                 var cweself = new Domain.Entities.Relationship()
                                 {
-                                    CWEID = cwe.Id,
-                                    RelatedCweID = cwe.Id,
+                                    CweId = cwe.CweId,
+                                    RelatedCweID = cwe.CweId,
 
                                     Nature = RelatedNatureEnumeration.Self.ToString(),
                                     OrderSpecified =false,
@@ -84,7 +84,7 @@ namespace ToolTester.Infrastructure.Persistance
                                         if (currentlist.Any(x => x.RelatedCweID == int.Parse(dependant.CWE_ID) && x.Nature == dependant.Nature.ToString())) continue;
                                         var cwedependant = new Domain.Entities.Relationship()
                                         {
-                                            CWEID = cwe.Id,
+                                            CweId = cwe.CweId,
                                             RelatedCweID = int.Parse(dependant.CWE_ID),
                                             ChainId = dependant.Chain_ID,
                                             Nature = dependant.Nature.ToString(),
@@ -106,8 +106,8 @@ namespace ToolTester.Infrastructure.Persistance
                         {
                             var parent = new Relationship()
                             {
-                                CWEID = child.RelatedCweID,
-                                RelatedCweID = child.CWEID,
+                                CweId = child.RelatedCweID,
+                                RelatedCweID = child.CweId,
                                 Nature = RelatedNatureEnumeration.ParentOf.ToString(),
                                 OrderSpecified = true,
                                 Oridinal = OrdinalEnumeration.Primary.ToString()
@@ -120,8 +120,8 @@ namespace ToolTester.Infrastructure.Persistance
                         {
                             var parent = new Relationship()
                             {
-                                CWEID = child.RelatedCweID,
-                                RelatedCweID = child.CWEID,
+                                CweId = child.RelatedCweID,
+                                RelatedCweID = child.CweId,
                                 Nature = RelatedNatureEnumeration.PeerOf.ToString(),
                                 OrderSpecified = false,
                                 Oridinal = OrdinalEnumeration.Primary.ToString()
@@ -133,8 +133,8 @@ namespace ToolTester.Infrastructure.Persistance
                         {
                             var parent = new Relationship()
                             {
-                                CWEID = child.RelatedCweID,
-                                RelatedCweID = child.CWEID,
+                                CweId = child.RelatedCweID,
+                                RelatedCweID = child.CweId,
                                 Nature = RelatedNatureEnumeration.CanFollow.ToString(),
                                 OrderSpecified = false,
                                 Oridinal = OrdinalEnumeration.Primary.ToString()
@@ -153,7 +153,7 @@ namespace ToolTester.Infrastructure.Persistance
                           
                                 var Juliet = new JulietCoverage()
                                 {
-                                    CWE_ID = f.Key,
+                                    CweId = f.Key,
                                     Covered = f.Value
                                 };
                                 _context.JulietCoverages.Add(Juliet);

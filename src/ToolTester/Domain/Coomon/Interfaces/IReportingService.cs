@@ -4,6 +4,6 @@ namespace ToolTester.Domain.Coomon.Interfaces
 {
     public interface IReportingService : IDisposable
     {
-        Task<StringBuilder> GenerateReport(int testid);
+        Task<StringBuilder> GenerateReport(int scanid, int toolid);
     }
 }

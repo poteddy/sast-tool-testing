@@ -32,7 +32,7 @@ namespace ToolTester.Application.Relationships.Queries
             public async Task<PaginatedList<RelationshipDTO>> Handle(GetRelationshipsWithPaginationQuery request, CancellationToken cancellationToken)
             {
                 return await _context.Relationships
-                    .OrderBy(x => x.CWEID)
+                    .OrderBy(x => x.CweId)
                     .ProjectTo<RelationshipDTO>(_mapper.ConfigurationProvider)
                     .PaginatedListAsync(request.PageNumber, request.PageSize);
             }
