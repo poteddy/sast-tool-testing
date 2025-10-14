@@ -18,5 +18,7 @@ namespace ToolTester.Domain.Entities
         public int ScanId {  get; set; }
 
         public int Count { get; set; }
+
+        public string Relationship { get; set; }
     }
 }

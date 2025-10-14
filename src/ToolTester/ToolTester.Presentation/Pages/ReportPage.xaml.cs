@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Maui.Controls;
 using Syncfusion.Maui.Toolkit.Charts;
 using System.Collections.ObjectModel;
 using ToolTester.Domain.Entities;
@@ -33,7 +34,7 @@ public partial class ReportPage : ContentPage
         this.Content= layout;
    
     }
-    public SfCartesianChart BuildFalsePChart()
+    private SfCartesianChart BuildFalsePChart()
     {
 
         SfCartesianChart FalsePChart = new SfCartesianChart();
@@ -76,7 +77,7 @@ public partial class ReportPage : ContentPage
 
         return FalsePChart;
     }
-    public SfCartesianChart BuildRelatedChart()
+    private SfCartesianChart BuildRelatedChart()
     {
         
         SfCartesianChart chart = new SfCartesianChart();
@@ -101,13 +102,110 @@ public partial class ReportPage : ContentPage
         };
 
 
-     
+        scatterSeries.EnableTooltip = true;
 
+        scatterSeries.TooltipTemplate = ToolTip(chart);
         // Add the both series to the chart's series collection
         chart.Series.Add(scatterSeries);
     
 
         return chart;
+    }
+    private DataTemplate ToolTip(SfCartesianChart cartesianChart)
+    {
+       
+       var dataTemplate = new DataTemplate(() =>
+
+        {
+
+            VerticalStackLayout mainlayout = new VerticalStackLayout();
+
+            mainlayout.BackgroundColor = Colors.Black;
+
+            //cwe
+            HorizontalStackLayout cweLayout = new HorizontalStackLayout();
+
+            cweLayout.BackgroundColor = Colors.Black;
+
+            Label cweLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "CWE:" };
+
+            Label cwe = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
+
+            cwe.SetBinding(Label.TextProperty, "Item.CweId");
+
+            cweLayout.Add(cweLabel);
+
+            cweLayout.Add(cwe);
+            //cwe
+            //relatedcwe
+            HorizontalStackLayout relatedcweLayout = new HorizontalStackLayout();
+
+            relatedcweLayout.BackgroundColor = Colors.Black;
+
+            Label relatedcweLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Related CWE:" };
+
+            Label relatedcwe = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
+
+            relatedcwe.SetBinding(Label.TextProperty, "Item.RelatedId");
+
+            relatedcweLayout.Add(relatedcweLabel);
+
+            relatedcweLayout.Add(relatedcwe);
+            //relatedcwe
+
+            //Group 1
+            HorizontalStackLayout relationshipLayout = new HorizontalStackLayout();
+
+            relationshipLayout.BackgroundColor = Colors.Black;
+
+
+
+            Label relationshipLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Relationship:" };
+
+            Label relationship = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
+
+            relationship.SetBinding(Label.TextProperty, "Item.Relationship");
+
+            relationshipLayout.Add(relationshipLabel);
+
+            relationshipLayout.Add(relationship);
+            //group1
+
+
+
+
+            HorizontalStackLayout countLayout = new HorizontalStackLayout();
+
+            countLayout.BackgroundColor = Colors.Black;
+
+
+
+            Label countLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Count:" };
+
+            Label count = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
+
+            count.SetBinding(Label.TextProperty, "Item.Count", stringFormat: "{0}$");
+
+            countLayout.Add(countLabel);
+
+            countLayout.Add(count);
+
+
+
+            mainlayout.Add(cweLayout);
+            mainlayout.Add(relatedcweLayout);
+
+            mainlayout.Add(relationshipLayout);
+
+            mainlayout.Add(countLayout);
+
+            
+
+            return mainlayout;
+           
+        });
+        return dataTemplate;
+
     }
     public class ChartData
     {

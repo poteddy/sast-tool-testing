@@ -145,20 +145,20 @@ namespace ToolTester.Infrastructure.Persistance
                     }
                     if (!_context.JulietCoverages.Any())
                     {
-                      
+
                         var julietpath = _configuration.GetRequiredSection("JulietProjectSetting").Get<JulietProjectSetting>().Path;
                         var flist = _zipfileService.FileCount(julietpath);
                         foreach (var f in flist)
                         {
-                          
-                                var Juliet = new JulietCoverage()
-                                {
-                                    CweId = f.Key,
-                                    Covered = f.Value
-                                };
-                                _context.JulietCoverages.Add(Juliet);
-                            
-                          
+
+                            var Juliet = new JulietCoverage()
+                            {
+                                CweId = f.Key,
+                                Covered = f.Value
+                            };
+                            _context.JulietCoverages.Add(Juliet);
+
+
                         }
                         _context.SaveChanges(true);
                     }

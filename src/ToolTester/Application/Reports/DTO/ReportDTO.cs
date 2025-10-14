@@ -30,5 +30,7 @@ namespace ToolTester.Application.Reports.DTO
         public int ScanId { get; set; }
 
         public int Count { get; set; }
+
+        public string Relationship { get; set; }
     }
 }

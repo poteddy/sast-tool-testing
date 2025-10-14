@@ -26,7 +26,7 @@ namespace ToolTester.Application.CWETestResultBases.DTO
 
         public int Id { get; set; }
         public int TestPathListedCWE { get; set; }
-        public int Test { get; set; } = 0;
+        public int TestId { get; set; } = 0;
         public int ScannerFoundCWE { get; set; }
     }
 }

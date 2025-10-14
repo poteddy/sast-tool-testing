@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Relationships.Queries;
 using ToolTester.Application.Reports.Quiries;
+using ToolTester.Parsers.Sarif.Interfaces;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 using ToolTester.Presentation.Ulitlities;
@@ -59,8 +60,8 @@ namespace ToolTester.Presentation.PageModels
             };
             var represult = await _mediator.Send(repquery);
             ObservableCollection<RelatedItemsInTest> relatedItemsInTests = new ObservableCollection<RelatedItemsInTest>();
-
-            foreach(var item in represult.Items )
+        
+                foreach (var item in represult.Items)
             {
                 var rep = new RelatedItemsInTest()
                 {
@@ -69,20 +70,21 @@ namespace ToolTester.Presentation.PageModels
                     RelatedId = item.RelatedId,
                     ScanId = item.ScanId,
                     ToolId = item.ToolId,
-                    Count = item.Count
+                    Count = item.Count,
+                    Relationship = item.Relationship
                 };
                 relatedItemsInTests.Add(rep);
             }
             ReletedItems = new ObservableCollection<RelatedItemsInTest>(relatedItemsInTests);
+           
 
-
-            foreach (var item in result.Items)
+                foreach (var item in result.Items)
             {
                 var rel = new CweTestResults()
                 {
                     Id = item.Id,
                     ScannerFoundCWE = item.ScannerFoundCWE,
-                    Test = item.Test,
+                    TestId = item.TestId,
                     TestPathListedCWE = item.TestPathListedCWE,
                 };
 
@@ -184,6 +186,10 @@ namespace ToolTester.Presentation.PageModels
             => Shell.Current.GoToAsync($"project?id={project.ID}");
 
     }
-
+    public class TestSeries()
+    {
+        public int TestId { get; set; }
+        public List<CweTestResults> Items { get; set; }
+    }
 
 }
