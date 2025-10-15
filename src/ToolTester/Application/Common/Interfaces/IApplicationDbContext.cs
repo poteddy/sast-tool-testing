@@ -11,5 +11,7 @@ namespace ToolTester.Application.Common.Interfaces
         DbSet<CWETestResult>  CWETestResults  { get; set; }
         DbSet<JulietCoverage>  JulietCoverages  { get; set; }
         DbSet<Report> Reports { get; set; }
+        DbSet<Scan> Scans { get; set; }
+        DbSet<Tool> Tools { get; set; }
     }
 }

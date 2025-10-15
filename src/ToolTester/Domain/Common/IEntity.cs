@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ToolTester.Domain.Coomon
+namespace ToolTester.Domain.Common
 {
     public interface IEntity
     {

@@ -34,7 +34,7 @@ namespace ToolTester.Application.CWETestResultBases.Queries
             {
                 Id = b.Id,
                 ScannerFoundCWE = b.ScannerFoundCWE,
-                Test = b.Test,
+                ScanId = b.ScanId,
                 TestPathListedCWE = b.TestPathListedCWE
             })
                 .OrderBy(x => x.TestPathListedCWE)

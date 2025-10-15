@@ -1,17 +1,27 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="ToolTester.Presentation.Pages.ParsePage"
+             xmlns:models="clr-namespace:ToolTester.Presentation.Models"
+             x:Class="ToolTester.Presentation.Pages.ParsePage"             
              x:DataType="PageModels:ParsePageModel"
              xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
              xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
              Title="ParsePage">
-    <VerticalStackLayout>
-        <Label 
-            Text="Welcome to .NET MAUI!"
-            VerticalOptions="Center" 
-            HorizontalOptions="Center" />
-
-        <Button Text="Start Sarif Parser" Command="{Binding SarifParserCommand}" />
-    </VerticalStackLayout>
+  
+    
+    <ScrollView>
+        <VerticalStackLayout>
+            <CollectionView ItemsSource="{Binding ButtonItems}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:MyButtonDataItem">
+                        <Button Text="{Binding ButtonText}"                               
+                             Command="{Binding Source={RelativeSource AncestorType={x:Type PageModels:ParsePageModel}}, Path=ButtonClickedCommand,   x:DataType=PageModels:ParsePageModel}"
+                             
+                                CommandParameter="{Binding .}" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+   
 </ContentPage>

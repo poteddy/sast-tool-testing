@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace ToolTester.Domain.Coomon.Interfaces
+namespace ToolTester.Application.Common.Interfaces
 {
     public interface IReportingService : IDisposable
     {

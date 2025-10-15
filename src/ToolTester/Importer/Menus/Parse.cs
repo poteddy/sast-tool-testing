@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ToolTester.Application.Common.Interfaces;
 using ToolTester.ConsoleApp;
-using ToolTester.Domain.Coomon.Interfaces;
 
 namespace ToolTester.ConsoleApp.Menus
 {

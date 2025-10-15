@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using ToolTester.Domain.Coomon;
+﻿using ToolTester.Domain.Common;
 
 namespace ToolTester.Domain.Entities
 {

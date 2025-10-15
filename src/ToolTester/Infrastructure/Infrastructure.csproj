@@ -19,6 +19,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Application\Application.csproj" />
     <ProjectReference Include="..\Parsers\Sarif\SarifParser\Sarif.csproj" />
+    <ProjectReference Include="..\Parsers\SemGrep\SemGrep.csproj" />
+    <ProjectReference Include="..\Parsers\Veracode\Veracode.csproj" />
   </ItemGroup>
 
 </Project>

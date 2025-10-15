@@ -162,6 +162,34 @@ namespace ToolTester.Infrastructure.Persistance
                         }
                         _context.SaveChanges(true);
                     }
+                    if (!_context.Tools.Any())
+                    {
+                        var semgreptool = new Tool()
+                        {
+                            Name = "Semgrep",
+                            Format = "JSON"
+
+                        };
+                        _context.Tools.Add(semgreptool);
+                        var sariftool = new Tool()
+                        {
+                            Name = "Sarif",
+                            Format = "Sarif"
+
+                        };
+                        _context.Tools.Add(sariftool);
+                        var veracodetool = new Tool()
+                        {
+                            Name = "Veracode",
+                            Format = "Veracode"
+
+                        };
+                        _context.Tools.Add(veracodetool);
+
+                        _context.SaveChanges(true);
+
+
+                    }
                 }
                 catch (Exception)
                 {

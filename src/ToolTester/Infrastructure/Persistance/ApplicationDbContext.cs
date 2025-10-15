@@ -24,6 +24,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<JulietCoverage> JulietCoverages { get; set; }
 
     public DbSet<Report> Reports { get; set; }
+    public DbSet<Scan> Scans { get; set; }
+    public DbSet<Tool> Tools { get; set; }
+
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
        

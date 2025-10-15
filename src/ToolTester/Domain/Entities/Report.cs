@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ToolTester.Domain.Coomon;
+using ToolTester.Domain.Common;
 
 namespace ToolTester.Domain.Entities
 {

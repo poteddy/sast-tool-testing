@@ -1,14 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
+using MediatR;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Input;
-using ToolTester.Domain.Coomon.Interfaces;
+using ToolTester.Application.Common.Interfaces;
+using ToolTester.Application.Tools.Queries;
+using ToolTester.Presentation.Models;
 
 namespace ToolTester.Presentation.PageModels
 {
@@ -16,35 +14,52 @@ namespace ToolTester.Presentation.PageModels
     {
         private readonly IParsingService _parsingService;
         private readonly IReportingService _reportingService;
+        private readonly IMediator _mediator;
 
         public IAsyncRelayCommand SarifParserCommand { get; }
-        public ParsePageModel(IParsingService parsingService, IReportingService reportingService)
+        public ObservableCollection<MyButtonDataItem> ButtonItems { get; set; }
+        public ICommand ButtonClickedCommand { get; }
+
+        public ParsePageModel(IParsingService parsingService, IReportingService reportingService,IMediator mediator)
         {
-            SarifParserCommand = new AsyncRelayCommand(RunSarifParser);
-            _parsingService = parsingService;
+             _parsingService = parsingService;
             _reportingService = reportingService;
+            _mediator = mediator;
+            ButtonItems = new ObservableCollection<MyButtonDataItem>();
+            ButtonClickedCommand = new AsyncRelayCommand<MyButtonDataItem>( ExecuteButtonClickedCommand);
+
+            var buttonresult = _mediator.Send(new GetToolsWithPaginationQuery()).Result;
+            // Populate your list dynamically
+            foreach (var tool in buttonresult.Items)
+            {
+                ButtonItems.Add(new MyButtonDataItem { ButtonText = tool.Name, CommandParameter = tool.Id });
+                
+            }
+           
+            // ... add more items as needed
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        private async Task ExecuteButtonClickedCommand(MyButtonDataItem item)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-        private async Task RunSarifParser()
-        {
-            int temptoolid = 1;
-            // Your C# code to be executed when the command is invoked
+            var temptoolid = (int)item.CommandParameter;
             var filepath = await PickAndShowImage();
             if (!string.IsNullOrEmpty(filepath))
             {
                 var result = await _parsingService.Parse(temptoolid, filepath);
                 Console.WriteLine($"Parsed {result} items");
 
-                await _reportingService.GenerateReport(result,temptoolid);
+                await _reportingService.GenerateReport(result, temptoolid);
 
             }
-
         }
+
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+ 
      
         async Task<string> PickAndShowImage()
         {

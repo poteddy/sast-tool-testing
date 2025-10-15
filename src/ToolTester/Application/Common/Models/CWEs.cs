@@ -1,14 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using ToolTester.Application.Common.Interfaces;
 
-namespace ToolTester.Parsers.Sarif.Interfaces
+namespace ToolTester.Application.Common.Models
 {
-    public interface ICWEs
-    {
-    }
     public class CWEs : ICWEs
     {
         public CWEs(string title, int test, string numericalSeverity, List<int?> foundBy, string severity, string description, bool staticFinding, bool dynamicFinding, string? filePath, int? line, string references)
@@ -37,10 +30,10 @@ namespace ToolTester.Parsers.Sarif.Interfaces
         public string? FilePath { get; }
         public int? Line { get; }
         public string References { get; }
-        public string VulnIdFromTool { get; internal set; }
-        public string Cve { get; internal set; }
-        public int Cwe { get; internal set; }
-        public string Mitigation { get; internal set; }
-        public DateTime? Date { get; internal set; }
+        public string VulnIdFromTool { get;  set; }
+        public string Cve { get;  set; }
+        public int Cwe { get;  set; }
+        public string Mitigation { get;  set; }
+        public DateTime? Date { get;  set; }
     }
 }

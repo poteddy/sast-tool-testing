@@ -1,11 +1,9 @@
-﻿using Microsoft.CodeAnalysis.Sarif;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text;
-using ToolTester.Domain.Coomon.Interfaces;
+using ToolTester.Application.Common.Interfaces;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Persistance;
-using ToolTester.Parsers.Sarif.Interfaces;
 
 namespace ToolTester.Infrastructure.Services
 {
@@ -30,7 +28,7 @@ namespace ToolTester.Infrastructure.Services
                     var Catalogs = context.CWECatalogs.AsNoTracking().OrderBy(d => d.CweId).ToList();
                     List<Domain.Entities.Relationship> relations = context.Relationships.AsNoTracking().ToList();
 
-                    List<Domain.Entities.CWETestResultBase> testResults = context.CWETestResults.AsNoTracking().Select(d => new CWETestResultBase() { ScannerFoundCWE = d.ScannerFoundCWE, TestPathListedCWE = d.TestPathListedCWE, Test = d.Test }).ToList();
+                    List<Domain.Entities.CWETestResultBase> testResults = context.CWETestResults.AsNoTracking().Select(d => new CWETestResultBase() { ScannerFoundCWE = d.ScannerFoundCWE, TestPathListedCWE = d.TestPathListedCWE, ScanId = d.ScanId }).ToList();
                     foreach (var c in Catalogs)
                     {
                       

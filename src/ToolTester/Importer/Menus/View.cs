@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using ToolTester.Domain.Coomon.Interfaces;
+using ToolTester.Application.Common.Interfaces;
 using ToolTester.Infrastructure.Persistance;
 
 namespace ToolTester.ConsoleApp.Menus

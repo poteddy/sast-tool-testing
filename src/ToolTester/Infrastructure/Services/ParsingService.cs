@@ -5,11 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using ToolTester.Domain.Coomon.Interfaces;
+using ToolTester.Application.Common.Interfaces;
+using ToolTester.Application.Common.Models;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Parsers.Sarif;
-using ToolTester.Parsers.Sarif.Interfaces;
 
 namespace ToolTester.Infrastructure.Services
 {
@@ -30,18 +30,28 @@ namespace ToolTester.Infrastructure.Services
         public async Task<int> Parse(int ToolId, string filepath)
         {
 
-            if (ToolId == 1) //sarif
+            if (ToolId == 1) //semgrep
             {
-                var parser = new ToolTester.Parsers.Sarif.Parser();
+                var parser = new ToolTester.Parsers.SemGrep.Parser();
                 FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
                 var cwes = await parser.Get_findings(fs);
                 return await SaveReport(cwes, ToolId);
 
             }
 
-            else if (ToolId == 2)
+            else if (ToolId == 2) //sarif
             {
-
+                var parser = new ToolTester.Parsers.Sarif.Parser();
+                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
+                var cwes = await parser.Get_findings(fs);
+                return await SaveReport(cwes, ToolId);
+            }
+            else if (ToolId == 3) //veracode
+            {
+                var parser = new ToolTester.Parsers.Veracode.Parser();
+                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
+                var cwes = await parser.Get_findings(fs);
+                return await SaveReport(cwes, ToolId);
             }
 
             return 0;
@@ -69,7 +79,7 @@ namespace ToolTester.Infrastructure.Services
             {
                 foreach (var cweresult in cwes)
                 {
-                    string pattern = $@"(?<=CWE)\d+";
+                    string pattern = $@"(?i)(?<=CWE)\d+";
 
                     Match match = Regex.Match(cweresult.FilePath, pattern);
 
@@ -96,7 +106,6 @@ namespace ToolTester.Infrastructure.Services
                             Test = cweresult.Test,
                             Title = cweresult.Title + "",
                             VulnIdFromTool = cweresult.VulnIdFromTool + "",
-                            Toolid = Toolid,
                             ScanId = ScanId,
                         };
 

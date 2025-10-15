@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ToolTester.Application.Common.Interfaces;
-using ToolTester.Domain.Coomon.Interfaces;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Infrastructure.Services;
 

@@ -1,8 +1,8 @@
 ﻿using Microsoft.CodeAnalysis.Sarif;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
-using ToolTester.Domain.Coomon.Interfaces;
-using ToolTester.Parsers.Sarif.Interfaces;
+using ToolTester.Application.Common.Interfaces;
+using ToolTester.Application.Common.Models;
 
 namespace ToolTester.Parsers.Sarif
 {

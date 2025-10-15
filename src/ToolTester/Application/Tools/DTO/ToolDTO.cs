@@ -5,28 +5,28 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
-using ToolTester.Application.CWECatalogs.DTO;
+using ToolTester.Application.Reports.DTO;
 using ToolTester.Domain.Entities;
 
-namespace ToolTester.Application.CWETestResultBases.DTO
+namespace ToolTester.Application.Tools.DTO
 {
-    public class CweTestResultBaseDTO : IMapFrom<CWETestResultBase>
+    public class ToolDTO : IMapFrom<Tool>
     {
         public void Mapping(Profile profile)
         {
-            profile.CreateMap<CWECatalogDTO, CWETestResultBase>()
+            profile.CreateMap<ToolDTO, Tool>()
                  .ForAllMembers(opt => opt.IgnoreSourceWhenDefault());
 
 
 
-            profile.CreateMap<CWETestResultBase, CweTestResultBaseDTO>()
+            profile.CreateMap<Tool, ToolDTO>()
                  .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
         }
 
         public int Id { get; set; }
-        public int TestPathListedCWE { get; set; }
-        public int ScanId { get; set; } = 0;
-        public int ScannerFoundCWE { get; set; }
+        public string Name { get; set; }
+        public string Format { get; set; }
+
     }
 }

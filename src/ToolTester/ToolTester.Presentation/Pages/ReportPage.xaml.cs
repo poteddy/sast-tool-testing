@@ -43,37 +43,59 @@ public partial class ReportPage : ContentPage
             EnableDirectionalZooming = true,
             EnableSelectionZooming = true
         };
+        FalsePChart.Legend = new ChartLegend()
+        {
+            IsVisible = true,
+            ToggleSeriesVisibility = true
 
+        };
         NumericalAxis primaryAxis = new NumericalAxis();
         FalsePChart.XAxes.Add(primaryAxis);
         NumericalAxis secondaryAxis = new NumericalAxis();
         FalsePChart.YAxes.Add(secondaryAxis);
 
+        foreach (var series in _reportPageModel.TestSeries)
+        {
+            ScatterSeries scatterSeries = new ScatterSeries()
+            {
+                Label = $"Scan {series.ScanId}",
+                ItemsSource = series.Items,
+                XBindingPath = nameof(CweTestResults.TestPathListedCWE),
+                YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
+                PointWidth = 5,
+                PointHeight = 5
+            };
+            FalsePChart.Series.Add(scatterSeries);
+
+            // Create an error bar series to display error ranges
+            //ErrorBarSeries errorBar = new ErrorBarSeries()
+            //{
+            //    Label = $"Scan {series.ScanId}",
+            //    ItemsSource = series.Items,
+            //    XBindingPath = nameof(CweTestResults.TestPathListedCWE),
+            //    YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
+            //    Mode = ErrorBarMode.Vertical,
+            //    VerticalErrorPath = nameof(CweTestResults.ErrorValue),
+            //    Type = ErrorBarType.Custom             
+            //};
+            // FalsePChart.Series.Add(errorBar);
+        }
         // Create a scatter series to plot data points
-        ScatterSeries scatterSeries = new ScatterSeries()
-        {
-            ItemsSource = _reportPageModel.Items,
-            XBindingPath = nameof(CweTestResults.TestPathListedCWE),
-            YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
-            PointWidth = 5,
-            PointHeight = 5
-        };
+        //ScatterSeries scatterSeries = new ScatterSeries()
+        //{
+        //    ItemsSource = _reportPageModel.Items,
+        //    XBindingPath = nameof(CweTestResults.TestPathListedCWE),
+        //    YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
+        //    PointWidth = 5,
+        //    PointHeight = 5
+        //};
 
 
-        // Create an error bar series to display error ranges
-        ErrorBarSeries errorBar = new ErrorBarSeries()
-        {
-            ItemsSource = _reportPageModel.Items,
-            XBindingPath = nameof(CweTestResults.TestPathListedCWE),
-            YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
-            Mode = ErrorBarMode.Vertical,
-            VerticalErrorPath = nameof(CweTestResults.ErrorValue),
-            Type = ErrorBarType.Custom
-        };
+
 
         // Add the both series to the chart's series collection
-        FalsePChart.Series.Add(scatterSeries);
-        FalsePChart.Series.Add(errorBar);
+        //   FalsePChart.Series.Add(scatterSeries);
+        // FalsePChart.Series.Add(errorBar);
 
         return FalsePChart;
     }
@@ -86,7 +108,13 @@ public partial class ReportPage : ContentPage
             EnableDirectionalZooming = true,
             EnableSelectionZooming = true
         };
+        chart.Legend = new ChartLegend()
+        {
+            IsVisible = true,
+            ToggleSeriesVisibility = true
 
+        };
+    
         NumericalAxis primaryAxis = new NumericalAxis();
         chart.XAxes.Add(primaryAxis);
         NumericalAxis secondaryAxis = new NumericalAxis();
@@ -95,15 +123,16 @@ public partial class ReportPage : ContentPage
         // Create a scatter series to plot data points
         BubbleSeries scatterSeries = new BubbleSeries()
         {
-            ItemsSource = _reportPageModel.ReletedItems,
+            ItemsSource = _reportPageModel.ReletedItems,            
             XBindingPath = nameof(RelatedItemsInTest.CweId),
             YBindingPath = nameof(RelatedItemsInTest.RelatedId),
              SizeValuePath = nameof(RelatedItemsInTest.Count)
+            
+
         };
 
 
-        scatterSeries.EnableTooltip = true;
-
+        scatterSeries.EnableTooltip = true;        
         scatterSeries.TooltipTemplate = ToolTip(chart);
         // Add the both series to the chart's series collection
         chart.Series.Add(scatterSeries);

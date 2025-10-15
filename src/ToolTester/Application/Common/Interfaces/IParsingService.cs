@@ -1,4 +1,4 @@
-﻿namespace ToolTester.Domain.Coomon.Interfaces
+﻿namespace ToolTester.Application.Common.Interfaces
 {
     public interface IParsingService:IDisposable
     {

@@ -20,7 +20,8 @@
       
         public string Mitigation { get; set; } = string.Empty;
         public DateTime? Date { get; set; } = DateTime.MinValue;
-        public int Toolid { get; set; }
-        public int ScanId { get; set; }
+            
+        public Scan Scan { get; set; }
+        public int Test { get; set; }
     }
 }

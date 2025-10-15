@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Relationships.Queries;
 using ToolTester.Application.Reports.Quiries;
-using ToolTester.Parsers.Sarif.Interfaces;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 using ToolTester.Presentation.Ulitlities;
@@ -14,6 +13,8 @@ namespace ToolTester.Presentation.PageModels
     public partial class ReportPageModel : BaseViewModel
     {
         private ObservableCollection<CweTestResults> _items = [];
+        private ObservableCollection<TestSeries> _testSeries = [];
+        private ObservableCollection<RelatedItemsInTest> _relateditems = [];
 
 
         private bool _isNavigatedTo;
@@ -21,8 +22,11 @@ namespace ToolTester.Presentation.PageModels
         private readonly ModalErrorHandler _errorHandler;
         private readonly IMediator _mediator;
 
-        private ObservableCollection<RelatedItemsInTest> _relateditems = [];
-
+        public ObservableCollection<TestSeries> TestSeries
+        {
+            get => _testSeries;
+            set => SetProperty(ref _testSeries, value); // SetProperty handles property change notification
+        }
         public ObservableCollection<RelatedItemsInTest> ReletedItems
         {
             get => _relateditems;
@@ -53,7 +57,7 @@ namespace ToolTester.Presentation.PageModels
             };
             var relresul = await _mediator.Send(relquery);
             ObservableCollection<CweTestResults> items = new ObservableCollection<CweTestResults>();
-
+            ObservableCollection<TestSeries> testseries = new ObservableCollection<TestSeries>();
             var repquery = new GetReportsWithPaginationQuery()
             {
                 PageSize = 10000
@@ -84,7 +88,7 @@ namespace ToolTester.Presentation.PageModels
                 {
                     Id = item.Id,
                     ScannerFoundCWE = item.ScannerFoundCWE,
-                    TestId = item.TestId,
+                    ScanId = item.ScanId,
                     TestPathListedCWE = item.TestPathListedCWE,
                 };
 
@@ -96,41 +100,37 @@ namespace ToolTester.Presentation.PageModels
                 items.Add(rel);
 
             }
-
             //Maui requires this to do initial load. 
             Items = new ObservableCollection<CweTestResults>(items);
 
-            //SfCartesianChart chart = new SfCartesianChart();
-            //NumericalAxis primaryAxis = new NumericalAxis();
-            //chart.XAxes.Add(primaryAxis);
-            //NumericalAxis secondaryAxis = new NumericalAxis();
-            //chart.YAxes.Add(secondaryAxis);
 
-            //// Create a scatter series to plot data points
-            //ScatterSeries scatterSeries = new ScatterSeries()
-            //{
-            //    ItemsSource = new ViewModel().EnergyProductions,
-            //    XBindingPath = "ID",
-            //    YBindingPath = "Coal",
-            //    PointWidth = 20,
-            //    PointHeight = 20
-            //};
 
-            //// Create an error bar series to display error ranges
-            //ErrorBarSeries errorBar = new ErrorBarSeries()
-            //{
-            //    ItemsSource = new ViewModel().EnergyProductions,
-            //    XBindingPath = "ID",
-            //    YBindingPath = "Coal",
-            //    HorizontalErrorValue = 0.5,
-            //    VerticalErrorValue = 50
-            //};
+            foreach(var group in result.Items.GroupBy(d=>d.ScanId))
+            {
+                var testrel = new TestSeries();
+                testrel.ScanId = group.Key;
+                foreach (var item in group)
+                {
+                    var rel = new CweTestResults()
+                    {
+                        Id = item.Id,
+                        ScannerFoundCWE = item.ScannerFoundCWE,
+                        ScanId = item.ScanId,
+                        TestPathListedCWE = item.TestPathListedCWE,
+                    };
 
-            //// Add the both series to the chart's series collection
-            //chart.Series.Add(scatterSeries);
-            //chart.Series.Add(errorBar);
+                    if (!relresul.Items.Any(d => d.RelatedCweID == rel.ScannerFoundCWE && d.CWEID == rel.TestPathListedCWE))
+                    {
+                        rel.ErrorValue = 5;
+                    }
+                    if (testrel.Items == null) testrel.Items = new List<CweTestResults>();
+                    testrel.Items.Add(rel);
 
-            //this.Content = chart;
+                }
+                testseries.Add(testrel);
+            }         
+            //Maui requires this to do initial load. 
+            TestSeries = new ObservableCollection<TestSeries>(testseries);
         }
 
         [RelayCommand]
@@ -188,7 +188,7 @@ namespace ToolTester.Presentation.PageModels
     }
     public class TestSeries()
     {
-        public int TestId { get; set; }
+        public int ScanId { get; set; }
         public List<CweTestResults> Items { get; set; }
     }
 
