@@ -15,6 +15,8 @@ namespace ToolTester.Presentation.PageModels
         private ObservableCollection<CweTestResults> _items = [];
         private ObservableCollection<TestSeries> _testSeries = [];
         private ObservableCollection<RelatedItemsInTest> _relateditems = [];
+        private ObservableCollection<AggrigatedSeries> _aggrigatedseries = [];
+        private ObservableCollection<RelatedSeries> _relatedseries = [];
 
 
         private bool _isNavigatedTo;
@@ -27,10 +29,15 @@ namespace ToolTester.Presentation.PageModels
             get => _testSeries;
             set => SetProperty(ref _testSeries, value); // SetProperty handles property change notification
         }
-        public ObservableCollection<RelatedItemsInTest> ReletedItems
+        public ObservableCollection<RelatedSeries> RelatedSeries
         {
-            get => _relateditems;
-            set => SetProperty(ref _relateditems, value); // SetProperty handles property change notification
+            get => _relatedseries;
+            set => SetProperty(ref _relatedseries, value); // SetProperty handles property change notification
+        }
+        public ObservableCollection<AggrigatedSeries> AggregatedSeries
+        {
+            get => _aggrigatedseries;
+            set => SetProperty(ref _aggrigatedseries, value); // SetProperty handles property change notification
         }
         public ObservableCollection<CweTestResults> Items
         {
@@ -58,31 +65,41 @@ namespace ToolTester.Presentation.PageModels
             var relresul = await _mediator.Send(relquery);
             ObservableCollection<CweTestResults> items = new ObservableCollection<CweTestResults>();
             ObservableCollection<TestSeries> testseries = new ObservableCollection<TestSeries>();
+            ObservableCollection<AggrigatedSeries> aggrigatedSeries = new ObservableCollection<AggrigatedSeries>();
             var repquery = new GetReportsWithPaginationQuery()
             {
                 PageSize = 10000
             };
             var represult = await _mediator.Send(repquery);
-            ObservableCollection<RelatedItemsInTest> relatedItemsInTests = new ObservableCollection<RelatedItemsInTest>();
-        
-                foreach (var item in represult.Items)
-            {
-                var rep = new RelatedItemsInTest()
-                {
-                    Id = item.Id,
-                    CweId = item.CweId,
-                    RelatedId = item.RelatedId,
-                    ScanId = item.ScanId,
-                    ToolId = item.ToolId,
-                    Count = item.Count,
-                    Relationship = item.Relationship
-                };
-                relatedItemsInTests.Add(rep);
-            }
-            ReletedItems = new ObservableCollection<RelatedItemsInTest>(relatedItemsInTests);
-           
+            ObservableCollection<RelatedSeries> relatedSeries = new ObservableCollection<RelatedSeries>();
 
-                foreach (var item in result.Items)
+            foreach (var group in represult.Items.GroupBy(d => d.ScanId))
+            {
+                var testrel = new RelatedSeries();
+                testrel.ScanId = group.Key;
+                foreach (var item in group)
+                {
+
+                    var rep = new RelatedItemsInTest()
+                    {
+                        Id = item.Id,
+                        CweId = item.CweId,
+                        RelatedId = item.RelatedId,
+                        ScanId = item.ScanId,
+                        ToolId = item.ToolId,
+                        Count = item.Count,
+                        Relationship = item.Relationship
+                    };
+                    if (testrel.Items == null) testrel.Items = new List<RelatedItemsInTest>();
+                    testrel.Items.Add(rep);
+                }
+             
+                relatedSeries.Add(testrel);
+            }
+            RelatedSeries = new ObservableCollection<RelatedSeries>(relatedSeries);
+
+
+            foreach (var item in result.Items)
             {
                 var rel = new CweTestResults()
                 {
@@ -96,7 +113,7 @@ namespace ToolTester.Presentation.PageModels
                 {
                     rel.ErrorValue = 5;
                 }
-             
+
                 items.Add(rel);
 
             }
@@ -105,12 +122,13 @@ namespace ToolTester.Presentation.PageModels
 
 
 
-            foreach(var group in result.Items.GroupBy(d=>d.ScanId))
+            foreach (var group in result.Items.GroupBy(d => d.ScanId))
             {
                 var testrel = new TestSeries();
                 testrel.ScanId = group.Key;
                 foreach (var item in group)
                 {
+
                     var rel = new CweTestResults()
                     {
                         Id = item.Id,
@@ -128,9 +146,31 @@ namespace ToolTester.Presentation.PageModels
 
                 }
                 testseries.Add(testrel);
-            }         
+
+            }
             //Maui requires this to do initial load. 
             TestSeries = new ObservableCollection<TestSeries>(testseries);
+
+
+            foreach (var group in result.Items.GroupBy(d => d.ScanId))
+            {
+                var testrel = new AggrigatedSeries()
+                {
+                    ScanId = group.Key,
+                    Items = group
+           .GroupBy(d => d.ScannerFoundCWE)
+           .Select(g => new AggrigatedItems
+           {
+               CWE = g.Key,
+               Count = g.Count() // Aggregating the count
+           }).ToList()
+
+                };
+                aggrigatedSeries.Add(testrel);
+
+            }
+            //Maui requires this to do initial load. 
+            AggregatedSeries = new ObservableCollection<AggrigatedSeries>(aggrigatedSeries);
         }
 
         [RelayCommand]
@@ -191,5 +231,21 @@ namespace ToolTester.Presentation.PageModels
         public int ScanId { get; set; }
         public List<CweTestResults> Items { get; set; }
     }
+    public class RelatedSeries()
+        {
+            public int ScanId { get; set; }
+            public List<RelatedItemsInTest> Items { get; set; }
+        }
+    public class AggrigatedSeries()
+    {
+        public int ScanId { get; set; }
+        public List<AggrigatedItems> Items { get; set; }
+    }
+    public class AggrigatedItems()
+    {
+        public int CWE { get; set; }
+        public int Count { get; set; }
+    }
+
 
 }
