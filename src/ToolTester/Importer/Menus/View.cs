@@ -22,7 +22,7 @@ namespace ToolTester.ConsoleApp.Menus
         public async Task Display()
         {
             var reportservice = _serviceProvider.GetRequiredService<IReportingService>();
-            var result = await reportservice.GenerateReport(1);
+            var result = await reportservice.GenerateReport(1,1);
         }
     }
 }
