@@ -92,6 +92,9 @@
 	  <MauiXaml Update="Pages\CatalogPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Pages\SemanticRulesPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Pages\JulietCoveragePage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -119,6 +122,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="Pages\SemanticRulesPage.xaml.cs">
+	    <DependentUpon>SemanticRulesPage.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Pages\RelationshipsPage.xaml.cs">
 	    <DependentUpon>RelationshipsPage.xaml</DependentUpon>
 	  </Compile>

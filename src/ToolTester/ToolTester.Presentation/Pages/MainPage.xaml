@@ -20,30 +20,30 @@
               Command="{Binding AppearingCommand}" />
     </ContentPage.Behaviors>
 
-    
+
 
     <VerticalStackLayout
             Padding="30,0"
             Spacing="25">
-                  
-                    <Label
+
+        <Label
                 Text="Hello, World!"
                 Style="{StaticResource Headline}"
                 SemanticProperties.HeadingLevel="Level1" />
 
-                    <Label
+        <Label
                 Text="Welcome to &#10;.NET Multi-platform App UI"
                 Style="{StaticResource SubHeadline}"
                 SemanticProperties.HeadingLevel="Level2"
                 SemanticProperties.Description="Welcome to dot net Multi platform App U I" />
-            
+
         <Button
                 x:Name="Relationshiplink"
                 Text="Relationships" 
                 SemanticProperties.Hint="Counts the number of times you click"                  
                 Command="{Binding NavigateToCatalogPageCommand}" 
                 HorizontalOptions="Fill" />
-            
+
         <Button
                 x:Name="JulietLink"
                 Text="Juliets" 
@@ -56,12 +56,20 @@
         SemanticProperties.Hint="Counts the number of times you click"                  
         Command="{Binding NavigateToParsePageCommand}" 
         HorizontalOptions="Fill" />
-          <Button
+        <Button
   x:Name="ReportLink"
   Text="Report" 
   SemanticProperties.Hint="Counts the number of times you click"                  
   Command="{Binding NavigateToReportPageCommand}" 
   HorizontalOptions="Fill" />
+
+        <Button
+          x:Name="RulesLink"
+          Text="Rules" 
+          SemanticProperties.Hint="Counts the number of times you click"                  
+          Command="{Binding NavigateToRulesPageCommand}" 
+          HorizontalOptions="Fill" />
+    
     </VerticalStackLayout>
 
 </ContentPage>

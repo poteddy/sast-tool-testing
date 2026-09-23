@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Maui.Alerts;
 using CommunityToolkit.Maui.Core;
+using Microsoft.Graphics.Canvas.Text;
 using Font = Microsoft.Maui.Font;
 
 namespace ToolTester.Presentation
@@ -14,6 +15,7 @@ namespace ToolTester.Presentation
             Routing.RegisterRoute("julietproject", typeof(JulietCoveragePage)); // Register the route
             Routing.RegisterRoute("parse", typeof(ParsePage)); // Register the route
             Routing.RegisterRoute("report", typeof(ReportPage)); // Register the route
+            Routing.RegisterRoute("rules", typeof(SemanticRulesPage));
 
             var currentTheme = Microsoft.Maui.Controls.Application.Current!.RequestedTheme;
             ThemeSegmentedControl.SelectedIndex = currentTheme == AppTheme.Light ? 0 : 1;

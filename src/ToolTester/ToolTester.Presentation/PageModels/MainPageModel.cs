@@ -31,7 +31,7 @@ namespace ToolTester.Presentation.PageModels
 
 
        
-            _applicationDbContextSeed.SeedCWECatalog();
+         await   _applicationDbContextSeed.SeedCWECatalog();
         }
         [RelayCommand]
         private void NavigatedTo() =>
@@ -87,5 +87,9 @@ namespace ToolTester.Presentation.PageModels
      [RelayCommand]
         private  Task NavigateToReportPage(ReportPage project)
         => Shell.Current.GoToAsync("report");
+    
+     [RelayCommand]
+        private  Task NavigateToRulesPage(SemanticRulesPage project)
+        => Shell.Current.GoToAsync("rules");
     }
 }

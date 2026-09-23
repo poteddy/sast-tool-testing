@@ -3180,33 +3180,24 @@ public enum RelatedNatureEnumeration {
     
     /// <remarks/>
     ParentOf,
-    
-    /// <remarks/>
     StartsWith,
-    
+    /// <remarks/>
+    PeerOf,
+
     /// <remarks/>
     CanFollow,
     
     /// <remarks/>
     CanPrecede,
     
-    /// <remarks/>
-    RequiredBy,
-    
-    /// <remarks/>
-    Requires,
-    
-    /// <remarks/>
-    CanAlsoBe,
-    
-    /// <remarks/>
-    PeerOf,
+    MemberOf,
+    RelatedWeakness,
+    CAPECMappings,
 
     Self,
-
-    Grandparent,
-
-    Grandchild
+    Requires,
+    CanAlsoBe,
+    RequiredBy,
 
 }
 

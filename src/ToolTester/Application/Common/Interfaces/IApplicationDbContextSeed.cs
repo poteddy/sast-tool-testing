@@ -2,6 +2,6 @@
 {
     public interface IApplicationDbContextSeed
     {
-        void SeedCWECatalog();
+        Task SeedCWECatalog();
     }
 }

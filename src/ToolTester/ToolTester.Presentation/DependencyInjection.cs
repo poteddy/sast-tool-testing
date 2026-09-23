@@ -19,7 +19,7 @@ namespace ToolTester.Presentation
             services.AddSingleton<JulietCoveragesPageModel>();
             services.AddSingleton<ParsePageModel>();
             services.AddSingleton<ReportPageModel>();
-
+            services.AddSingleton<SemanticRulesViewModel>();
 
         
             //builder.Services.AddSingleton<ProjectRepository>();

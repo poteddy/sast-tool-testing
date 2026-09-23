@@ -27,14 +27,41 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Scan> Scans { get; set; }
     public DbSet<Tool> Tools { get; set; }
 
-
+    public DbSet<CweSemanticRule> CweSemanticRules { get; set; }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
        
     }
 
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CWECatalog>()
+            .HasIndex(x => x.CweId)
+            .IsUnique();
 
-    // ... other DbSets
+        modelBuilder.Entity<Relationship>()
+            .HasIndex(x => new
+            {
+                x.CweId,
+                x.RelatedCweID,
+                x.Nature,
+                x.ViewId,
+                x.IsDerived
+            })
+            .IsUnique();
+
+        modelBuilder.Entity<CweSemanticRule>()
+            .HasIndex(x => new
+            {
+                x.SourceCweId,
+                x.TargetCweId,
+                x.Relationship,
+                x.ScannerRuleId,
+                x.ProgrammingLanguage,
+                x.Version
+            })
+            .IsUnique();
+    }
 
 }
 
