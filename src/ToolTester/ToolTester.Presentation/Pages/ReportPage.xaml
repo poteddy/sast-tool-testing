@@ -7,6 +7,7 @@
              xmlns:syncfusion="http://schemas.syncfusion.com/maui/toolkit"    
              x:Class="ToolTester.Presentation.Pages.ReportPage"    
                x:DataType="PageModels:ReportPageModel"
+             xmlns:core="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              Title="ReportPage">
 
     <ContentPage.Behaviors>
@@ -80,4 +81,12 @@ YAxisName="Scanner Identified CWE"
             </ScrollView>
         </pullToRefresh:SfPullToRefresh.PullableContent>
     </pullToRefresh:SfPullToRefresh>
+    <core:SfBusyIndicator
+IsRunning="{Binding IsLoading}"
+IsVisible="{Binding IsLoading}"
+AnimationType="CircularMaterial"
+Title="Loading report..."
+HorizontalOptions="Center"
+VerticalOptions="Center"
+ZIndex="100" />
 </ContentPage>

@@ -221,7 +221,6 @@ namespace ToolTester.Presentation.PageModels
             try
             {
                 IsRefreshing = true;
-                LoadItemsAsync().FireAndForgetSafeAsync(_errorHandler);
             }
             catch (Exception e)
             {
