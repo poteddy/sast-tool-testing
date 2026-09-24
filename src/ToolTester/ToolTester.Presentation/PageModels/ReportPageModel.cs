@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Relationships.Queries;
 using ToolTester.Application.Reports.Quiries;
+using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 using ToolTester.Presentation.Ulitlities;
@@ -44,11 +45,13 @@ namespace ToolTester.Presentation.PageModels
             get => _items;
             set => SetProperty(ref _items, value); // SetProperty handles property change notification
         }
-        public ReportPageModel(ModalErrorHandler errorHandler, IMediator mediator)
+        public ReportPageModel(ModalErrorHandler errorHandler, IMediator mediator, ICweRelationshipService relationshipService)
         {
             _errorHandler = errorHandler;
             _mediator = mediator;
+            _relationshipService = relationshipService;
         }
+        private ICweRelationshipService _relationshipService;
 
         public async Task LoadItemsAsync()
         {
@@ -76,24 +79,24 @@ namespace ToolTester.Presentation.PageModels
             foreach (var group in represult.Items.GroupBy(d => d.ScanId))
             {
                 var testrel = new RelatedSeries();
-                testrel.ScanId = group.Key;
-                foreach (var item in group)
-                {
+                testrel.Items ??= new List<RelatedItemsInTest>();
 
-                    var rep = new RelatedItemsInTest()
-                    {
-                        Id = item.Id,
-                        CweId = item.CweId,
-                        RelatedId = item.RelatedId,
-                        ScanId = item.ScanId,
-                        ToolId = item.ToolId,
-                        Count = item.Count,
-                        Relationship = item.Relationship
-                    };
-                    if (testrel.Items == null) testrel.Items = new List<RelatedItemsInTest>();
-                    testrel.Items.Add(rep);
-                }
-             
+                testrel.Items.AddRange(
+                    group
+                       // .Where(x => x.Relationship != CweRelationshipKind.Unrelated.ToString())
+                        .Select(item => new RelatedItemsInTest
+                        {
+                            Id = item.Id,
+                            CweId = item.CweId,
+                            RelatedId = item.RelatedId,
+                            ScanId = item.ScanId,
+                            ToolId = item.ToolId,
+                            Count = item.Count,
+                            Relationship = item.Relationship,
+                             RelationshipScore = item.RelationshipScore
+                             
+                        }));
+
                 relatedSeries.Add(testrel);
             }
             RelatedSeries = new ObservableCollection<RelatedSeries>(relatedSeries);
@@ -122,32 +125,43 @@ namespace ToolTester.Presentation.PageModels
 
 
 
-            foreach (var group in result.Items.GroupBy(d => d.ScanId))
+            foreach (var group in result.Items.GroupBy(x => x.ScanId))
             {
-                var testrel = new TestSeries();
-                testrel.ScanId = group.Key;
+                var testSeries = new TestSeries
+                {
+                    ScanId = group.Key,
+                    Items = new()
+                };
+
                 foreach (var item in group)
                 {
+                    var relationship = await _relationshipService.EvaluateAsync(
+                        scannerCweId: item.ScannerFoundCWE,
+                        groundTruthCweId: item.TestPathListedCWE,
+                        "",
+                        "",
+                        CancellationToken.None
+                        );
 
-                    var rel = new CweTestResults()
+                    testSeries.Items.Add(new CweTestResults
                     {
                         Id = item.Id,
-                        ScannerFoundCWE = item.ScannerFoundCWE,
                         ScanId = item.ScanId,
+                        ScannerFoundCWE = item.ScannerFoundCWE,
                         TestPathListedCWE = item.TestPathListedCWE,
-                    };
+                         
+                        //Relationship = relationship.Relationship.ToString(),
+                        //Score = relationship.Score,
 
-                    if (!relresul.Items.Any(d => d.RelatedCweID == rel.ScannerFoundCWE && d.CWEID == rel.TestPathListedCWE))
-                    {
-                        rel.ErrorValue = 5;
-                    }
-                    if (testrel.Items == null) testrel.Items = new List<CweTestResults>();
-                    testrel.Items.Add(rel);
-
+                        ErrorValue = relationship.Score > 0
+                            ? 0
+                            : 5
+                    });
                 }
-                testseries.Add(testrel);
 
+                testseries.Add(testSeries);
             }
+
             //Maui requires this to do initial load. 
             TestSeries = new ObservableCollection<TestSeries>(testseries);
 
@@ -161,9 +175,11 @@ namespace ToolTester.Presentation.PageModels
            .GroupBy(d => d.ScannerFoundCWE)
            .Select(g => new AggrigatedItems
            {
-               CWE = g.Key,
-               Count = g.Count() // Aggregating the count
-           }).ToList()
+               CweId = g.Key,
+               Count = g.Count(), // Aggregating the count
+
+           }).ToList(),
+
 
                 };
                 aggrigatedSeries.Add(testrel);
@@ -225,17 +241,29 @@ namespace ToolTester.Presentation.PageModels
         private Task NavigateToProject(CweCatalogDetailsPage project)
             => Shell.Current.GoToAsync($"project?id={project.ID}");
 
+        public string SelectedRelationship { get; set; } = "All";
+
+        public List<string> AvailableRelationships =>
+        [
+            "All",
+    .. _relatedseries
+        .SelectMany(x => x.Items)
+        .Select(x => x.Relationship)
+        .Distinct()
+        .OrderBy(x => x)
+        ];
     }
+}
     public class TestSeries()
     {
         public int ScanId { get; set; }
         public List<CweTestResults> Items { get; set; }
     }
     public class RelatedSeries()
-        {
-            public int ScanId { get; set; }
-            public List<RelatedItemsInTest> Items { get; set; }
-        }
+    {
+        public int ScanId { get; set; }
+        public List<RelatedItemsInTest> Items { get; set; }
+    }
     public class AggrigatedSeries()
     {
         public int ScanId { get; set; }
@@ -243,9 +271,6 @@ namespace ToolTester.Presentation.PageModels
     }
     public class AggrigatedItems()
     {
-        public int CWE { get; set; }
+        public int CweId { get; set; }
         public int Count { get; set; }
     }
-
-
-}

@@ -1,20 +1,23 @@
-﻿using CweRelationshipEngine;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Microsoft.EntityFrameworkCore;
+using ToolTester.Application.Common.Interfaces;
 using ToolTester.Infrastructure.Persistance;
 
 namespace ToolTester.Infrastructure.Services
 {
-    public sealed class CweRelationshipService
+    public sealed class CweRelationshipService:ICweRelationshipService
     {
         private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+        
+
+        private readonly ISemanticRuleProvider
+        _semanticRuleProvider;
 
         public CweRelationshipService(
-            IDbContextFactory<ApplicationDbContext> contextFactory)
+        IDbContextFactory<ApplicationDbContext> contextFactory,
+        ISemanticRuleProvider semanticRuleProvider)
         {
             _contextFactory = contextFactory;
+            _semanticRuleProvider = semanticRuleProvider;
         }
 
         public async Task<RelationshipResult> EvaluateAsync(
@@ -72,14 +75,13 @@ namespace ToolTester.Infrastructure.Services
                 return nativeResult;
             }
 
-            var semanticResult =
-                await EvaluateSemanticRelationshipAsync(
-                    context,
-                    scannerCweId,
-                    groundTruthCweId,
-                    scannerRuleId,
-                    programmingLanguage,
-                    cancellationToken);
+            var semanticResult = await
+    EvaluateSemanticRelationshipAsync(
+        context,
+        scannerCweId,
+        groundTruthCweId,
+        scannerRuleId,
+        programmingLanguage,CancellationToken.None);
 
             if (semanticResult is not null)
             {
@@ -347,19 +349,29 @@ namespace ToolTester.Infrastructure.Services
                 CancellationToken cancellationToken)
         {
             var rule = await context.CweSemanticRules
-                .AsNoTracking()
-                .Where(x =>
-                    x.Enabled &&
-                    x.SourceCweId == scannerCweId &&
-                    x.TargetCweId == truthCweId)
-                .Where(x =>
-                    x.ScannerRuleId == null ||
-                    x.ScannerRuleId == scannerRuleId)
-                .Where(x =>
-                    x.ProgrammingLanguage == null ||
-                    x.ProgrammingLanguage == programmingLanguage)
-                .OrderByDescending(x => x.Version)
-                .FirstOrDefaultAsync(cancellationToken);
+     .AsNoTracking()
+     .Where(x =>
+         x.Enabled &&
+         (
+             (
+                 x.SourceCweId == scannerCweId &&
+                 x.TargetCweId == truthCweId
+             )
+             ||
+             (
+                 x.Bidirectional &&
+                 x.SourceCweId == truthCweId &&
+                 x.TargetCweId == scannerCweId
+             )
+         ))
+     .Where(x =>
+         x.ScannerRuleId == null ||
+         x.ScannerRuleId == scannerRuleId)
+     .Where(x =>
+         x.ProgrammingLanguage == null ||
+         x.ProgrammingLanguage == programmingLanguage)
+     .OrderByDescending(x => x.Version)
+     .FirstOrDefaultAsync(cancellationToken);
 
             if (rule is null)
             {

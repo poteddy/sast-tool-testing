@@ -29,7 +29,9 @@ public static class DependencyInjection
         services.AddScoped<IParsingService, ParsingService>();
         services.AddScoped<IReportingService,ReportingService>();
         services.AddScoped<IZipfileService,ZipfileService>();
-
+        services.AddScoped<ICweRelationshipService, CweRelationshipService>();
+        services.AddScoped<ISemanticRuleProvider, JsonSemanticRuleProvider>();
+        services.AddScoped <ICweTopologyService,CweTopologyService > ();
         return services;
     }
 

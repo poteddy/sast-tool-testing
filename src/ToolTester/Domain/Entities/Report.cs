@@ -7,18 +7,23 @@ using ToolTester.Domain.Common;
 
 namespace ToolTester.Domain.Entities
 {
-    public class Report: IEntity
+    public class Report : IEntity
     {
         public int Id { get; set; }
-        public int CweId {  get; set; }
+        public int CweId { get; set; }
         public CWECatalog CWECatalog { get; set; }
-        public int RelatedId {  get; set; }
+        public int RelatedId { get; set; }
 
-        public int ToolId {  get; set; }
-        public int ScanId {  get; set; }
+        public int ToolId { get; set; }
+        public int ScanId { get; set; }
 
         public int Count { get; set; }
 
         public string Relationship { get; set; }
+        public int RelationshipScore { get; set;}
+        public string? TopologyRelationship { get; set; }
+        public string? GroundTruthAbstraction { get; set; }
+        public string? ScannerAbstraction { get; set; }
+        public int? TopologyDistance { get; set; }
     }
 }

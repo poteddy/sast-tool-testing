@@ -1,8 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using System.Xml.Linq;
-
-namespace CweRelationshipEngine;
-
 public enum CweRelationshipKind
 {
     Exact,

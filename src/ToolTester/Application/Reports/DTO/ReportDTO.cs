@@ -32,5 +32,10 @@ namespace ToolTester.Application.Reports.DTO
         public int Count { get; set; }
 
         public string Relationship { get; set; }
+        public int RelationshipScore { get; set; }
+        public string? TopologyRelationship { get; set; }
+        public string? GroundTruthAbstraction { get; set; }
+        public string? ScannerAbstraction { get; set; }
+        public int? TopologyDistance { get; set; }
     }
 }

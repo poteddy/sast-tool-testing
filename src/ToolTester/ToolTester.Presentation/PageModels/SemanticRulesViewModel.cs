@@ -1,9 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CweRelationshipEngine;
 using System.Collections.ObjectModel;
 using System.Text.Json;
-using Microsoft.Maui.Storage;
 namespace ToolTester.Presentation.PageModels;
 
 public partial class SemanticRulesViewModel : ObservableObject

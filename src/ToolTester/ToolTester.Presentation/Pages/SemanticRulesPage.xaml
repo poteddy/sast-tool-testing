@@ -35,12 +35,12 @@
 
                         <Entry
                             Keyboard="Numeric"
-                            Placeholder="Source CWE ID"
+                            Placeholder="Scanner CWE ID"
                             Text="{Binding CurrentRule.SourceCweId}" />
 
                         <Entry
                             Keyboard="Numeric"
-                            Placeholder="Target CWE ID"
+                            Placeholder="Test Case CWE ID"
                             Text="{Binding CurrentRule.TargetCweId}" />
 
                         <Picker

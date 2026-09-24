@@ -1,10 +1,10 @@
-﻿using CweRelationshipEngine;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
+using ToolTester.Application.CweRelationshipEngine;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Extensions;
 
@@ -186,8 +186,7 @@ public sealed class ApplicationDbContextSeed
                 continue;
             }
 
-            var abstraction =
-                weakness.Abstraction.ToString();
+            var abstraction = CweAbstractionParser.Parse(weakness.Abstraction.ToString()).ToString();
 
             var status =
                 weakness.Status.ToString();
