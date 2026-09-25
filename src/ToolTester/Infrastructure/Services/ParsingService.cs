@@ -53,7 +53,13 @@ namespace ToolTester.Infrastructure.Services
                 var cwes = await parser.Get_findings(fs);
                 return await SaveReport(cwes, ToolId);
             }
-
+            else if (ToolId == 4) //cppchecker
+            {
+                var parser = new ToolTester.Parsers.CPPChecker.Parser();
+                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
+                var cwes = await parser.Get_findings(fs);
+                return await SaveReport(cwes, ToolId);
+            }
             return 0;
         }
         private async Task<int> SaveReport(List<CWEs> cwes, int Toolid)

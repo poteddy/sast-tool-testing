@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Input;
 using MediatR;
 using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
@@ -7,83 +7,140 @@ using ToolTester.Application.Reports.Quiries;
 using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
-using ToolTester.Presentation.Ulitlities;
 
-namespace ToolTester.Presentation.PageModels
+namespace ToolTester.Presentation.PageModels;
+
+public partial class ReportPageModel : BaseViewModel
 {
-    public partial class ReportPageModel : BaseViewModel
+    private readonly ModalErrorHandler _errorHandler;
+    private readonly IMediator _mediator;
+    private readonly ICweRelationshipService _relationshipService;
+
+    private ObservableCollection<CweTestResults> _items = [];
+    private ObservableCollection<TestSeries> _testSeries = [];
+    private ObservableCollection<AggrigatedSeries> _aggregatedSeries = [];
+    private ObservableCollection<RelatedSeries> _relatedSeries = [];
+
+    private bool _isNavigatedTo;
+    private bool _isLoading;
+    private bool _dataLoaded;
+    private string _selectedRelationship = "All";
+
+    public ReportPageModel(
+        ModalErrorHandler errorHandler,
+        IMediator mediator,
+        ICweRelationshipService relationshipService)
     {
-        private ObservableCollection<CweTestResults> _items = [];
-        private ObservableCollection<TestSeries> _testSeries = [];
-        private ObservableCollection<RelatedItemsInTest> _relateditems = [];
-        private ObservableCollection<AggrigatedSeries> _aggrigatedseries = [];
-        private ObservableCollection<RelatedSeries> _relatedseries = [];
+        _errorHandler = errorHandler;
+        _mediator = mediator;
+        _relationshipService = relationshipService;
+    }
 
+    public event EventHandler? ReportDataLoaded;
 
-        private bool _isNavigatedTo;
-        private bool _dataLoaded;
-        private readonly ModalErrorHandler _errorHandler;
-        private readonly IMediator _mediator;
+    public bool HasLoadedData => _dataLoaded;
 
-        public ObservableCollection<TestSeries> TestSeries
-        {
-            get => _testSeries;
-            set => SetProperty(ref _testSeries, value); // SetProperty handles property change notification
-        }
-        public ObservableCollection<RelatedSeries> RelatedSeries
-        {
-            get => _relatedseries;
-            set => SetProperty(ref _relatedseries, value); // SetProperty handles property change notification
-        }
-        public ObservableCollection<AggrigatedSeries> AggregatedSeries
-        {
-            get => _aggrigatedseries;
-            set => SetProperty(ref _aggrigatedseries, value); // SetProperty handles property change notification
-        }
-        public ObservableCollection<CweTestResults> Items
-        {
-            get => _items;
-            set => SetProperty(ref _items, value); // SetProperty handles property change notification
-        }
-        public ReportPageModel(ModalErrorHandler errorHandler, IMediator mediator, ICweRelationshipService relationshipService)
-        {
-            _errorHandler = errorHandler;
-            _mediator = mediator;
-            _relationshipService = relationshipService;
-        }
-        private ICweRelationshipService _relationshipService;
+    public bool IsLoading
+    {
+        get => _isLoading;
+        private set => SetProperty(ref _isLoading, value);
+    }
 
-        public async Task LoadItemsAsync()
+    public ObservableCollection<CweTestResults> Items
+    {
+        get => _items;
+        private set => SetProperty(ref _items, value);
+    }
+
+    public ObservableCollection<TestSeries> TestSeries
+    {
+        get => _testSeries;
+        private set => SetProperty(ref _testSeries, value);
+    }
+
+    public ObservableCollection<RelatedSeries> RelatedSeries
+    {
+        get => _relatedSeries;
+        private set => SetProperty(ref _relatedSeries, value);
+    }
+
+    public ObservableCollection<AggrigatedSeries> AggregatedSeries
+    {
+        get => _aggregatedSeries;
+        private set => SetProperty(ref _aggregatedSeries, value);
+    }
+
+    public string SelectedRelationship
+    {
+        get => _selectedRelationship;
+        set => SetProperty(ref _selectedRelationship, value);
+    }
+
+    public List<string> AvailableRelationships =>
+    [
+        "All",
+        .. RelatedSeries
+            .Where(series => series.Items is not null)
+            .SelectMany(series => series.Items)
+            .Select(item => item.Relationship)
+            .Where(relationship => !string.IsNullOrWhiteSpace(relationship))
+            .Distinct()
+            .OrderBy(relationship => relationship)
+    ];
+
+    public async Task InitializeAsync()
+    {
+        if (_dataLoaded || IsLoading)
+            return;
+
+        IsLoading = true;
+
+        try
         {
-            var query = new GetCweTestResultBasesWithPaginationQuery()
+            await Task.Yield();
+           
+            await LoadItemsAsync();
+
+            _dataLoaded = true;
+            OnPropertyChanged(nameof(HasLoadedData));
+        }
+        catch (Exception exception)
+        {
+            _errorHandler.HandleError(exception);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public async Task LoadItemsAsync()
+    {
+        var result = await _mediator.Send(
+            new GetCweTestResultBasesWithPaginationQuery
             {
                 PageSize = 100000
-            };
-            var result = await _mediator.Send(query);
+            });
 
-            var relquery = new GetRelationshipsWithPaginationQuery()
+        var relationshipResult = await _mediator.Send(
+            new GetRelationshipsWithPaginationQuery
             {
                 PageSize = 10000
-            };
-            var relresul = await _mediator.Send(relquery);
-            ObservableCollection<CweTestResults> items = new ObservableCollection<CweTestResults>();
-            ObservableCollection<TestSeries> testseries = new ObservableCollection<TestSeries>();
-            ObservableCollection<AggrigatedSeries> aggrigatedSeries = new ObservableCollection<AggrigatedSeries>();
-            var repquery = new GetReportsWithPaginationQuery()
+            });
+
+        var reportResult = await _mediator.Send(
+            new GetReportsWithPaginationQuery
             {
                 PageSize = 10000
-            };
-            var represult = await _mediator.Send(repquery);
-            ObservableCollection<RelatedSeries> relatedSeries = new ObservableCollection<RelatedSeries>();
+            });
 
-            foreach (var group in represult.Items.GroupBy(d => d.ScanId))
-            {
-                var testrel = new RelatedSeries();
-                testrel.Items ??= new List<RelatedItemsInTest>();
-
-                testrel.Items.AddRange(
-                    group
-                       // .Where(x => x.Relationship != CweRelationshipKind.Unrelated.ToString())
+        RelatedSeries = new ObservableCollection<RelatedSeries>(
+            reportResult.Items
+                .GroupBy(item => item.ScanId)
+                .Select(group => new RelatedSeries
+                {
+                    ScanId = group.Key,
+                    Items = group
                         .Select(item => new RelatedItemsInTest
                         {
                             Id = item.Id,
@@ -93,183 +150,154 @@ namespace ToolTester.Presentation.PageModels
                             ToolId = item.ToolId,
                             Count = item.Count,
                             Relationship = item.Relationship,
-                             RelationshipScore = item.RelationshipScore
-                             
-                        }));
+                            RelationshipScore = item.RelationshipScore
+                        })
+                        .ToList()
+                }));
 
-                relatedSeries.Add(testrel);
-            }
-            RelatedSeries = new ObservableCollection<RelatedSeries>(relatedSeries);
+        OnPropertyChanged(nameof(AvailableRelationships));
 
+        var relatedLookup = relationshipResult.Items
+            .Select(item => (item.RelatedCweID, item.CWEID))
+            .ToHashSet();
 
-            foreach (var item in result.Items)
+        Items = new ObservableCollection<CweTestResults>(
+            result.Items.Select(item => new CweTestResults
             {
-                var rel = new CweTestResults()
-                {
-                    Id = item.Id,
-                    ScannerFoundCWE = item.ScannerFoundCWE,
-                    ScanId = item.ScanId,
-                    TestPathListedCWE = item.TestPathListedCWE,
-                };
+                Id = item.Id,
+                ScannerFoundCWE = item.ScannerFoundCWE,
+                ScanId = item.ScanId,
+                TestPathListedCWE = item.TestPathListedCWE,
+                ErrorValue = relatedLookup.Contains(
+                    (item.ScannerFoundCWE, item.TestPathListedCWE))
+                    ? 0
+                    : 5
+            }));
 
-                if (!relresul.Items.Any(d => d.RelatedCweID == rel.ScannerFoundCWE && d.CWEID == rel.TestPathListedCWE))
-                {
-                    rel.ErrorValue = 5;
-                }
+        var relationshipCache =
+            new Dictionary<(int ScannerCwe, int GroundTruthCwe), int>();
 
-                items.Add(rel);
+        var testSeries = new List<TestSeries>();
 
-            }
-            //Maui requires this to do initial load. 
-            Items = new ObservableCollection<CweTestResults>(items);
-
-
-
-            foreach (var group in result.Items.GroupBy(x => x.ScanId))
+        foreach (var group in result.Items.GroupBy(item => item.ScanId))
+        {
+            var series = new TestSeries
             {
-                var testSeries = new TestSeries
-                {
-                    ScanId = group.Key,
-                    Items = new()
-                };
+                ScanId = group.Key,
+                Items = []
+            };
 
-                foreach (var item in group)
+            foreach (var item in group)
+            {
+                var key = (item.ScannerFoundCWE, item.TestPathListedCWE);
+
+                if (!relationshipCache.TryGetValue(key, out var score))
                 {
                     var relationship = await _relationshipService.EvaluateAsync(
                         scannerCweId: item.ScannerFoundCWE,
                         groundTruthCweId: item.TestPathListedCWE,
                         "",
                         "",
-                        CancellationToken.None
-                        );
+                        CancellationToken.None);
 
-                    testSeries.Items.Add(new CweTestResults
-                    {
-                        Id = item.Id,
-                        ScanId = item.ScanId,
-                        ScannerFoundCWE = item.ScannerFoundCWE,
-                        TestPathListedCWE = item.TestPathListedCWE,
-                         
-                        //Relationship = relationship.Relationship.ToString(),
-                        //Score = relationship.Score,
-
-                        ErrorValue = relationship.Score > 0
-                            ? 0
-                            : 5
-                    });
+                    score = relationship.Score;
+                    relationshipCache[key] = score;
                 }
 
-                testseries.Add(testSeries);
+                series.Items.Add(new CweTestResults
+                {
+                    Id = item.Id,
+                    ScanId = item.ScanId,
+                    ScannerFoundCWE = item.ScannerFoundCWE,
+                    TestPathListedCWE = item.TestPathListedCWE,
+                    ErrorValue = score > 0 ? 0 : 5
+                });
             }
 
-            //Maui requires this to do initial load. 
-            TestSeries = new ObservableCollection<TestSeries>(testseries);
+            testSeries.Add(series);
+        }
 
+        TestSeries = new ObservableCollection<TestSeries>(testSeries);
 
-            foreach (var group in result.Items.GroupBy(d => d.ScanId))
-            {
-                var testrel = new AggrigatedSeries()
+        AggregatedSeries = new ObservableCollection<AggrigatedSeries>(
+            result.Items
+                .GroupBy(item => item.ScanId)
+                .Select(group => new AggrigatedSeries
                 {
                     ScanId = group.Key,
                     Items = group
-           .GroupBy(d => d.ScannerFoundCWE)
-           .Select(g => new AggrigatedItems
-           {
-               CweId = g.Key,
-               Count = g.Count(), // Aggregating the count
+                        .GroupBy(item => item.ScannerFoundCWE)
+                        .Select(cweGroup => new AggrigatedItems
+                        {
+                            CweId = cweGroup.Key,
+                            Count = cweGroup.Count()
+                        })
+                        .ToList()
+                }));
 
-           }).ToList(),
+        ReportDataLoaded?.Invoke(this, EventArgs.Empty);
+    }
 
-
-                };
-                aggrigatedSeries.Add(testrel);
-
-            }
-            //Maui requires this to do initial load. 
-            AggregatedSeries = new ObservableCollection<AggrigatedSeries>(aggrigatedSeries);
-        }
-
-        [RelayCommand]
-        private void NavigatedTo() =>
+    [RelayCommand]
+    private void NavigatedTo()
+    {
         _isNavigatedTo = true;
+    }
 
-        [RelayCommand]
-        private void NavigatedFrom() =>
-            _isNavigatedTo = false;
+    [RelayCommand]
+    private void NavigatedFrom()
+    {
+        _isNavigatedTo = false;
+    }
 
+    [RelayCommand]
+    private async Task Refresh()
+    {
+        if (IsLoading)
+            return;
 
-        [RelayCommand]
-        private async Task Appearing()
+        IsLoading = true;
+        IsRefreshing = true;
+
+        try
         {
-            if (!_dataLoaded)
-            {
-
-                //await InitData(_seedDataService);
-                _dataLoaded = true;
-                await Refresh();
-            }
-            // This means we are being navigated to
-            else if (!_isNavigatedTo)
-            {
-                await Refresh();
-            }
+         
+            await LoadItemsAsync();
+            _dataLoaded = true;
+            OnPropertyChanged(nameof(HasLoadedData));
         }
-
-        [RelayCommand]
-        private async Task Refresh()
+        catch (Exception exception)
         {
-            try
-            {
-                IsRefreshing = true;
-            }
-            catch (Exception e)
-            {
-
-            }
-            finally
-            {
-                IsRefreshing = false;
-            }
+            _errorHandler.HandleError(exception);
         }
-
-        [RelayCommand]
-        private Task AddTask()
-              => Shell.Current.GoToAsync($"task");
-
-        [RelayCommand]
-        private Task NavigateToProject(CweCatalogDetailsPage project)
-            => Shell.Current.GoToAsync($"project?id={project.ID}");
-
-        public string SelectedRelationship { get; set; } = "All";
-
-        public List<string> AvailableRelationships =>
-        [
-            "All",
-    .. _relatedseries
-        .SelectMany(x => x.Items)
-        .Select(x => x.Relationship)
-        .Distinct()
-        .OrderBy(x => x)
-        ];
+        finally
+        {
+            IsRefreshing = false;
+            IsLoading = false;
+        }
     }
 }
-    public class TestSeries()
-    {
-        public int ScanId { get; set; }
-        public List<CweTestResults> Items { get; set; }
-    }
-    public class RelatedSeries()
-    {
-        public int ScanId { get; set; }
-        public List<RelatedItemsInTest> Items { get; set; }
-    }
-    public class AggrigatedSeries()
-    {
-        public int ScanId { get; set; }
-        public List<AggrigatedItems> Items { get; set; }
-    }
-    public class AggrigatedItems()
-    {
-        public int CweId { get; set; }
-        public int Count { get; set; }
-    }
+
+public class TestSeries
+{
+    public int ScanId { get; set; }
+    public List<CweTestResults> Items { get; set; } = [];
+}
+
+public class RelatedSeries
+{
+    public int ScanId { get; set; }
+    public List<RelatedItemsInTest> Items { get; set; } = [];
+}
+
+public class AggrigatedSeries
+{
+    public int ScanId { get; set; }
+    public List<AggrigatedItems> Items { get; set; } = [];
+}
+
+public class AggrigatedItems
+{
+    public int CweId { get; set; }
+    public int Count { get; set; }
+}

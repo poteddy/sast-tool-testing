@@ -1,13 +1,7 @@
-using MediatR;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Controls.Compatibility;
+using Microsoft.Maui.ApplicationModel;
 using Syncfusion.Maui.Toolkit.Charts;
-using System.Collections.ObjectModel;
-using ToolTester.Domain.Entities;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.PageModels;
-using ToolTester.Presentation.Services;
-using ToolTester.Presentation.Ulitlities;
 
 namespace ToolTester.Presentation.Pages;
 
@@ -15,76 +9,99 @@ public partial class ReportPage : ContentPage
 {
     private readonly ReportPageModel _reportPageModel;
     private SfCartesianChart? _relatedChart;
+    private bool _chartsBuilt;
 
     public ReportPage(ReportPageModel reportPageModel)
     {
         InitializeComponent();
+
         _reportPageModel = reportPageModel;
-        _reportPageModel.LoadItemsAsync().FireAndForgetSafeAsync();
         BindingContext = _reportPageModel;
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+
+        _reportPageModel.ReportDataLoaded -= OnReportDataLoaded;
+        _reportPageModel.ReportDataLoaded += OnReportDataLoaded;
+
+        if (_chartsBuilt)
+            return;
+
+        await _reportPageModel.InitializeAsync();
+
+        if (!_reportPageModel.HasLoadedData)
+            return;
+
+        BuildCharts();
+        _chartsBuilt = true;
+    }
+
+    protected override void OnDisappearing()
+    {
+        _reportPageModel.ReportDataLoaded -= OnReportDataLoaded;
+        base.OnDisappearing();
+    }
+
+    private void OnReportDataLoaded(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (_chartsBuilt)
+                BuildCharts();
+        });
+    }
+
+    private void BuildCharts()
+    {
+        ChartContainer.Children.Clear();
 
         var relationshipPicker = new Picker
         {
-            Title = "Relationship Filter"
+            Title = "Relationship Filter",
+            ItemsSource = _reportPageModel.AvailableRelationships,
+            SelectedItem = _reportPageModel.SelectedRelationship
         };
-
-        relationshipPicker.SetBinding(
-            Picker.ItemsSourceProperty,
-            nameof(ReportPageModel.AvailableRelationships));
-
-        relationshipPicker.SelectedIndex = 0;
 
         relationshipPicker.SelectedIndexChanged += (_, _) =>
         {
             _reportPageModel.SelectedRelationship =
                 relationshipPicker.SelectedItem?.ToString() ?? "All";
 
-            BuildRelatedChartWithFilter();
+            PopulateRelatedChart();
         };
-        Microsoft.Maui.Controls.StackLayout layout = new Microsoft.Maui.Controls.StackLayout
+
+        ChartContainer.Children.Add(BuildFalsePositiveChart());
+        ChartContainer.Children.Add(relationshipPicker);
+        ChartContainer.Children.Add(BuildRelatedChart());
+        ChartContainer.Children.Add(BuildPolarChart());
+    }
+
+    private SfCartesianChart BuildFalsePositiveChart()
+    {
+        var chart = new SfCartesianChart
         {
-            Children =
+            Title = "False Positive",
+            HeightRequest = 450,
+            ZoomPanBehavior = new ChartZoomPanBehavior
             {
-               BuildFalsePChart(),
-               relationshipPicker,
-               BuildRelatedChart(),
-               BuildPolarChart()
+                EnableDirectionalZooming = true,
+                EnableSelectionZooming = true
+            },
+            Legend = new ChartLegend
+            {
+                IsVisible = true,
+                ToggleSeriesVisibility = true
             }
         };
-        Content = new ScrollView
-        {
-            Content = layout
-        };
 
-    }
-    private void BuildRelatedChartWithFilter()
-    {
-        PopulateRelatedChart();
-    }
-    private SfCartesianChart BuildFalsePChart()
-    {
-
-        SfCartesianChart FalsePChart = new SfCartesianChart();
-        FalsePChart.Title = "False Positive";
-        FalsePChart.ZoomPanBehavior = new ChartZoomPanBehavior()
-        {
-            EnableDirectionalZooming = true,
-            EnableSelectionZooming = true
-        };
-        FalsePChart.Legend = new ChartLegend()
-        {
-            IsVisible = true,
-            ToggleSeriesVisibility = true
-
-        };
-        NumericalAxis primaryAxis = new NumericalAxis();
-        FalsePChart.XAxes.Add(primaryAxis);
-        NumericalAxis secondaryAxis = new NumericalAxis();
-        FalsePChart.YAxes.Add(secondaryAxis);
+        chart.XAxes.Add(new NumericalAxis());
+        chart.YAxes.Add(new NumericalAxis());
 
         foreach (var series in _reportPageModel.AggregatedSeries)
         {
-            ScatterSeries scatterSeries = new ScatterSeries()
+            chart.Series.Add(new ScatterSeries
             {
                 Label = $"Scan {series.ScanId}",
                 ItemsSource = series.Items,
@@ -92,153 +109,91 @@ public partial class ReportPage : ContentPage
                 YBindingPath = nameof(AggrigatedItems.Count),
                 PointWidth = 5,
                 PointHeight = 5,
-                     EnableTooltip = true,
-                TooltipTemplate = FalsePToolTip(FalsePChart)
-            };
-            FalsePChart.Series.Add(scatterSeries);
-
-            // Create an error bar series to display error ranges
-            //ErrorBarSeries errorBar = new ErrorBarSeries()
-            //{
-            //    Label = $"Scan {series.ScanId}",
-            //    ItemsSource = series.Items,
-            //    XBindingPath = nameof(AggrigatedItems.CWE),
-            //    YBindingPath = nameof(AggrigatedItems.Count),
-            //    Mode = ErrorBarMode.Vertical,
-            //    VerticalErrorPath = nameof(CweTestResults.ErrorValue),
-            //    Type = ErrorBarType.Custom
-            //};
-            //FalsePChart.Series.Add(errorBar);
+                EnableTooltip = true,
+                TooltipTemplate = FalsePositiveToolTip()
+            });
         }
-        // Create a scatter series to plot data points
-        //ScatterSeries scatterSeries = new ScatterSeries()
-        //{
-        //    ItemsSource = _reportPageModel.Items,
-        //    XBindingPath = nameof(CweTestResults.TestPathListedCWE),
-        //    YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
-        //    PointWidth = 5,
-        //    PointHeight = 5
-        //};
 
-
-
-
-        // Add the both series to the chart's series collection
-        //   FalsePChart.Series.Add(scatterSeries);
-        // FalsePChart.Series.Add(errorBar);
-
-        return FalsePChart;
+        return chart;
     }
+
     private SfPolarChart BuildPolarChart()
     {
-
-        SfPolarChart FalsePChart = new SfPolarChart();
-
-        FalsePChart.Legend = new ChartLegend()
+        var chart = new SfPolarChart
         {
-            IsVisible = true,
-            ToggleSeriesVisibility = true
-
+            HeightRequest = 450,
+            Legend = new ChartLegend
+            {
+                IsVisible = true,
+                ToggleSeriesVisibility = true
+            },
+            PrimaryAxis = new NumericalAxis(),
+            SecondaryAxis = new NumericalAxis()
         };
-        NumericalAxis primaryAxis = new NumericalAxis();
-        FalsePChart.PrimaryAxis = primaryAxis;
 
-        NumericalAxis secondaryAxis = new NumericalAxis();
-        FalsePChart.SecondaryAxis = secondaryAxis;
         foreach (var series in _reportPageModel.AggregatedSeries)
         {
-            PolarAreaSeries scatterSeries = new PolarAreaSeries()
+            chart.Series.Add(new PolarAreaSeries
             {
                 Label = $"Scan {series.ScanId}",
                 ItemsSource = series.Items,
                 XBindingPath = nameof(AggrigatedItems.CweId),
                 YBindingPath = nameof(AggrigatedItems.Count),
                 ShowDataLabels = true
-            };
-            FalsePChart.Series.Add(scatterSeries);
-
-            // Create an error bar series to display error ranges
-            //ErrorBarSeries errorBar = new ErrorBarSeries()
-            //{
-            //    Label = $"Scan {series.ScanId}",
-            //    ItemsSource = series.Items,
-            //    XBindingPath = nameof(CweTestResults.TestPathListedCWE),
-            //    YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
-            //    Mode = ErrorBarMode.Vertical,
-            //    VerticalErrorPath = nameof(CweTestResults.ErrorValue),
-            //    Type = ErrorBarType.Custom             
-            //};
-            // FalsePChart.Series.Add(errorBar);
+            });
         }
-        // Create a scatter series to plot data points
-        //ScatterSeries scatterSeries = new ScatterSeries()
-        //{
-        //    ItemsSource = _reportPageModel.Items,
-        //    XBindingPath = nameof(CweTestResults.TestPathListedCWE),
-        //    YBindingPath = nameof(CweTestResults.ScannerFoundCWE),
-        //    PointWidth = 5,
-        //    PointHeight = 5
-        //};
 
-
-
-
-        // Add the both series to the chart's series collection
-        //   FalsePChart.Series.Add(scatterSeries);
-        // FalsePChart.Series.Add(errorBar);
-
-        return FalsePChart;
+        return chart;
     }
 
     private SfCartesianChart BuildRelatedChart()
     {
-       _relatedChart = new SfCartesianChart();
-
-        _relatedChart.Title = "Related Findings";
-
-        _relatedChart.ZoomPanBehavior = new ChartZoomPanBehavior()
+        _relatedChart = new SfCartesianChart
         {
-            EnableDirectionalZooming = true,
-            EnableSelectionZooming = true
+            Title = "Related Findings",
+            HeightRequest = 450,
+            ZoomPanBehavior = new ChartZoomPanBehavior
+            {
+                EnableDirectionalZooming = true,
+                EnableSelectionZooming = true
+            },
+            Legend = new ChartLegend
+            {
+                IsVisible = true,
+                ToggleSeriesVisibility = true
+            }
         };
 
-        _relatedChart.Legend = new ChartLegend()
-        {
-            IsVisible = true,
-            ToggleSeriesVisibility = true
-        };
-
-        NumericalAxis primaryAxis = new();
-        _relatedChart.XAxes.Add(primaryAxis);
-
-        NumericalAxis secondaryAxis = new();
-        _relatedChart.YAxes.Add(secondaryAxis);
+        _relatedChart.XAxes.Add(new NumericalAxis());
+        _relatedChart.YAxes.Add(new NumericalAxis());
 
         PopulateRelatedChart();
-
         return _relatedChart;
     }
+
     private void PopulateRelatedChart()
     {
-        if (_relatedChart == null)
+        if (_relatedChart is null)
             return;
 
         _relatedChart.Series.Clear();
 
         foreach (var series in _reportPageModel.RelatedSeries)
         {
+            var sourceItems = series.Items ?? [];
+
             var filteredItems =
                 _reportPageModel.SelectedRelationship == "All"
-                    ? series.Items
-                    : series.Items
-                        .Where(x => x.Relationship ==
-                                    _reportPageModel.SelectedRelationship)
+                    ? sourceItems
+                    : sourceItems
+                        .Where(item => item.Relationship ==
+                                       _reportPageModel.SelectedRelationship)
                         .ToList();
 
-            if (!filteredItems.Any())
+            if (filteredItems.Count == 0)
                 continue;
 
-            BubbleSeries bubbleSeries = new()
+            _relatedChart.Series.Add(new BubbleSeries
             {
                 Label = $"Scan {series.ScanId}",
                 ItemsSource = filteredItems,
@@ -246,188 +201,78 @@ public partial class ReportPage : ContentPage
                 YBindingPath = nameof(RelatedItemsInTest.RelatedId),
                 SizeValuePath = nameof(RelatedItemsInTest.Count),
                 EnableTooltip = true,
-                TooltipTemplate = RelatedToolTip(_relatedChart)
-            };
-
-            _relatedChart.Series.Add(bubbleSeries);
+                TooltipTemplate = RelatedToolTip()
+            });
         }
     }
-    private DataTemplate RelatedToolTip(SfCartesianChart cartesianChart)
+
+    private static DataTemplate RelatedToolTip()
     {
-
-        var dataTemplate = new DataTemplate(() =>
-
-         {
-
-             VerticalStackLayout mainlayout = new VerticalStackLayout();
-
-             mainlayout.BackgroundColor = Colors.Black;
-
-             //cwe
-             HorizontalStackLayout cweLayout = new HorizontalStackLayout();
-
-             cweLayout.BackgroundColor = Colors.Black;
-
-             Label cweLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "CWE:" };
-
-             Label cwe = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
-
-             cwe.SetBinding(Label.TextProperty, "Item.CweId");
-
-             cweLayout.Add(cweLabel);
-
-             cweLayout.Add(cwe);
-             //cwe
-             //relatedcwe
-             HorizontalStackLayout relatedcweLayout = new HorizontalStackLayout();
-
-             relatedcweLayout.BackgroundColor = Colors.Black;
-
-             Label relatedcweLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Scanner Identified Related CWE:" };
-
-             Label relatedcwe = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
-
-             relatedcwe.SetBinding(Label.TextProperty, "Item.RelatedId");
-
-             relatedcweLayout.Add(relatedcweLabel);
-
-             relatedcweLayout.Add(relatedcwe);
-             //relatedcwe
-
-             //Group 1
-             HorizontalStackLayout relationshipLayout = new HorizontalStackLayout();
-
-             relationshipLayout.BackgroundColor = Colors.Black;
-
-
-
-             Label relationshipLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Relationship:" };
-
-             Label relationship = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
-
-             relationship.SetBinding(Label.TextProperty, "Item.Relationship");
-
-             relationshipLayout.Add(relationshipLabel);
-
-             relationshipLayout.Add(relationship);
-             //group2
-             HorizontalStackLayout relationshipscoreLayout = new HorizontalStackLayout();
-
-             relationshipscoreLayout.BackgroundColor = Colors.Black;
-
-             Label relatedcweScoreLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Scanner Finding Confidence:" };
-
-
-             Label relationshipscore = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
-
-             relationshipscore.SetBinding(Label.TextProperty, "Item.RelationshipScore");
-
-             relationshipscoreLayout.Add(relatedcweScoreLabel);
-             relationshipscoreLayout.Add(relationshipscore);
-
-             //group1
-
-
-
-             HorizontalStackLayout countLayout = new HorizontalStackLayout();
-
-             countLayout.BackgroundColor = Colors.Black;
-
-
-
-             Label countLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Count:" };
-
-             Label count = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
-
-             count.SetBinding(Label.TextProperty, "Item.Count", stringFormat: "{0}");
-
-             countLayout.Add(countLabel);
-
-             countLayout.Add(count);
-
-
-
-             mainlayout.Add(cweLayout);
-             mainlayout.Add(relatedcweLayout);
-
-             mainlayout.Add(relationshipLayout);
-             mainlayout.Add(relationshipscoreLayout);
-
-             mainlayout.Add(countLayout);
-
-
-
-             return mainlayout;
-
-         });
-        return dataTemplate;
-
-    }
-    private DataTemplate FalsePToolTip(SfCartesianChart cartesianChart)
-    {
-
-        var dataTemplate = new DataTemplate(() =>
-
+        return new DataTemplate(() =>
         {
-
-            VerticalStackLayout mainlayout = new VerticalStackLayout();
-
-            mainlayout.BackgroundColor = Colors.Black;
-
-            //cwe
-            HorizontalStackLayout cweLayout = new HorizontalStackLayout();
-
-            cweLayout.BackgroundColor = Colors.Black;
-
-            Label cweLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "CWE:" };
-
-            Label cwe = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
-
-            cwe.SetBinding(Label.TextProperty, "Item.CweId");
-
-            cweLayout.Add(cweLabel);
-
-            cweLayout.Add(cwe);
-        
-       
-          
-
-            HorizontalStackLayout countLayout = new HorizontalStackLayout();
-
-            countLayout.BackgroundColor = Colors.Black;
-
-
-
-            Label countLabel = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White, Text = "Count:" };
-
-            Label count = new Label() { Padding = 2, FontSize = 10, TextColor = Colors.White };
-
-            count.SetBinding(Label.TextProperty, "Item.Count", stringFormat: "{0}");
-
-            countLayout.Add(countLabel);
-
-            countLayout.Add(count);
-
-
-
-            mainlayout.Add(cweLayout);
-
-            mainlayout.Add(countLayout);
-
-
-
-            return mainlayout;
-
+            var layout = CreateTooltipLayout();
+            layout.Add(CreateTooltipRow("CWE:", "Item.CweId"));
+            layout.Add(CreateTooltipRow(
+                "Scanner Identified Related CWE:",
+                "Item.RelatedId"));
+            layout.Add(CreateTooltipRow("Relationship:", "Item.Relationship"));
+            layout.Add(CreateTooltipRow(
+                "Scanner Finding Confidence:",
+                "Item.RelationshipScore"));
+            layout.Add(CreateTooltipRow("Count:", "Item.Count"));
+            return layout;
         });
-        return dataTemplate;
-
     }
-    public class ChartData
+
+    private static DataTemplate FalsePositiveToolTip()
     {
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double HorizontalErrorValue { get; set; }
-        public double VerticalErrorValue { get; set; }
+        return new DataTemplate(() =>
+        {
+            var layout = CreateTooltipLayout();
+            layout.Add(CreateTooltipRow("CWE:", "Item.CweId"));
+            layout.Add(CreateTooltipRow("Count:", "Item.Count"));
+            return layout;
+        });
     }
 
+    private static VerticalStackLayout CreateTooltipLayout()
+    {
+        return new VerticalStackLayout
+        {
+            BackgroundColor = Colors.Black,
+            Padding = 6,
+            Spacing = 2
+        };
+    }
+
+    private static HorizontalStackLayout CreateTooltipRow(
+        string caption,
+        string bindingPath)
+    {
+        var row = new HorizontalStackLayout
+        {
+            BackgroundColor = Colors.Black,
+            Spacing = 4
+        };
+
+        row.Add(new Label
+        {
+            Padding = 2,
+            FontSize = 10,
+            TextColor = Colors.White,
+            Text = caption
+        });
+
+        var value = new Label
+        {
+            Padding = 2,
+            FontSize = 10,
+            TextColor = Colors.White
+        };
+
+        value.SetBinding(Label.TextProperty, bindingPath);
+        row.Add(value);
+
+        return row;
+    }
 }

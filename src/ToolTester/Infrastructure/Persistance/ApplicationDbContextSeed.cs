@@ -761,7 +761,11 @@ public sealed class ApplicationDbContextSeed
 
             new ToolSeed(
                 Name: "Veracode",
-                Format: "Veracode")
+                Format: "Veracode"),
+            new ToolSeed(
+                Name: "CPP Checker",
+                Format: "Cpp Checker")
+
         };
 
         var existingToolNames =
