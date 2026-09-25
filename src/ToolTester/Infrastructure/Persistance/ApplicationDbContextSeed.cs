@@ -764,7 +764,10 @@ public sealed class ApplicationDbContextSeed
                 Format: "Veracode"),
             new ToolSeed(
                 Name: "CPP Checker",
-                Format: "Cpp Checker")
+                Format: "Cpp Checker"),
+              new ToolSeed(
+                Name: "CheckMarx",
+                Format: "CheckMarx")
 
         };
 

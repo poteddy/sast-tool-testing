@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Diagnostics.Tracing.Parsers.AspNet;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,7 @@ using ToolTester.Application.Common.Models;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Parsers.Sarif;
+
 
 namespace ToolTester.Infrastructure.Services
 {
@@ -56,6 +58,13 @@ namespace ToolTester.Infrastructure.Services
             else if (ToolId == 4) //cppchecker
             {
                 var parser = new ToolTester.Parsers.CPPChecker.Parser();
+                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
+                var cwes = await parser.Get_findings(fs);
+                return await SaveReport(cwes, ToolId);
+            }
+            else if (ToolId == 5) //checkmarx
+            {
+                var parser = new ToolTester.Parsers.Checkmarx.Parser();
                 FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
                 var cwes = await parser.Get_findings(fs);
                 return await SaveReport(cwes, ToolId);
