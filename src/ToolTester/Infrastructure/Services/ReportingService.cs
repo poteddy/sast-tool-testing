@@ -203,8 +203,8 @@ public sealed class ReportingService : IReportingService,IDisposable
             ScanId = scanId,
             ToolId = toolId,
 
-            CweId = pair.GroundTruthCweId,
-            RelatedId = pair.ScannerCweId,
+            GroundTruthCweId = pair.GroundTruthCweId,
+            ScannerCweId = pair.ScannerCweId,
 
             Count = count,
 

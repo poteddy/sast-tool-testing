@@ -23,8 +23,9 @@ namespace ToolTester.Application.Reports.DTO
 
         }
         public int Id { get; set; }
-        public int CweId { get; set; }
-        public int RelatedId { get; set; }
+        public int GroundTruthCweId { get; set; }
+        public int ScannerCweId { get; set; }
+
 
         public int ToolId { get; set; }
         public int ScanId { get; set; }

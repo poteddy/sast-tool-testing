@@ -10,9 +10,9 @@ namespace ToolTester.Domain.Entities
     public class Report : IEntity
     {
         public int Id { get; set; }
-        public int CweId { get; set; }
+        public int GroundTruthCweId { get; set; }
         public CWECatalog CWECatalog { get; set; }
-        public int RelatedId { get; set; }
+        public int ScannerCweId { get; set; }
 
         public int ToolId { get; set; }
         public int ScanId { get; set; }

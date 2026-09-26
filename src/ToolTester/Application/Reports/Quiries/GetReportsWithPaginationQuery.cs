@@ -31,7 +31,7 @@ namespace ToolTester.Application.Reports.Quiries
         public async Task<PaginatedList<ReportDTO>> Handle(GetReportsWithPaginationQuery request, CancellationToken cancellationToken)
         {
             return await _context.Reports
-                .OrderBy(x => x.CweId)
+                .OrderBy(x => x.GroundTruthCweId)
                 .ProjectTo<ReportDTO>(_mapper.ConfigurationProvider)
                 .PaginatedListAsync(request.PageNumber, request.PageSize);
         }

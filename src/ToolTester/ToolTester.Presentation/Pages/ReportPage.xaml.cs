@@ -182,8 +182,8 @@ public partial class ReportPage : ContentPage
             {
                 Label = $"Scan {series.ScanId}",
                 ItemsSource = filteredItems,
-                XBindingPath = nameof(RelatedItemsInTest.CweId),
-                YBindingPath = nameof(RelatedItemsInTest.RelatedId),
+                XBindingPath = nameof(RelatedItemsInTest.GroundTruthCweId),
+                YBindingPath = nameof(RelatedItemsInTest.ScannerCweId),
                 SizeValuePath = nameof(RelatedItemsInTest.Count),
                 EnableTooltip = true,
                 TooltipTemplate = RelatedToolTip()
@@ -196,10 +196,10 @@ public partial class ReportPage : ContentPage
         return new DataTemplate(() =>
         {
             var layout = CreateTooltipLayout();
-            layout.Add(CreateTooltipRow("CWE:", "Item.CweId"));
+            layout.Add(CreateTooltipRow("CWE:", "Item.GroundTruthCweId"));
             layout.Add(CreateTooltipRow(
                 "Scanner Identified Related CWE:",
-                "Item.RelatedId"));
+                "Item.ScannerCweId"));
             layout.Add(CreateTooltipRow("Relationship:", "Item.Relationship"));
             layout.Add(CreateTooltipRow(
                 "Scanner Finding Confidence:",
