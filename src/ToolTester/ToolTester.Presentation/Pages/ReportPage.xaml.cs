@@ -9,7 +9,7 @@ public partial class ReportPage : ContentPage
 {
     private readonly ReportPageModel _reportPageModel;
     private SfCartesianChart? _relatedChart;
-    private bool _chartsBuilt;
+
 
     public ReportPage(ReportPageModel reportPageModel)
     {
@@ -19,23 +19,12 @@ public partial class ReportPage : ContentPage
         BindingContext = _reportPageModel;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
 
         _reportPageModel.ReportDataLoaded -= OnReportDataLoaded;
         _reportPageModel.ReportDataLoaded += OnReportDataLoaded;
-
-        if (_chartsBuilt)
-            return;
-
-        await _reportPageModel.InitializeAsync();
-
-        if (!_reportPageModel.HasLoadedData)
-            return;
-
-        BuildCharts();
-        _chartsBuilt = true;
     }
 
     protected override void OnDisappearing()
@@ -46,11 +35,7 @@ public partial class ReportPage : ContentPage
 
     private void OnReportDataLoaded(object? sender, EventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            if (_chartsBuilt)
-                BuildCharts();
-        });
+        MainThread.BeginInvokeOnMainThread(BuildCharts);
     }
 
     private void BuildCharts()

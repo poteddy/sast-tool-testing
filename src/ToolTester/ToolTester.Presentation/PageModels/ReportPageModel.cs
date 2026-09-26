@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.Input;
 using MediatR;
 using System.Collections.ObjectModel;
@@ -251,19 +252,22 @@ public partial class ReportPageModel : BaseViewModel
     }
 
     [RelayCommand]
-    private async Task Refresh()
+    private async Task LoadReports()
     {
         if (IsLoading)
             return;
 
         IsLoading = true;
-        IsRefreshing = true;
 
         try
         {
-         
+            // Give MAUI a chance to paint the spinner
+            
+            await Task.Yield();
             await LoadItemsAsync();
+
             _dataLoaded = true;
+
             OnPropertyChanged(nameof(HasLoadedData));
         }
         catch (Exception exception)
@@ -272,7 +276,142 @@ public partial class ReportPageModel : BaseViewModel
         }
         finally
         {
-            IsRefreshing = false;
+            IsLoading = false;
+        }
+    }
+    [RelayCommand]
+    private async Task ExportAsync()
+    {
+        try
+        {
+            IsLoading = true;
+
+            using var workbook = new XLWorkbook();
+
+            //
+            // Results Sheet
+            //
+            var resultsSheet = workbook.Worksheets.Add("Results");
+
+            resultsSheet.Cell(1, 1).Value = "Ground Truth CWE";
+            resultsSheet.Cell(1, 2).Value = "Scanner CWE";
+            resultsSheet.Cell(1, 3).Value = "Scan Id";
+            resultsSheet.Cell(1, 4).Value = "Error Value";
+
+            var row = 2;
+
+            foreach (var item in Items)
+            {
+                resultsSheet.Cell(row, 1).Value = item.TestPathListedCWE;
+                resultsSheet.Cell(row, 2).Value = item.ScannerFoundCWE;
+                resultsSheet.Cell(row, 3).Value = item.ScanId;
+                resultsSheet.Cell(row, 4).Value = item.ErrorValue;
+
+                row++;
+            }
+
+            resultsSheet.Columns().AdjustToContents();
+
+            //
+            // Relationships Sheet
+            //
+            var relationshipSheet =
+                workbook.Worksheets.Add("Relationships");
+
+            relationshipSheet.Cell(1, 1).Value = "Scan Id";
+            relationshipSheet.Cell(1, 2).Value = "CWE";
+            relationshipSheet.Cell(1, 3).Value = "Related CWE";
+            relationshipSheet.Cell(1, 4).Value = "Relationship";
+            relationshipSheet.Cell(1, 5).Value = "Score";
+            relationshipSheet.Cell(1, 6).Value = "Count";
+
+            row = 2;
+
+            foreach (var series in RelatedSeries)
+            {
+                foreach (var item in series.Items)
+                {
+                    relationshipSheet.Cell(row, 1).Value = item.ScanId;
+                    relationshipSheet.Cell(row, 2).Value = item.CweId;
+                    relationshipSheet.Cell(row, 3).Value = item.RelatedId;
+                    relationshipSheet.Cell(row, 4).Value = item.Relationship;
+                    relationshipSheet.Cell(row, 5).Value = item.RelationshipScore;
+                    relationshipSheet.Cell(row, 6).Value = item.Count;
+
+                    row++;
+                }
+            }
+
+            relationshipSheet.Columns().AdjustToContents();
+
+            //
+            // Aggregated Sheet
+            //
+            var aggregatedSheet =
+                workbook.Worksheets.Add("Aggregated");
+
+            aggregatedSheet.Cell(1, 1).Value = "Scan Id";
+            aggregatedSheet.Cell(1, 2).Value = "CWE";
+            aggregatedSheet.Cell(1, 3).Value = "Count";
+
+            row = 2;
+
+            foreach (var series in AggregatedSeries)
+            {
+                foreach (var item in series.Items)
+                {
+                    aggregatedSheet.Cell(row, 1).Value = series.ScanId;
+                    aggregatedSheet.Cell(row, 2).Value = item.CweId;
+                    aggregatedSheet.Cell(row, 3).Value = item.Count;
+
+                    row++;
+                }
+            }
+
+            aggregatedSheet.Columns().AdjustToContents();
+
+            //
+            // Summary Sheet
+            //
+            var summarySheet =
+                workbook.Worksheets.Add("Summary");
+
+            summarySheet.Cell(1, 1).Value = "Metric";
+            summarySheet.Cell(1, 2).Value = "Value";
+
+            summarySheet.Cell(2, 1).Value = "Total Results";
+            summarySheet.Cell(2, 2).Value = Items.Count;
+
+            summarySheet.Cell(3, 1).Value = "Scan Series";
+            summarySheet.Cell(3, 2).Value = TestSeries.Count;
+
+            summarySheet.Cell(4, 1).Value = "Relationship Series";
+            summarySheet.Cell(4, 2).Value = RelatedSeries.Count;
+
+            summarySheet.Cell(5, 1).Value = "Aggregated Series";
+            summarySheet.Cell(5, 2).Value = AggregatedSeries.Count;
+
+            summarySheet.Columns().AdjustToContents();
+
+            var filePath = Path.Combine(
+                FileSystem.CacheDirectory,
+                $"CWE_Report_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+
+            workbook.SaveAs(filePath);
+
+            await Share.Default.RequestAsync(
+                new ShareFileRequest
+                {
+                    Title = "CWE Benchmark Report",
+                    File = new ShareFile(filePath)
+                });
+        }
+        catch (Exception ex)
+        {
+            _errorHandler.HandleError(ex);
+        }
+        finally
+        {
             IsLoading = false;
         }
     }
