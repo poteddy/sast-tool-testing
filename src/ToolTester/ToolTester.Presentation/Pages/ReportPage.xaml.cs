@@ -149,8 +149,23 @@ public partial class ReportPage : ContentPage
             }
         };
 
-        _relatedChart.XAxes.Add(new NumericalAxis());
-        _relatedChart.YAxes.Add(new NumericalAxis());
+        _relatedChart.XAxes.Add(new NumericalAxis
+        {
+            Title = new ChartAxisTitle
+            {
+                Text = "Ground Truth CWE"
+            },
+            ShowMajorGridLines = true
+        });
+
+        _relatedChart.YAxes.Add(new NumericalAxis
+        {
+            Title = new ChartAxisTitle
+            {
+                Text = "Scanner CWE"
+            },
+            ShowMajorGridLines = true
+        });
 
         PopulateRelatedChart();
         return _relatedChart;
@@ -196,7 +211,7 @@ public partial class ReportPage : ContentPage
         return new DataTemplate(() =>
         {
             var layout = CreateTooltipLayout();
-            layout.Add(CreateTooltipRow("CWE:", "Item.GroundTruthCweId"));
+            layout.Add(CreateTooltipRow("Ground Truth CWE:", "Item.GroundTruthCweId"));
             layout.Add(CreateTooltipRow(
                 "Scanner Identified Related CWE:",
                 "Item.ScannerCweId"));
