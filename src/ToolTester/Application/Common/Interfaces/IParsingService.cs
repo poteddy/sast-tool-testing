@@ -2,6 +2,7 @@
 {
     public interface IParsingService:IDisposable
     {
-        Task<int> Parse(int ToolId, string filepath);
+      
+        Task<int> Parse(int toolId, string filePath, CancellationToken cancellationToken = default);
     }
 }

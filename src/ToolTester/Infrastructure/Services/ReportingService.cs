@@ -8,7 +8,7 @@ using ToolTester.Infrastructure.Persistance;
 
 namespace ToolTester.Infrastructure.Services;
 
-public sealed class ReportingService : IReportingService,IDisposable
+public sealed class ReportingService : IReportingService, IDisposable
 {
     private readonly ILogger<ReportingService> _logger;
 
@@ -17,8 +17,12 @@ public sealed class ReportingService : IReportingService,IDisposable
 
     private readonly ICweRelationshipService
         _relationshipService;
-    private bool disposedValue;
-    private ICweTopologyService _cweTopologyService;
+
+    private readonly ICweTopologyService
+        _cweTopologyService;
+
+    private bool _disposedValue;
+
     public ReportingService(
         ILogger<ReportingService> logger,
         IDbContextFactory<ApplicationDbContext> contextFactory,
@@ -34,14 +38,17 @@ public sealed class ReportingService : IReportingService,IDisposable
         _relationshipService = relationshipService
             ?? throw new ArgumentNullException(
                 nameof(relationshipService));
-        _cweTopologyService = cweTopologyService;
+
+        _cweTopologyService = cweTopologyService
+            ?? throw new ArgumentNullException(
+                nameof(cweTopologyService));
     }
 
-    public async Task<StringBuilder> GenerateReport(
+    public Task<StringBuilder> GenerateReport(
         int scanid,
         int toolid)
     {
-        return await GenerateReportAsync(
+        return GenerateReportAsync(
             scanid,
             toolid,
             CancellationToken.None);
@@ -60,12 +67,25 @@ public sealed class ReportingService : IReportingService,IDisposable
 
         try
         {
+            /*
+             * Preserve all three different CWE values:
+             *
+             * ScannerCweId:
+             *     CWE reported by the scanner.
+             *
+             * GroundTruthCweId:
+             *     CWE identified by the Juliet test path.
+             *
+             * RootCauseCweId:
+             *     Root cause selected by the semantic resolver.
+             */
             var testResults = await context.CWETestResults
                 .AsNoTracking()
                 .Where(result => result.ScanId == scanId)
                 .Select(result => new TestResultInput(
                     result.ScannerFoundCWE,
-                    result.TestPathListedCWE))
+                    result.TestPathListedCWE,
+                    result.RootCauseCWE))
                 .Where(result =>
                     result.ScannerCweId > 0 &&
                     result.GroundTruthCweId > 0)
@@ -81,91 +101,82 @@ public sealed class ReportingService : IReportingService,IDisposable
             }
 
             /*
-             * Evaluate each distinct CWE pair only once.
+             * Root cause is included in the grouping key.
              *
-             * If 300 findings contain CWE-676 -> CWE-121,
-             * the relationship engine only evaluates the pair once.
+             * This prevents these from being combined:
+             *
+             * Scanner CWE-676 -> ground truth CWE-121
+             *     -> root cause CWE-119
+             *
+             * Scanner CWE-676 -> ground truth CWE-121
+             *     -> no identified root cause
              */
-            var groupedPairs = testResults
-                .GroupBy(result => new CwePair(
+            var groupedResults = testResults
+                .GroupBy(result => new CweReportKey(
                     result.ScannerCweId,
-                    result.GroundTruthCweId))
-                .Select(group => new
-                {
-                    Pair = group.Key,
-                    Count = group.Count()
-                })
+                    result.GroundTruthCweId,
+                    result.RootCauseCweId))
+                .Select(group => new GroupedCweResult(
+                    group.Key,
+                    group.Count()))
                 .ToList();
 
             var reports = new List<Report>(
-                groupedPairs.Count);
+                groupedResults.Count);
 
-            var reportSummary = new StringBuilder();
+            var reportSummary = CreateReportHeader(
+                scanId,
+                toolId,
+                testResults,
+                groupedResults.Count);
 
-            reportSummary.AppendLine(
-                $"CWE report for scan {scanId}, tool {toolId}");
-
-            reportSummary.AppendLine(
-                $"Total findings: {testResults.Count}");
-
-            reportSummary.AppendLine(
-                $"Distinct CWE pairs: {groupedPairs.Count}");
-
-            reportSummary.AppendLine();
-
-            foreach (var groupedPair in groupedPairs)
+            foreach (var groupedResult in groupedResults)
             {
+                var key = groupedResult.Key;
+
                 var relationship =
                     await _relationshipService.EvaluateAsync(
-                        scannerCweId:
-                            groupedPair.Pair.ScannerCweId,
-                        groundTruthCweId:
-                            groupedPair.Pair.GroundTruthCweId,
+                        scannerCweId: key.ScannerCweId,
+                        groundTruthCweId: key.GroundTruthCweId,
                         scannerRuleId: null,
                         programmingLanguage: null,
                         cancellationToken);
-                CweTopologyMatch topology = null;
-                try
-                {
-                    topology = await _cweTopologyService.GetRelationshipAsync(groupedPair.Pair.GroundTruthCweId, groupedPair.Pair.ScannerCweId, CancellationToken.None);
-                    
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                /*
-                 * Decide whether unrelated pairs should be persisted.
-                 *
-                 * Keeping them is useful for calculating false-positive
-                 * counts. Remove this block if you only want matched
-                 * relationships in the Reports table.
-                 */
+
+                var topology = await TryGetTopologyAsync(
+                    key.GroundTruthCweId,
+                    key.ScannerCweId,
+                    cancellationToken);
+
                 reports.Add(
                     CreateReportEntity(
                         scanId,
                         toolId,
-                        groupedPair.Pair,
-                        groupedPair.Count,
+                        key,
+                        groupedResult.Count,
                         relationship,
                         topology));
 
                 AppendSummaryLine(
                     reportSummary,
-                    groupedPair.Pair,
-                    groupedPair.Count,
-                    relationship);
+                    key,
+                    groupedResult.Count,
+                    relationship,
+                    topology);
 
                 _logger.LogInformation(
-                    "Scan {ScanId}: scanner CWE-{ScannerCweId} " +
-                    "to ground-truth CWE-{GroundTruthCweId} is " +
-                    "{Relationship}, score {Score}, count {Count}.",
+                    "Scan {ScanId}: scanner CWE-{ScannerCweId}, " +
+                    "ground-truth CWE-{GroundTruthCweId}, " +
+                    "root-cause CWE-{RootCauseCweId}, " +
+                    "relationship {Relationship}, score {Score}, " +
+                    "topology {TopologyRelationship}, count {Count}.",
                     scanId,
-                    groupedPair.Pair.ScannerCweId,
-                    groupedPair.Pair.GroundTruthCweId,
+                    key.ScannerCweId,
+                    key.GroundTruthCweId,
+                    key.RootCauseCweId,
                     relationship.Relationship,
                     relationship.Score,
-                    groupedPair.Count);
+                    topology?.Relationship,
+                    groupedResult.Count);
             }
 
             await ReplaceReportsAsync(
@@ -190,37 +201,157 @@ public sealed class ReportingService : IReportingService,IDisposable
         }
     }
 
+    private async Task<CweTopologyMatch?> TryGetTopologyAsync(
+        int groundTruthCweId,
+        int scannerCweId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            /*
+             * Source is the ground-truth CWE.
+             * Target is the scanner-reported CWE.
+             */
+            return await _cweTopologyService.GetRelationshipAsync(
+                groundTruthCweId,
+                scannerCweId,
+                cancellationToken);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Topology could not be calculated between " +
+                "ground-truth CWE-{GroundTruthCweId} and " +
+                "scanner CWE-{ScannerCweId}.",
+                groundTruthCweId,
+                scannerCweId);
+
+            return null;
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "No topology relationship was available between " +
+                "ground-truth CWE-{GroundTruthCweId} and " +
+                "scanner CWE-{ScannerCweId}.",
+                groundTruthCweId,
+                scannerCweId);
+
+            return null;
+        }
+    }
+
+    private static StringBuilder CreateReportHeader(
+        int scanId,
+        int toolId,
+        IReadOnlyCollection<TestResultInput> testResults,
+        int distinctCombinationCount)
+    {
+        var rootCauseIdentifiedCount = testResults.Count(
+            result => result.RootCauseCweId.HasValue);
+
+        var rootCauseMissingCount =
+            testResults.Count - rootCauseIdentifiedCount;
+
+        var rootCauseMatchesGroundTruthCount = testResults.Count(
+            result =>
+                result.RootCauseCweId.HasValue &&
+                result.RootCauseCweId.Value ==
+                result.GroundTruthCweId);
+
+        var rootCauseMatchesScannerCount = testResults.Count(
+            result =>
+                result.RootCauseCweId.HasValue &&
+                result.RootCauseCweId.Value ==
+                result.ScannerCweId);
+
+        var summary = new StringBuilder();
+
+        summary.AppendLine(
+            $"CWE report for scan {scanId}, tool {toolId}");
+
+        summary.AppendLine(
+            $"Total findings: {testResults.Count}");
+
+        summary.AppendLine(
+            $"Distinct CWE combinations: {distinctCombinationCount}");
+
+        summary.AppendLine(
+            $"Findings with identified root cause: " +
+            $"{rootCauseIdentifiedCount}");
+
+        summary.AppendLine(
+            $"Findings without identified root cause: " +
+            $"{rootCauseMissingCount}");
+
+        summary.AppendLine(
+            $"Root cause matches ground truth: " +
+            $"{rootCauseMatchesGroundTruthCount}");
+
+        summary.AppendLine(
+            $"Root cause matches scanner CWE: " +
+            $"{rootCauseMatchesScannerCount}");
+
+        summary.AppendLine();
+
+        return summary;
+    }
+
     private static Report CreateReportEntity(
-       int scanId,
-       int toolId,
-       CwePair pair,
-       int count,
-       RelationshipResult relationship,
-       CweTopologyMatch topology)
+        int scanId,
+        int toolId,
+        CweReportKey key,
+        int count,
+        RelationshipResult relationship,
+        CweTopologyMatch? topology)
     {
         return new Report
         {
             ScanId = scanId,
             ToolId = toolId,
 
-            GroundTruthCweId = pair.GroundTruthCweId,
-            ScannerCweId = pair.ScannerCweId,
+            GroundTruthCweId = key.GroundTruthCweId,
+            ScannerCweId = key.ScannerCweId,
+            RootCauseCweId = key.RootCauseCweId,
+
+            RootCauseMatchesGroundTruth =
+                key.RootCauseCweId.HasValue &&
+                key.RootCauseCweId.Value ==
+                key.GroundTruthCweId,
+
+            RootCauseMatchesScanner =
+                key.RootCauseCweId.HasValue &&
+                key.RootCauseCweId.Value ==
+                key.ScannerCweId,
 
             Count = count,
 
-            Relationship = relationship.Relationship.ToString(),
-            RelationshipScore = relationship.Score,
+            Relationship =
+                relationship.Relationship.ToString(),
+
+            RelationshipScore =
+                relationship.Score,
+
+            /*
+             * Topology can be null when one of the CWEs is not
+             * present in the imported MITRE dataset.
+             */
             TopologyRelationship =
-                topology.Relationship.ToString(),
+                topology?.Relationship.ToString()
+                ?? "NotAvailable",
 
             GroundTruthAbstraction =
-                topology.SourceAbstraction.ToString(),
+                topology?.SourceAbstraction.ToString()
+                ?? "Unknown",
 
             ScannerAbstraction =
-                topology.TargetAbstraction.ToString(),
+                topology?.TargetAbstraction.ToString()
+                ?? "Unknown",
 
             TopologyDistance =
-                topology.Distance
+                topology?.Distance
         };
     }
 
@@ -232,11 +363,8 @@ public sealed class ReportingService : IReportingService,IDisposable
         CancellationToken cancellationToken)
     {
         /*
-         * Delete old generated results so the operation is
-         * idempotent.
-         *
-         * ExecuteDeleteAsync requires a relational provider.
-         * Use RemoveRange for the EF InMemory provider.
+         * Delete previously generated reports for this scan and tool
+         * so report generation remains idempotent.
          */
         if (context.Database.IsInMemory())
         {
@@ -265,20 +393,54 @@ public sealed class ReportingService : IReportingService,IDisposable
 
     private static void AppendSummaryLine(
         StringBuilder summary,
-        CwePair pair,
+        CweReportKey key,
         int count,
-        RelationshipResult relationship)
+        RelationshipResult relationship,
+        CweTopologyMatch? topology)
     {
-        summary.Append("CWE-");
-        summary.Append(pair.ScannerCweId);
-        summary.Append(" -> CWE-");
-        summary.Append(pair.GroundTruthCweId);
-        summary.Append(": ");
+        summary.Append("Scanner CWE-");
+        summary.Append(key.ScannerCweId);
+
+        summary.Append(" -> Ground truth CWE-");
+        summary.Append(key.GroundTruthCweId);
+
+        summary.Append(" -> Root cause ");
+
+        if (key.RootCauseCweId.HasValue)
+        {
+            summary.Append("CWE-");
+            summary.Append(key.RootCauseCweId.Value);
+        }
+        else
+        {
+            summary.Append("not identified");
+        }
+
+        summary.Append(": relationship ");
         summary.Append(relationship.Relationship);
+
         summary.Append(", score ");
         summary.Append(relationship.Score);
+
         summary.Append(", classification ");
         summary.Append(relationship.Classification);
+
+        summary.Append(", topology ");
+        summary.Append(
+            topology?.Relationship.ToString()
+            ?? "not available");
+
+        summary.Append(", topology distance ");
+
+        if (topology is not null)
+        {
+            summary.Append(topology.Distance);
+        }
+        else
+        {
+            summary.Append("not available");
+        }
+
         summary.Append(", findings ");
         summary.AppendLine(count.ToString());
     }
@@ -321,37 +483,30 @@ public sealed class ReportingService : IReportingService,IDisposable
 
     private readonly record struct TestResultInput(
         int ScannerCweId,
-        int GroundTruthCweId);
+        int GroundTruthCweId,
+        int? RootCauseCweId);
 
-    private readonly record struct CwePair(
+    private readonly record struct CweReportKey(
         int ScannerCweId,
-        int GroundTruthCweId);
+        int GroundTruthCweId,
+        int? RootCauseCweId);
+
+    private readonly record struct GroupedCweResult(
+        CweReportKey Key,
+        int Count);
 
     private void Dispose(bool disposing)
     {
-        if (!disposedValue)
+        if (_disposedValue)
         {
-            if (disposing)
-            {
-                // TODO: dispose managed state (managed objects)
-            }
-
-            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-            // TODO: set large fields to null
-            disposedValue = true;
+            return;
         }
-    }
 
-    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-    // ~ReportingService()
-    // {
-    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-    //     Dispose(disposing: false);
-    // }
+        _disposedValue = true;
+    }
 
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }

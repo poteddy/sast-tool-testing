@@ -11,7 +11,7 @@ namespace ToolTester.Presentation.PageModels;
 
 public partial class ReportPageModel : BaseViewModel
 {
-    private const int TestResultPageSize = 100000;
+    private const int TestResultPageSize = 250000;
     private const int ReportPageSize = 10000;
     private const int RelatedErrorValue = 0;
     private const int UnrelatedErrorValue = 5;

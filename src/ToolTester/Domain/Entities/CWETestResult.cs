@@ -17,7 +17,7 @@
         public string References { get; set; } = string.Empty;
         public string VulnIdFromTool { get; set; } = string.Empty;
         public string Cve { get; set; } = string.Empty;
-      
+
         public string Mitigation { get; set; } = string.Empty;
         public DateTime? Date { get; set; } = DateTime.MinValue;
             

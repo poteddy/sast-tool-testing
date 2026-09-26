@@ -38,5 +38,10 @@ namespace ToolTester.Application.Reports.DTO
         public string? GroundTruthAbstraction { get; set; }
         public string? ScannerAbstraction { get; set; }
         public int? TopologyDistance { get; set; }
+        public int? RootCauseCweId { get; set; }
+
+        public bool RootCauseMatchesGroundTruth { get; set; }
+
+        public bool RootCauseMatchesScanner { get; set; }
     }
 }

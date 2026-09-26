@@ -1,182 +1,274 @@
-﻿using Microsoft.Diagnostics.Tracing.Parsers.AspNet;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Persistance;
-using ToolTester.Parsers.Sarif;
 
+namespace ToolTester.Infrastructure.Services;
 
-namespace ToolTester.Infrastructure.Services
+public sealed partial class ParsingService : IParsingService
 {
-    public class ParsingService : IParsingService
+    private readonly ILogger<ParsingService> _logger;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+    private readonly ICweRootCauseResolver _rootCauseResolver;
+
+    private bool _disposedValue;
+
+    public ParsingService(
+        ILogger<ParsingService> logger,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
+        ICweRootCauseResolver rootCauseResolver)
     {
-        private readonly ILogger<ParsingService> _logger;
+        _logger = logger
+            ?? throw new ArgumentNullException(nameof(logger));
 
-        private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+        _contextFactory = contextFactory
+            ?? throw new ArgumentNullException(nameof(contextFactory));
 
+        _rootCauseResolver = rootCauseResolver
+            ?? throw new ArgumentNullException(nameof(rootCauseResolver));
+    }
 
-        public ParsingService(ILogger<ParsingService> logger, IDbContextFactory<ApplicationDbContext> contextFactory)
+    public async Task<int> Parse(
+        int toolId,
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        var normalizedFilePath = filePath.Trim('"');
+
+        if (!File.Exists(normalizedFilePath))
         {
-            _logger = logger;
-            _contextFactory = contextFactory;
+            throw new FileNotFoundException(
+                "The scanner result file was not found.",
+                normalizedFilePath);
         }
-        private bool disposedValue;
 
-        public async Task<int> Parse(int ToolId, string filepath)
+        await using var stream = File.OpenRead(normalizedFilePath);
+
+        List<CWEs> findings = toolId switch
         {
+            1 => await ParseSemgrepAsync(stream),
+            2 => await ParseSarifAsync(stream),
+            3 => await ParseVeracodeAsync(stream),
+            4 => await ParseCppCheckerAsync(stream),
+            5 => await ParseCheckmarxAsync(stream),
 
-            if (ToolId == 1) //semgrep
-            {
-                var parser = new ToolTester.Parsers.SemGrep.Parser();
-                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
-                var cwes = await parser.Get_findings(fs);
-                return await SaveReport(cwes, ToolId);
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(toolId),
+                toolId,
+                "The specified scanner tool is not supported.")
+        };
 
-            }
+        return await SaveReportAsync(
+            findings,
+            toolId,
+            cancellationToken);
+    }
 
-            else if (ToolId == 2) //sarif
-            {
-                var parser = new ToolTester.Parsers.Sarif.Parser();
-                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
-                var cwes = await parser.Get_findings(fs);
-                return await SaveReport(cwes, ToolId);
-            }
-            else if (ToolId == 3) //veracode
-            {
-                var parser = new ToolTester.Parsers.Veracode.Parser();
-                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
-                var cwes = await parser.Get_findings(fs);
-                return await SaveReport(cwes, ToolId);
-            }
-            else if (ToolId == 4) //cppchecker
-            {
-                var parser = new ToolTester.Parsers.CPPChecker.Parser();
-                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
-                var cwes = await parser.Get_findings(fs);
-                return await SaveReport(cwes, ToolId);
-            }
-            else if (ToolId == 5) //checkmarx
-            {
-                var parser = new ToolTester.Parsers.Checkmarx.Parser();
-                FileStream fs = File.OpenRead(filepath.Replace("\"", ""));
-                var cwes = await parser.Get_findings(fs);
-                return await SaveReport(cwes, ToolId);
-            }
-            return 0;
-        }
-        private async Task<int> SaveReport(List<CWEs> cwes, int Toolid)
+    private static async Task<List<CWEs>> ParseSemgrepAsync(Stream stream)
+    {
+        using var parser = new ToolTester.Parsers.SemGrep.Parser();
+        return await parser.Get_findings(stream);
+    }
+
+    private static async Task<List<CWEs>> ParseSarifAsync(Stream stream)
+    {
+        using var parser = new ToolTester.Parsers.Sarif.Parser();
+        return await parser.Get_findings(stream);
+    }
+
+    private static async Task<List<CWEs>> ParseVeracodeAsync(Stream stream)
+    {
+        using var parser = new ToolTester.Parsers.Veracode.Parser();
+        return await parser.Get_findings(stream);
+    }
+
+    private static async Task<List<CWEs>> ParseCppCheckerAsync(Stream stream)
+    {
+        using var parser = new ToolTester.Parsers.CPPChecker.Parser();
+        return await parser.Get_findings(stream);
+    }
+
+    private static async Task<List<CWEs>> ParseCheckmarxAsync(Stream stream)
+    {
+        using var parser = new ToolTester.Parsers.Checkmarx.Parser();
+        return await parser.Get_findings(stream);
+    }
+
+    private async Task<int> SaveReportAsync(
+        IReadOnlyCollection<CWEs> cwes,
+        int toolId,
+        CancellationToken cancellationToken)
+    {
+        if (cwes.Count == 0)
         {
-            int ScanId = 1;
-            using (var context = this._contextFactory.CreateDbContext())
-            {
-                if (!context.CWETestResults.Any()) ScanId = 1;
-                else
-                {
-                    var x = context.CWETestResults.Max(d => d.ScanId);
-                    if (x > 0)
-                    {
-                        ScanId = x + 1;
-                    }
-                }
-
-            }
-
-
-
-            if (cwes.Count > 0)
-            {
-                foreach (var cweresult in cwes)
-                {
-                    string pattern = $@"(?i)(?<=CWE)\d+";
-
-                    Match match = Regex.Match(cweresult.FilePath, pattern);
-
-                    if (match.Success)
-                    {
-
-
-                        var thisresult = new CWETestResult()
-                        {
-                            TestPathListedCWE = int.Parse(match.Value),
-                            Cve = cweresult.Cve + "",
-                            ScannerFoundCWE = cweresult.Cwe,
-                            Date = DateTime.Now,
-                            Description = cweresult.Description + "",
-                            DynamicFinding = cweresult.DynamicFinding,
-                            FilePath = cweresult.FilePath + "",
-                            FoundBy = cweresult.FoundBy,
-                            Line = cweresult.Line,
-                            Mitigation = cweresult.Mitigation + "",
-                            NumericalSeverity = cweresult.NumericalSeverity,
-                            References = cweresult.References + "",
-                            Severity = cweresult.Severity + "",
-                            StaticFinding = cweresult.StaticFinding,
-                            Test = cweresult.Test,
-                            Title = cweresult.Title + "",
-                            VulnIdFromTool = cweresult.VulnIdFromTool + "",
-                            ScanId = ScanId,
-                        };
-
-                        using (var context = this._contextFactory.CreateDbContext())
-                        {
-                            try
-                            {
-                                context.CWETestResults.Add(thisresult);
-                                await context.SaveChangesAsync();
-
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex.Message, ex);
-                                throw;
-                            }
-
-                        }
-
-                    }
-
-                }
-                return ScanId;
-
-            }
             return -1;
         }
 
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(cancellationToken);
 
-        protected virtual void Dispose(bool disposing)
+        var scanId = await GetNextScanIdAsync(
+            context,
+            cancellationToken);
+
+        var results = new List<CWETestResult>(cwes.Count);
+
+        foreach (var cweResult in cwes)
         {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    // TODO: dispose managed state (managed objects)
-                }
+            var groundTruthCwe = ExtractGroundTruthCwe(
+                cweResult.FilePath);
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
-                disposedValue = true;
+            if (!groundTruthCwe.HasValue)
+            {
+                _logger.LogWarning(
+                    "No ground-truth CWE was found in file path {FilePath}.",
+                    cweResult.FilePath);
+
+                continue;
             }
+
+            var scannerCwe = cweResult.Cwe;
+
+            int? rootCauseCwe = null;
+
+            if (scannerCwe > 0)
+            {
+                rootCauseCwe =
+                    await _rootCauseResolver.ResolveRootCauseAsync(
+                        scannerCwe,
+                        groundTruthCwe.Value,
+                        cancellationToken);
+            }
+
+            var result = new CWETestResult
+            {
+                TestPathListedCWE = groundTruthCwe.Value,
+                ScannerFoundCWE = scannerCwe,
+                RootCauseCWE = rootCauseCwe,
+
+                Cve = cweResult.Cve ?? string.Empty,
+                Date = DateTime.UtcNow,
+                Description = cweResult.Description ?? string.Empty,
+                DynamicFinding = cweResult.DynamicFinding,
+                FilePath = cweResult.FilePath ?? string.Empty,
+                FoundBy = cweResult.FoundBy,
+                Line = cweResult.Line,
+                Mitigation = cweResult.Mitigation ?? string.Empty,
+                NumericalSeverity = cweResult.NumericalSeverity,
+                References = cweResult.References ?? string.Empty,
+                Severity = cweResult.Severity ?? string.Empty,
+                StaticFinding = cweResult.StaticFinding,
+                Test = cweResult.Test,
+                Title = cweResult.Title ?? string.Empty,
+                VulnIdFromTool =
+                    cweResult.VulnIdFromTool ?? string.Empty,
+
+                ScanId = scanId
+            };
+
+            results.Add(result);
+
+            _logger.LogDebug(
+                "CWE result: scanner CWE-{ScannerCwe}, " +
+                "ground truth CWE-{GroundTruthCwe}, " +
+                "root cause CWE-{RootCauseCwe}.",
+                scannerCwe,
+                groundTruthCwe,
+                rootCauseCwe);
         }
 
-        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        // ~ParsingService()
-        // {
-        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        //     Dispose(disposing: false);
-        // }
-
-        public void Dispose()
+        if (results.Count == 0)
         {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
+            return -1;
+        }
+
+        try
+        {
+            await context.CWETestResults.AddRangeAsync(
+                results,
+                cancellationToken);
+
+            await context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Saved {Count} findings for tool {ToolId} as scan {ScanId}.",
+                results.Count,
+                toolId,
+                scanId);
+
+            return scanId;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to save CWE results for tool {ToolId} and scan {ScanId}.",
+                toolId,
+                scanId);
+
+            throw;
         }
     }
+
+    private static async Task<int> GetNextScanIdAsync(
+        ApplicationDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var maximumScanId =
+            await context.CWETestResults
+                .Select(result => (int?)result.ScanId)
+                .MaxAsync(cancellationToken);
+
+        return maximumScanId.GetValueOrDefault() + 1;
+    }
+
+    private static int? ExtractGroundTruthCwe(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return null;
+        }
+
+        var match = CweFromPathRegex().Match(filePath);
+
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        return int.TryParse(
+            match.Groups["number"].Value,
+            out var cweId)
+                ? cweId
+                : null;
+    }
+
+    [GeneratedRegex(
+        @"CWE[-_ ]?(?<number>\d+)",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant)]
+    private static partial Regex CweFromPathRegex();
+
+    private void Dispose(bool disposing)
+    {
+        if (_disposedValue)
+        {
+            return;
+        }
+
+        _disposedValue = true;
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+  
 }

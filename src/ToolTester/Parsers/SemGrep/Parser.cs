@@ -47,18 +47,35 @@ namespace ToolTester.Parsers.SemGrep
                     var extra = run.extra;
                     var metadata = extra.metadata;
                     var stringcwe = metadata.cwe;
-                    string cwe = stringcwe[0];
-                    
-                   var finding = new CWEs(title: cwe, test: 3614, numericalSeverity: "100", foundBy: new List<int?>() { 1 }, severity: extra.severity, description: extra.message, staticFinding: true, dynamicFinding: false, filePath: file_path, line: run.start.line, references: extra.metadata.references.FirstOrDefault());
-                    Regex regex = new Regex(@"-(?<number>\d+):");
-                    Match match = regex.Match(cwe);
-                    if (match.Success)
+                    var cwes = metadata.cwe ?? Array.Empty<string>();
+
+                    foreach (var cweText in cwes)
                     {
-                        var gmath = match.Groups["number"].Value;
-                        finding.Cwe = int.Parse(gmath);
+                        var match = Regex.Match(cweText, @"CWE-(\d+)",
+                            RegexOptions.IgnoreCase);
+
+                        if (!match.Success)
+                            continue;
+
+                        var reportedCwe = int.Parse(match.Groups[1].Value);
+
+                        var finding = new CWEs(
+                            title: cweText,
+                            test: 3614,
+                            numericalSeverity: "100",
+                            foundBy: new List<int?> { 1 },
+                            severity: extra.severity,
+                            description: extra.message,
+                            staticFinding: true,
+                            dynamicFinding: false,
+                            filePath: file_path,
+                            line: run.start.line,
+                            references: extra.metadata.references.FirstOrDefault());
+
+                        finding.Cwe = reportedCwe;                    
+
+                        items.Add(finding);
                     }
-                    
-                    items.Add(finding);
 
                 }
                 return items;

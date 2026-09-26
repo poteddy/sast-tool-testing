@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ICweRelationshipService, CweRelationshipService>();
         services.AddScoped<ISemanticRuleProvider, JsonSemanticRuleProvider>();
         services.AddScoped <ICweTopologyService,CweTopologyService > ();
+        services.AddScoped<ICweRootCauseResolver, CweRootCauseResolver>();
         return services;
     }
 
