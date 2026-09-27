@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<ISemanticRuleProvider, JsonSemanticRuleProvider>();
         services.AddScoped <ICweTopologyService,CweTopologyService > ();
         services.AddScoped<ICweRootCauseResolver, CweRootCauseResolver>();
+        services.AddScoped<BenchmarkReportService>();
         return services;
     }
 

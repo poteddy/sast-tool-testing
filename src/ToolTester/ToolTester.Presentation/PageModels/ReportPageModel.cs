@@ -4,6 +4,7 @@ using MediatR;
 using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Reports.Quiries;
+using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 
@@ -15,7 +16,9 @@ public partial class ReportPageModel : BaseViewModel
     private const int ReportPageSize = 10000;
     private const int RelatedErrorValue = 0;
     private const int UnrelatedErrorValue = 5;
+    private const int ParetoCweLimit = 25;
 
+    private readonly BenchmarkReportService _benchmarkService;
     private readonly ModalErrorHandler _errorHandler;
     private readonly IMediator _mediator;
 
@@ -23,6 +26,8 @@ public partial class ReportPageModel : BaseViewModel
     private ObservableCollection<TestSeries> _testSeries = [];
     private ObservableCollection<AggrigatedSeries> _aggregatedSeries = [];
     private ObservableCollection<RelatedSeries> _relatedSeries = [];
+    private ObservableCollection<FalseNegativeParetoSeries>
+        _falseNegativeParetoSeries = [];
 
     private bool _isNavigatedTo;
     private bool _isLoading;
@@ -31,10 +36,12 @@ public partial class ReportPageModel : BaseViewModel
 
     public ReportPageModel(
         ModalErrorHandler errorHandler,
-        IMediator mediator)
+        IMediator mediator,
+        BenchmarkReportService benchmarkService)
     {
         _errorHandler = errorHandler;
         _mediator = mediator;
+        _benchmarkService = benchmarkService;
     }
 
     public event EventHandler? ReportDataLoaded;
@@ -71,10 +78,25 @@ public partial class ReportPageModel : BaseViewModel
         private set => SetProperty(ref _aggregatedSeries, value);
     }
 
+    /// <summary>
+    /// Contains one Pareto data series for each scanner.
+    /// Each scanner series contains its top missed CWEs.
+    /// </summary>
+    public ObservableCollection<FalseNegativeParetoSeries>
+        FalseNegativeParetoSeries
+    {
+        get => _falseNegativeParetoSeries;
+        private set => SetProperty(
+            ref _falseNegativeParetoSeries,
+            value);
+    }
+
     public string SelectedRelationship
     {
         get => _selectedRelationship;
-        set => SetProperty(ref _selectedRelationship, value);
+        set => SetProperty(
+            ref _selectedRelationship,
+            value);
     }
 
     public List<string> AvailableRelationships =>
@@ -124,21 +146,21 @@ public partial class ReportPageModel : BaseViewModel
          * GenerateReportAsync has already evaluated each distinct pair
          * and saved its relationship and score.
          *
-         * This lookup makes the saved Reports table the authoritative
-         * source for relationship scoring on the report page.
+         * The saved Reports table is the authoritative source for
+         * relationship scoring on this page.
          *
-         * Assumed mapping:
-         *   Report.CweId     = scanner CWE
-         *   Report.RelatedId = ground-truth CWE
+         * Mapping:
+         *   Report.ScannerCweId = scanner-reported CWE
+         *   Report.GroundTruthCweId = Juliet ground-truth CWE
          */
         var reportLookup = reportResult.Items
-     .GroupBy(report => (
-         report.ScanId,
-         ScannerCweId: report.ScannerCweId,
-         GroundTruthCweId: report.GroundTruthCweId))
-     .ToDictionary(
-         group => group.Key,
-         group => group.First());
+            .GroupBy(report => (
+                report.ScanId,
+                ScannerCweId: report.ScannerCweId,
+                GroundTruthCweId: report.GroundTruthCweId))
+            .ToDictionary(
+                group => group.Key,
+                group => group.First());
 
         RelatedSeries = new ObservableCollection<RelatedSeries>(
             reportResult.Items
@@ -149,31 +171,40 @@ public partial class ReportPageModel : BaseViewModel
                     ScanId = group.Key,
 
                     Items = group
-                        .OrderBy(report => report.GroundTruthCweId)
-                        .ThenBy(report => report.ScannerCweId)
-                        .Select(report => new RelatedItemsInTest
-                        {
-                            Id = report.Id,
-                            GroundTruthCweId = report.GroundTruthCweId,
-                            ScannerCweId = report.ScannerCweId,
-                            ScanId = report.ScanId,
-                            ToolId = report.ToolId,
-                            Count = report.Count,
-                            Relationship = report.Relationship,
-                            RelationshipScore =
-                                report.RelationshipScore
-                        })
+                        .OrderBy(report =>
+                            report.GroundTruthCweId)
+                        .ThenBy(report =>
+                            report.ScannerCweId)
+                        .Select(report =>
+                            new RelatedItemsInTest
+                            {
+                                Id = report.Id,
+                                GroundTruthCweId =
+                                    report.GroundTruthCweId,
+                                ScannerCweId =
+                                    report.ScannerCweId,
+                                ScanId = report.ScanId,
+                                ToolId = report.ToolId,
+                                Count = report.Count,
+                                Relationship =
+                                    report.Relationship,
+                                RelationshipScore =
+                                    report.RelationshipScore
+                            })
                         .ToList()
                 }));
 
-        OnPropertyChanged(nameof(AvailableRelationships));
+        OnPropertyChanged(
+            nameof(AvailableRelationships));
 
         /*
-         * Join every raw test result to its saved report.
+         * Join every raw test result to its saved relationship report.
          *
-         * If no matching report exists, the item receives the unrelated
-         * error value. This also makes missing report generation visible
-         * in the chart instead of evaluating the relationship again.
+         * A result is treated as related when it has a saved report
+         * with a relationship score greater than zero.
+         *
+         * A missing saved report is treated as unrelated so that gaps
+         * in report generation remain visible.
          */
         var mappedItems = testResult.Items
             .Select(item =>
@@ -181,16 +212,19 @@ public partial class ReportPageModel : BaseViewModel
                 var reportKey = (
                     item.ScanId,
                     ScannerCweId: item.ScannerFoundCWE,
-                    GroundTruthCweId: item.TestPathListedCWE);
+                    GroundTruthCweId:
+                        item.TestPathListedCWE);
 
-                var hasSavedReport = reportLookup.TryGetValue(
-                    reportKey,
-                    out var savedReport);
+                var hasSavedReport =
+                    reportLookup.TryGetValue(
+                        reportKey,
+                        out var savedReport);
 
                 return new CweTestResults
                 {
                     Id = item.Id,
-                    ScannerFoundCWE = item.ScannerFoundCWE,
+                    ScannerFoundCWE =
+                        item.ScannerFoundCWE,
                     ScanId = item.ScanId,
                     TestPathListedCWE =
                         item.TestPathListedCWE,
@@ -207,10 +241,6 @@ public partial class ReportPageModel : BaseViewModel
         Items = new ObservableCollection<CweTestResults>(
             mappedItems);
 
-        /*
-         * Reuse the already mapped Items instead of repeating the
-         * report lookup and object mapping for TestSeries.
-         */
         TestSeries = new ObservableCollection<TestSeries>(
             mappedItems
                 .GroupBy(item => item.ScanId)
@@ -222,35 +252,151 @@ public partial class ReportPageModel : BaseViewModel
                 }));
 
         /*
-         * AggregatedSeries still uses the raw scanner results because
-         * it represents finding counts by scanner CWE.
+         * AggregatedSeries represents scanner findings grouped by
+         * scanner-reported CWE.
          */
         AggregatedSeries =
             new ObservableCollection<AggrigatedSeries>(
                 testResult.Items
                     .GroupBy(item => item.ScanId)
                     .OrderBy(group => group.Key)
-                    .Select(group => new AggrigatedSeries
+                    .Select(group =>
+                        new AggrigatedSeries
+                        {
+                            ScanId = group.Key,
+
+                            Items = group
+                                .GroupBy(item =>
+                                    item.ScannerFoundCWE)
+                                .OrderBy(cweGroup =>
+                                    cweGroup.Key)
+                                .Select(cweGroup =>
+                                    new AggrigatedItems
+                                    {
+                                        CweId =
+                                            cweGroup.Key,
+                                        Count =
+                                            cweGroup.Count()
+                                    })
+                                .ToList()
+                        }));
+    }
+
+    /// <summary>
+    /// Builds a separate top-25 false-negative Pareto series for each scanner.
+    /// The cumulative percentage restarts at zero for every scanner.
+    /// </summary>
+    private void BuildFalseNegativePareto(
+        IEnumerable<ScannerFalseNegativeDto> data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+
+        var source = data
+            .Where(item =>
+                !string.IsNullOrWhiteSpace(
+                    item.ScannerName))
+            .Where(item =>
+                item.FalseNegatives > 0)
+            .ToList();
+
+        var scannerSeries = source
+            .GroupBy(
+                item => item.ScannerName,
+                StringComparer.OrdinalIgnoreCase)
+            .OrderBy(
+                group => group.Key,
+                StringComparer.OrdinalIgnoreCase)
+            .Select(scannerGroup =>
+            {
+                /*
+                 * Group by CweId instead of only CweName.
+                 * This prevents two different CWEs with similar or
+                 * empty names from being merged.
+                 */
+                var topMisses = scannerGroup
+                    .GroupBy(item => new
                     {
-                        ScanId = group.Key,
+                        item.CweId,
+                        item.CweName
+                    })
+                    .Select(cweGroup => new
+                    {
+                        cweGroup.Key.CweId,
+                        CweName =
+                            string.IsNullOrWhiteSpace(
+                                cweGroup.Key.CweName)
+                                ? $"CWE-{cweGroup.Key.CweId}"
+                                : cweGroup.Key.CweName,
+                        Opportunities =
+                            cweGroup.Sum(item =>
+                                item.Opportunities),
+                        Detected =
+                            cweGroup.Sum(item =>
+                                item.Detected),
+                        FalseNegatives =
+                            cweGroup.Sum(item =>
+                                item.FalseNegatives)
+                    })
+                    .Where(item =>
+                        item.FalseNegatives > 0)
+                    .OrderByDescending(item =>
+                        item.FalseNegatives)
+                    .ThenBy(item => item.CweId)
+                    .Take(ParetoCweLimit)
+                    .ToList();
 
-                        Items = group
-                            .GroupBy(item =>
-                                item.ScannerFoundCWE)
-                            .OrderBy(cweGroup =>
-                                cweGroup.Key)
-                            .Select(cweGroup =>
-                                new AggrigatedItems
-                                {
-                                    CweId = cweGroup.Key,
-                                    Count = cweGroup.Count()
-                                })
-                            .ToList()
-                    }));
+                var totalFalseNegatives =
+                    topMisses.Sum(item =>
+                        item.FalseNegatives);
 
-        ReportDataLoaded?.Invoke(
-            this,
-            EventArgs.Empty);
+                var runningFalseNegatives = 0;
+
+                var points = topMisses
+                    .Select(item =>
+                    {
+                        runningFalseNegatives +=
+                            item.FalseNegatives;
+
+                        var cumulativePercent =
+                            totalFalseNegatives == 0
+                                ? 0
+                                : runningFalseNegatives *
+                                  100.0 /
+                                  totalFalseNegatives;
+
+                        return new FalseNegativeChartPoint
+                        {
+                            ScannerName =
+                                scannerGroup.Key,
+                            CweId =
+                                item.CweId,
+                            CweName =
+                                item.CweName,
+                            CweLabel =
+                                $"CWE-{item.CweId}",
+                            Opportunities =
+                                item.Opportunities,
+                            Detected =
+                                item.Detected,
+                            FalseNegatives =
+                                item.FalseNegatives,
+                            CumulativePercent =
+                                cumulativePercent
+                        };
+                    })
+                    .ToList();
+
+                return new FalseNegativeParetoSeries
+                {
+                    ScannerName = scannerGroup.Key,
+                    Items = points
+                };
+            })
+            .ToList();
+
+        FalseNegativeParetoSeries =
+            new ObservableCollection<FalseNegativeParetoSeries>(
+                scannerSeries);
     }
 
     [RelayCommand]
@@ -283,19 +429,37 @@ public partial class ReportPageModel : BaseViewModel
         try
         {
             /*
-             * Allow the MAUI UI thread to render the loading indicator
-             * before database and collection work begins.
+             * Give the MAUI UI thread an opportunity to display
+             * the activity indicator before loading begins.
              */
             await Task.Yield();
 
             await LoadItemsAsync();
 
+            var falseNegatives =
+                await _benchmarkService
+                    .GetFalseNegativesByScannerAsync();
+
+            BuildFalseNegativePareto(
+                falseNegatives);
+
             _dataLoaded = true;
-            OnPropertyChanged(nameof(HasLoadedData));
+
+            OnPropertyChanged(
+                nameof(HasLoadedData));
+
+            /*
+             * Raise this only after all report collections,
+             * including the Pareto data, have been populated.
+             */
+            ReportDataLoaded?.Invoke(
+                this,
+                EventArgs.Empty);
         }
         catch (Exception exception)
         {
-            _errorHandler.HandleError(exception);
+            _errorHandler.HandleError(
+                exception);
         }
         finally
         {
@@ -315,11 +479,13 @@ public partial class ReportPageModel : BaseViewModel
 
         try
         {
-            using var workbook = new XLWorkbook();
+            using var workbook =
+                new XLWorkbook();
 
             AddResultsWorksheet(workbook);
             AddRelationshipsWorksheet(workbook);
             AddAggregatedWorksheet(workbook);
+            AddFalseNegativesWorksheet(workbook);
             AddSummaryWorksheet(workbook);
 
             var filePath = Path.Combine(
@@ -337,7 +503,8 @@ public partial class ReportPageModel : BaseViewModel
         }
         catch (Exception exception)
         {
-            _errorHandler.HandleError(exception);
+            _errorHandler.HandleError(
+                exception);
         }
         finally
         {
@@ -405,10 +572,10 @@ public partial class ReportPageModel : BaseViewModel
             "Scan Id";
 
         worksheet.Cell(1, 2).Value =
-            "CWE";
+            "Ground Truth CWE";
 
         worksheet.Cell(1, 3).Value =
-            "Related CWE";
+            "Scanner CWE";
 
         worksheet.Cell(1, 4).Value =
             "Relationship";
@@ -507,6 +674,86 @@ public partial class ReportPageModel : BaseViewModel
         worksheet.Columns().AdjustToContents();
     }
 
+    private void AddFalseNegativesWorksheet(
+        XLWorkbook workbook)
+    {
+        var worksheet = workbook.Worksheets.Add(
+            "False Negatives");
+
+        worksheet.Cell(1, 1).Value =
+            "Scanner";
+
+        worksheet.Cell(1, 2).Value =
+            "CWE";
+
+        worksheet.Cell(1, 3).Value =
+            "CWE Name";
+
+        worksheet.Cell(1, 4).Value =
+            "Known Opportunities";
+
+        worksheet.Cell(1, 5).Value =
+            "Detected";
+
+        worksheet.Cell(1, 6).Value =
+            "False Negatives";
+
+        worksheet.Cell(1, 7).Value =
+            "Cumulative Percent";
+
+        ApplyHeaderStyle(
+            worksheet.Range(1, 1, 1, 7));
+
+        var row = 2;
+
+        foreach (var series in FalseNegativeParetoSeries)
+        {
+            foreach (var item in series.Items)
+            {
+                worksheet.Cell(row, 1).Value =
+                    item.ScannerName;
+
+                worksheet.Cell(row, 2).Value =
+                    item.CweLabel;
+
+                worksheet.Cell(row, 3).Value =
+                    item.CweName;
+
+                worksheet.Cell(row, 4).Value =
+                    item.Opportunities;
+
+                worksheet.Cell(row, 5).Value =
+                    item.Detected;
+
+                worksheet.Cell(row, 6).Value =
+                    item.FalseNegatives;
+
+                worksheet.Cell(row, 7).Value =
+                    item.CumulativePercent / 100.0;
+
+                row++;
+            }
+        }
+
+        if (row > 2)
+        {
+            worksheet
+                .Range(2, 7, row - 1, 7)
+                .Style
+                .NumberFormat
+                .Format = "0.00%";
+        }
+
+        CreateTableIfDataExists(
+            worksheet,
+            "FalseNegativesTable",
+            row - 1,
+            7);
+
+        worksheet.SheetView.FreezeRows(1);
+        worksheet.Columns().AdjustToContents();
+    }
+
     private void AddSummaryWorksheet(
         XLWorkbook workbook)
     {
@@ -553,6 +800,22 @@ public partial class ReportPageModel : BaseViewModel
             RelatedSeries.Sum(series =>
                 series.Items.Count);
 
+        worksheet.Cell(7, 1).Value =
+            "Scanners With False Negatives";
+
+        worksheet.Cell(7, 2).Value =
+            FalseNegativeParetoSeries.Count;
+
+        worksheet.Cell(8, 1).Value =
+            "Displayed False Negatives";
+
+        worksheet.Cell(8, 2).Value =
+            FalseNegativeParetoSeries
+                .SelectMany(series =>
+                    series.Items)
+                .Sum(item =>
+                    item.FalseNegatives);
+
         worksheet.Columns().AdjustToContents();
     }
 
@@ -560,6 +823,7 @@ public partial class ReportPageModel : BaseViewModel
         IXLRange headerRange)
     {
         headerRange.Style.Font.Bold = true;
+
         headerRange.Style.Fill.BackgroundColor =
             XLColor.LightGray;
     }
@@ -576,30 +840,68 @@ public partial class ReportPageModel : BaseViewModel
         }
 
         worksheet
-            .Range(1, 1, lastRow, lastColumn)
+            .Range(
+                1,
+                1,
+                lastRow,
+                lastColumn)
             .CreateTable(tableName);
     }
+}
+
+public sealed class FalseNegativeParetoSeries
+{
+    public string ScannerName { get; set; } =
+        string.Empty;
+
+    public List<FalseNegativeChartPoint> Items { get; set; } =
+        [];
+}
+
+public sealed class FalseNegativeChartPoint
+{
+    public string ScannerName { get; set; } =
+        string.Empty;
+
+    public int CweId { get; set; }
+
+    public string CweName { get; set; } =
+        string.Empty;
+
+    public string CweLabel { get; set; } =
+        string.Empty;
+
+    public int Opportunities { get; set; }
+
+    public int Detected { get; set; }
+
+    public int FalseNegatives { get; set; }
+
+    public double CumulativePercent { get; set; }
 }
 
 public class TestSeries
 {
     public int ScanId { get; set; }
 
-    public List<CweTestResults> Items { get; set; } = [];
+    public List<CweTestResults> Items { get; set; } =
+        [];
 }
 
 public class RelatedSeries
 {
     public int ScanId { get; set; }
 
-    public List<RelatedItemsInTest> Items { get; set; } = [];
+    public List<RelatedItemsInTest> Items { get; set; } =
+        [];
 }
 
 public class AggrigatedSeries
 {
     public int ScanId { get; set; }
 
-    public List<AggrigatedItems> Items { get; set; } = [];
+    public List<AggrigatedItems> Items { get; set; } =
+        [];
 }
 
 public class AggrigatedItems
