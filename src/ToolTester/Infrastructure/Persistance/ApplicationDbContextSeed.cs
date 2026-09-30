@@ -7,6 +7,7 @@ using ToolTester.Application.Common.Models;
 using ToolTester.Application.CweRelationshipEngine;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Extensions;
+using ToolTester.Infrastructure.Services;
 
 namespace ToolTester.Infrastructure.Persistance;
 
@@ -49,11 +50,11 @@ public sealed class ApplicationDbContextSeed
     {
         var semanticRulesFilePath = GetRulesFilePath();
 
-        var semanticRules =
-            await LoadSemanticRulesAsync(
+     var semanticRules =
+           ( await LoadSemanticRulesAsync(
                 semanticRulesFilePath,
-                cancellationToken);
-
+                cancellationToken)).ToList();
+        semanticRules.AddRange(CreateJulietSemanticRules());
         await ImportMitreCatalogAsync(
             semanticRules,
             cancellationToken);
@@ -743,6 +744,38 @@ public sealed class ApplicationDbContextSeed
             await context.SaveChangesAsync(
                 cancellationToken);
         }
+
+     
+    }
+    private IReadOnlyCollection<SemanticRule>
+    CreateJulietSemanticRules()
+    {
+        var settings = _configuration
+          .GetRequiredSection("JulietProjectSetting")
+          .Get<JulietProjectSetting>()
+          ?? throw new InvalidOperationException(
+              "JulietProjectSetting is missing.");
+
+        if (string.IsNullOrWhiteSpace(settings.Path))
+        {
+            throw new InvalidOperationException(
+                "The Juliet project path is empty.");
+        }
+        return _zipfileService
+            .GetJulietMappings(settings.Path)
+            .GroupBy(x => new
+            {
+                x.PrimaryCweId,
+                x.SecondaryCweId
+            })
+            .Select(g => new SemanticRule(
+                SourceCweId: g.Key.SecondaryCweId,
+                TargetCweId: g.Key.PrimaryCweId,
+                Relationship: CweRelationshipKind.JulietRootCause,
+                Score: 75,
+                Rationale: "Observed in Juliet naming convention.",
+                EvidenceReference: g.First().FileName))
+            .ToList();
     }
 
     private static async Task SeedToolsAsync(

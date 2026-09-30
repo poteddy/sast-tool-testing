@@ -30,6 +30,7 @@ public enum CweRelationshipKind
     GrandChild,
     GrandParent,
     RelatedWeakness,
+    JulietRootCause
 }
 
 public enum EvidenceSource

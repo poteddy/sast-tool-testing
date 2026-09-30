@@ -173,13 +173,13 @@ public sealed partial class ParsingService : IParsingService
 
             results.Add(result);
 
-            _logger.LogDebug(
-                "CWE result: scanner CWE-{ScannerCwe}, " +
-                "ground truth CWE-{GroundTruthCwe}, " +
-                "root cause CWE-{RootCauseCwe}.",
-                scannerCwe,
-                groundTruthCwe,
-                rootCauseCwe);
+            //_logger.LogDebug(
+            //    "CWE result: scanner CWE-{ScannerCwe}, " +
+            //    "ground truth CWE-{GroundTruthCwe}, " +
+            //    "root cause CWE-{RootCauseCwe}.",
+            //    scannerCwe,
+            //    groundTruthCwe,
+            //    rootCauseCwe);
         }
 
         if (results.Count == 0)

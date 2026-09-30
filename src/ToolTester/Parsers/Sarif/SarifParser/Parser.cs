@@ -1,523 +1,445 @@
-﻿using Microsoft.CodeAnalysis.Sarif;
+﻿
+using global::ToolTester.Application.Common.Interfaces;
+using global::ToolTester.Application.Common.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
 
-namespace ToolTester.Parsers.Sarif
+namespace ToolTester.Parsers.Sarif;
+
+/// <summary>
+/// Tolerant SARIF 2.1.x parser designed for CodeQL and other scanners.
+/// It does not require result.kind == "fail", because SARIF permits kind to be omitted.
+/// </summary>
+public sealed class Parser : IParser
 {
-    public class Parser : IParser
+    private static readonly Regex CweRegex = new(
+        @"(?i)\bCWE[-_:/ ]?(?<id>\d+)\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex CveRegex = new(
+        @"(?i)\bCVE-\d{4}-\d{4,}\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private bool _disposed;
+
+    public object get_scan_types() => new List<object> { "SARIF" };
+    public object get_label_for_scan_types(object scan_type) => scan_type;
+    public object get_description_for_scan_types(object scan_type) =>
+        "SARIF 2.1.x report files, including CodeQL SARIF, can be imported.";
+
+    /// <summary>Preferred asynchronous API. Returns fully populated findings.</summary>
+    public async Task<List<CWEs>> Get_findings(Stream stream)
     {
-        public static string CWE_REGEX = @"(?i)cwe-\d+";
-        private bool disposedValue;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(stream);
 
-        public virtual object get_scan_types()
+        using var reader = new StreamReader(stream, leaveOpen: true);
+        using var jsonReader = new JsonTextReader(reader)
         {
-            return new List<object> {
-                "SARIF"
-            };
+            DateParseHandling = DateParseHandling.None
+        };
+
+        var root = await JObject.LoadAsync(jsonReader).ConfigureAwait(false);
+        var findings = new List<CWEs>();
+
+        foreach (var run in root["runs"]?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+        {
+            findings.AddRange(ParseRun(run));
         }
 
-        public virtual object get_label_for_scan_types(object scan_type)
+        return findings;
+    }
+
+    /// <summary>
+    /// Compatibility implementation for the existing IParser contract shown in the
+    /// original parser. It returns distinct CWE identifiers instead of throwing.
+    /// Prefer Get_findings(Stream) when complete finding objects are required.
+    /// </summary>
+    List<int> IParser.Get_findings(Stream stream) =>
+        Get_findings(stream)
+            .GetAwaiter()
+            .GetResult()
+            .Where(x => x.Cwe > 0)
+            .Select(x => x.Cwe)
+            .Distinct()
+            .ToList();
+
+    private static IEnumerable<CWEs> ParseRun(JObject run)
+    {
+        var rules = BuildRuleMap(run);
+        var runDate = GetRunDate(run);
+
+        foreach (var result in run["results"]?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
         {
-            return scan_type;
-        }
-
-        public virtual object get_description_for_scan_types(object scan_type)
-        {
-            return "SARIF report file can be imported in SARIF format.";
-        }
-
-        // For simple interface of parser contract we just aggregate everything
-        public async virtual Task<List<CWEs>> Get_findings(Stream fs)
-        {
-
-            using (StreamReader r = new StreamReader(fs))
+            if (!IsFinding(result))
             {
-
-                string json = await r.ReadToEndAsync();
-
-                SarifLog tree = JsonConvert.DeserializeObject<SarifLog>(json);
-
-                var items = new List<CWEs>();
-                //  for each runs we just aggregate everything
-                foreach (Run run in tree.Runs)
-                {
-                    items.AddRange(this.@__get_items_from_run(run));
-                }
-                return items;
-            }
-        }
-
-
-        //public virtual object get_tests(object scan_type, object handle)
-        //{
-        //    var tree = json.load(handle);
-        //    var tests = new List<object>();
-        //    foreach (var run in tree.get("runs", new List<object>()))
-        //    {
-        //        var test = ParserTest(name: run["tool"]["driver"]["name"], type: run["tool"]["driver"]["name"], version: run["tool"]["driver"].get("version"));
-        //        test.findings = this.@__get_items_from_run(run);
-        //        tests.append(test);
-        //    }
-        //    return tests;
-        //}
-
-        public virtual List<CWEs> @__get_items_from_run(Run run)
-        {
-            var items = new List<CWEs>();
-            // load rules
-            var rules = get_rules(run);
-            var artifacts = get_artifacts(run);
-            // get the timestamp of the run if possible
-            var run_date = this.@__get_last_invocation_date(run);
-            foreach (var result in run.Results)
-            {
-                var item = get_item(result, rules, artifacts, run_date);
-                if (item is not null)
-                {
-                    items.Add(item);
-                }
-            }
-            return items;
-        }
-
-        public virtual DateTime? @__get_last_invocation_date(Run data)
-        {
-            var invocations = data.Invocations;
-            if (invocations == null)
-            {
-                return null;
-            }
-            // try to get the last 'endTimeUtc'
-            DateTime? raw_date = invocations[^1].EndTimeUtc;
-            if (raw_date is null)
-            {
-                return null;
-            }
-            // if the data is here we try to convert it to datetime
-            return raw_date;
-        }
-
-
-        public static List<ReportingDescriptor> get_rules(Run run)
-        {
-            var rules = new List<ReportingDescriptor>()
-            {
-            };
-            foreach (var item in run.Tool.Driver.Rules)
-            {
-                rules.Add(item);
-            }
-            return rules;
-        }
-
-        public static TagsCollection get_rule_tags(ReportingDescriptor rule)
-        {
-            return rule.Tags;
-
-        }
-
-        public static List<int> search_cwe(string value, List<int> cwes)
-        {
-            var matches = Regex.Match(value, CWE_REGEX, RegexOptions.IgnoreCase);
-            if (matches.Success)
-            {
-                cwes.Add(Convert.ToInt32(matches.Value.Split("-")[1]));
-            }
-            else
-            {
-                return null;
-            }
-            return cwes;
-        }
-
-        public static List<int> get_rule_cwes(ReportingDescriptor rule)
-        {
-            var cwes = new List<int>();
-            // data of the specification
-            if (rule.Relationships != null && rule.Relationships.Count > 0)
-            {
-                foreach (var relationship in rule.Relationships)
-                {
-                    var value = relationship.Target.Id;
-                    search_cwe(value, cwes);
-                }
-                return cwes;
-            }
-            foreach (var tag in get_rule_tags(rule))
-            {
-                search_cwe(tag, cwes);
-            }
-            if (rule.PropertyNames.Contains("cwe"))
-            {
-                if (rule.GetProperty<SerializedPropertyInfo>("cwe").SerializedValue != null)
-                {
-                    var transformedvalue = rule.GetProperty<SerializedPropertyInfo>("cwe").SerializedValue;
-                    search_cwe(transformedvalue, cwes);
-
-                }
-
+                continue;
             }
 
+            var ruleId = StringValue(result["ruleId"])
+                         ?? StringValue(result["rule"]?["id"])
+                         ?? StringValue(result["descriptor"]?["id"]);
 
-            return cwes;
-        }
-
-        // Some tools like njsscan store the CWE in the properties of the result
-        public static List<int> get_result_cwes_properties(Result result)
-        {
-            var cwes = new List<int>();
-            if (result.RuleId != null)
+            JObject? rule = null;
+            if (!string.IsNullOrWhiteSpace(ruleId))
             {
-
-                var value = result.PropertyNames.FirstOrDefault("cwe");
-                search_cwe(value, cwes);
-            }
-            return cwes;
-        }
-
-        public static Dictionary<int, Dictionary<string, object>> get_artifacts(Run run)
-        {
-            var artifacts = new Dictionary<int, Dictionary<string, object>>();
-            int customIndex = 0; // hack because some tool doesn't generate this attribute
-
-            if (run.Artifacts != null && run.Artifacts.Count > 0)
-            {
-                foreach (var treeArtifact in run.Artifacts)
-                {
-                    artifacts[treeArtifact.ParentIndex].Add(customIndex.ToString(), treeArtifact);
-                    customIndex++;
-                }
+                rules.TryGetValue(ruleId, out rule);
             }
 
-            return artifacts;
-        }
-
-
-        // Get a message from multimessage struct
-        // 
-        //     See here for the specification: https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/sarif-v2.1.0-os.html#_Toc34317468
-        //     
-        private static object GetPropValue(object src, string propName)
-        {
-            return src.GetType().GetProperty(propName).GetValue(src, null);
-        }
-        public static string GetMessageFromMultiformatMessageString<T>(T data, ReportingDescriptor rule)
-        {
-            if (rule != null && data.HasProperty("Id") && (GetPropValue(data, "Id") != null))
+            if (rule is null && IntValue(result["ruleIndex"]) is int ruleIndex)
             {
-                var messageStrings = rule.MessageStrings;
-                string text = GetPropValue(messageStrings.Where(d => d.Key == GetPropValue(data, "id")), "text").ToString();
-                var arguments = data.HasProperty("arguments") ? (List<object>)GetPropValue(data, "arguments") : new List<object>();
-
-                // argument substitution
-                for (int i = 0; i < 6; i++) // the specification limit to 6
-                {
-                    string substitutionStr = "{" + i + "}";
-                    if (text.Contains(substitutionStr))
-                    {
-                        text = text.Replace(substitutionStr, arguments.Count > i ? arguments[i].ToString() : string.Empty);
-                    }
-                    else
-                    {
-                        return text;
-                    }
-                }
-            }
-            else
-            {
-                // TODO manage markdown
-                return data.HasProperty("text") ? GetPropValue(data, "text").ToString() : string.Empty;
+                rule = Rules(run).ElementAtOrDefault(ruleIndex);
+                ruleId ??= StringValue(rule?["id"]);
             }
 
-            return string.Empty;
-        }
-
-        public static string cve_try(string val)
-        {
-            // Match only the first CVE!
-            var cveSearch = Regex.Match(val, "(CVE-[0-9]+-[0-9]+)", RegexOptions.IgnoreCase);
-            if (cveSearch.Success)
-            {
-                return cveSearch.Groups[1].Value.ToUpper();
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        public static string get_title(Result result, ReportingDescriptor rule)
-        {
-            string title = null;
-            if (result.Message != null)
-            {
-                title = GetMessageFromMultiformatMessageString(result.Message, rule);
-            }
-            if (string.IsNullOrEmpty(title) && rule is not null)
-            {
-                if (rule.ShortDescription != null)
-                {
-                    title = rule.ShortDescription.Text;
-                }
-                else if (rule.FullDescription != null)
-                {
-                    title = rule.FullDescription.Text;
-                }
-                else if (rule.Name != null)
-                {
-                    title = rule.Name;
-                }
-                else if (rule.Id != null)
-                {
-                    title = rule.Id;
-                }
-            }
-            if (title is null)
-            {
-                throw new ArgumentException("not foud");
-            }
-            return Truncate(title, 150);
-        }
-
-        public static string Truncate(string value, int maxLength)
-        {
-            if (string.IsNullOrEmpty(value)) return value;
-            return value.Length <= maxLength ? value : value.Substring(0, maxLength);
-        }
-
-        public static ArtifactContent get_snippet(Result result)
-        {
-            ArtifactContent snippet = null;
-            if (result.Locations != null && result.Locations.Count > 0)
-            {
-                var location = result.Locations.FirstOrDefault();
-                if (location.PhysicalLocation != null)
-                {
-                    if (location.PhysicalLocation.Region != null)
-                    {
-                        if (location.PhysicalLocation.Region.Snippet != null)
-                        {
-                            if (location.PhysicalLocation.Region.Snippet != null)
-                            {
-                                snippet = location.PhysicalLocation.Region.Snippet;
-                            }
-                        }
-                    }
-                    if (snippet is null && location.PhysicalLocation.ContextRegion != null)
-                    {
-                        {
-                            if (location.PhysicalLocation.ContextRegion.Snippet != null)
-                            {
-                                if (location.PhysicalLocation.ContextRegion.Snippet != null)
-                                {
-                                    snippet = location.PhysicalLocation.ContextRegion.Snippet;
-                                }
-                            }
-                        }
-                    }
-                }
-
-            }
-            return snippet;
-        }
-
-        public static string get_description(Result result, ReportingDescriptor rule)
-        {
-            var description = "";
-            var message = "";
-            if (result.Message != null)
-            {
-                message = result.Message.Text;
-                description += string.Format("**Result message:** {0}\n", message);
-            }
-            if (get_snippet(result) is not null)
-            {
-                description += string.Format("**Snippet:**\n```{0}```\n", get_snippet(result));
-            }
-            if (rule is not null)
-            {
-                if (rule.Name != null)
-                {
-                    description += string.Format("**Rule name:** {0}\n", rule.Name);
-                }
-                var shortDescription = "";
-                if (rule.ShortDescription != null)
-                {
-                    shortDescription = rule.ShortDescription.Text;
-                    if (shortDescription != message)
-                    {
-                        description += string.Format("**Rule short description:** {0}\n", shortDescription);
-                    }
-                }
-                if (rule.FullDescription != null)
-                {
-                    var fullDescription = rule.FullDescription.Text;
-                    if (fullDescription != message && fullDescription != shortDescription)
-                    {
-                        description += string.Format("**Rule full description:** {0}\n", fullDescription);
-                    }
-                }
-            }
-            if (description.EndsWith("\n"))
-            {
-                description = description;
-            }
-            return description;
-        }
-
-        public static string get_references(ReportingDescriptor rule)
-        {
-            string reference = null;
-            if (rule is not null)
-            {
-                if (rule.HelpUri != null)
-                {
-                    reference = rule.HelpUri.ToString();
-                }
-                else if (rule.Help != null)
-                {
-                    var helpText = rule.Help.Text;
-                    if (helpText.StartsWith("http"))
-                    {
-                        reference = helpText;
-                    }
-                }
-            }
-            return reference;
-        }
-
-        public static string get_severity(Result result, ReportingDescriptor rule)
-        {
-            FailureLevel? severity = result.Level;
-            if (severity is null && rule is not null)
-            {
-                // get the severity from the rule
-                if (rule.DefaultConfiguration != null)
-                {
-                    severity = rule.DefaultConfiguration.Level;
-                }
-            }
-            if (severity.Value == FailureLevel.Note)
-            {
-                return "Info";
-            }
-            else if (severity.Value == FailureLevel.Warning)
-            {
-                return "Medium";
-            }
-            else if (severity.Value == FailureLevel.Error)
-            {
-                return "Critical";
-            }
-            else
-            {
-                return "Medium";
-            }
-        }
-
-        public static CWEs get_item(Result result, List<ReportingDescriptor> rules, object artifacts, DateTime? run_date)
-        {
-            // see https://docs.oasis-open.org/sarif/sarif/v2.1.0/csprd01/sarif-v2.1.0-csprd01.html / 3.27.9
-            var kind = result.Kind;
-            if (kind != ResultKind.Fail)
-            {
-                return null;
-            }
-            // if there is a location get it
-            string file_path = null;
-            int? line = null;
-            if (result.Locations != null && result.Locations.Count > 0)
-            {
-                var location = result.Locations.FirstOrDefault();
-                if (location.PhysicalLocation != null)
-                {
-                    file_path = location.PhysicalLocation.ArtifactLocation.Uri.ToString();
-                    // 'region' attribute is optionnal
-                    if (location.PhysicalLocation.Region != null)
-                    {
-                        line = location.PhysicalLocation.Region.StartLine;
-                    }
-                }
-            }
-            // test rule link
-            var rule = rules.FirstOrDefault(d => d.Id == result.RuleId);
-            var finding = new CWEs(title: get_title(result, rule), test: 3614, numericalSeverity: "100", foundBy: new List<int?>() { 1 }, severity: get_severity(result, rule), description: get_description(result, rule), staticFinding: true, dynamicFinding: false, filePath: file_path, line: line, references: get_references(rule));
-            if (result.RuleId != null)
-            {
-                finding.VulnIdFromTool = result.RuleId.ToString();
-                // for now we only support when the id of the rule is a CVE
-                finding.Cve = cve_try(result.RuleId);
-            }
-            // some time the rule id is here but the tool doesn't define it
-            if (rule is not null)
-            {
-                var cwes_extracted = get_rule_cwes(rule);
-                if (cwes_extracted.Count > 0)
-                {
-                    finding.Cwe = cwes_extracted[^1];
-                }
-            }
-            // manage the case that some tools produce CWE as properties of the result
-            var cwes_properties_extracted = get_result_cwes_properties(result);
-            if (cwes_properties_extracted.Count > 0)
-            {
-                finding.Cwe = cwes_properties_extracted[^1];
-            }
-            // manage fixes provided in the report
-            if (result.Fixes != null && result.Fixes.Count > 0)
-            {
-                finding.Mitigation = string.Concat("", (from fix in result.Fixes
-                                                        select fix.Description.Text).ToArray());
-            }
-            if (run_date != null)
-            {
-                finding.Date = run_date;
-            }
-            return finding;
-        }
-
-        List<int> IParser.Get_findings(Stream fs)
-        {
-            throw new NotImplementedException();
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    // TODO: dispose managed state (managed objects)
-                }
-
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
-                disposedValue = true;
-            }
-        }
-
-        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        // ~Parser()
-        // {
-        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        //     Dispose(disposing: false);
-        // }
-
-        public void Dispose()
-        {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
+            yield return CreateFinding(result, rule, ruleId, runDate);
         }
     }
-    public static class Extensions
+
+    private static bool IsFinding(JObject result)
     {
-        public static bool HasProperty(this object obj, string propertyName)
+        var kind = StringValue(result["kind"]);
+        if (kind is not null &&
+            (kind.Equals("pass", StringComparison.OrdinalIgnoreCase) ||
+             kind.Equals("notApplicable", StringComparison.OrdinalIgnoreCase) ||
+             kind.Equals("informational", StringComparison.OrdinalIgnoreCase)))
         {
-            return obj.GetType().GetProperty(propertyName) != null;
+            return false;
         }
+
+        var ruleId = StringValue(result["ruleId"])
+                     ?? StringValue(result["rule"]?["id"])
+                     ?? StringValue(result["descriptor"]?["id"]);
+
+        // CodeQL places extraction/baseline telemetry in SARIF-like result collections.
+        if (ruleId?.Contains("/diagnostics/", StringComparison.OrdinalIgnoreCase) == true ||
+            ruleId?.Contains("/baseline/", StringComparison.OrdinalIgnoreCase) == true ||
+            ruleId?.StartsWith("cli/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return false;
+        }
+
+        var level = StringValue(result["level"]);
+        if (level?.Equals("none", StringComparison.OrdinalIgnoreCase) == true &&
+            string.IsNullOrWhiteSpace(StringValue(result["message"]?["text"])))
+        {
+            return false;
+        }
+
+        // A normal SARIF finding generally has a rule identity or a meaningful message.
+        return !string.IsNullOrWhiteSpace(ruleId) ||
+               !string.IsNullOrWhiteSpace(StringValue(result["message"]?["text"]));
+    }
+
+    private static CWEs CreateFinding(
+        JObject result,
+        JObject? rule,
+        string? ruleId,
+        DateTime? runDate)
+    {
+        var location = result["locations"]?
+            .OfType<JObject>()
+            .FirstOrDefault();
+
+        var physical = location?["physicalLocation"];
+
+        var filePath = StringValue(
+            physical?["artifactLocation"]?["uri"]);
+
+        var line = IntValue(
+            physical?["region"]?["startLine"]);
+
+        var title = GetTitle(result, rule, ruleId);
+        var description = GetDescription(result, rule);
+        var severity = GetSeverity(result, rule);
+        var reference = StringValue(rule?["helpUri"]);
+
+        var finding = new CWEs(
+            title: Truncate(title, 150),
+            test: 3614,
+            numericalSeverity: SeverityNumber(severity),
+            foundBy: new List<int?> { 1 },
+            severity: severity,
+            description: description,
+            staticFinding: true,
+            dynamicFinding: false,
+            filePath: filePath,
+            line: line,
+            references: reference);
+
+        finding.VulnIdFromTool = ruleId;
+        finding.Cve = FindFirstCve(ruleId, title, description);
+        finding.Date = runDate;
+
+        // Store exactly what the scanner reported.
+        var reportedCwe = ExtractReportedCwe(result, rule);
+
+        if (reportedCwe.HasValue)
+        {
+            finding.Cwe = reportedCwe.Value;
+        }
+
+        var fixes = result["fixes"]?
+            .OfType<JObject>()
+            .Select(x => StringValue(x["description"]?["text"]))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        if (fixes?.Count > 0)
+        {
+            finding.Mitigation = string.Join(
+                Environment.NewLine,
+                fixes!);
+        }
+
+        return finding;
+    }
+    private static int? ExtractReportedCwe(JObject result, JObject? rule)
+    {
+        // Highest priority: CWE explicitly attached to this result.
+        var resultCwe = ExtractFirstCwe(
+            result["properties"]?["cwe"],
+            result["properties"]?["CWE"]);
+
+        if (resultCwe.HasValue)
+        {
+            return resultCwe;
+        }
+
+        // Next priority: CWE explicitly assigned to the referenced rule.
+        var ruleCwe = ExtractFirstCwe(
+            rule?["properties"]?["cwe"],
+            rule?["properties"]?["CWE"]);
+
+        if (ruleCwe.HasValue)
+        {
+            return ruleCwe;
+        }
+
+        // Some scanners place CWE identifiers in rule tags.
+        foreach (var tag in rule?["properties"]?["tags"]?.Values<string>()
+                            ?? Enumerable.Empty<string>())
+        {
+            var cwe = ExtractFirstCwe(tag);
+
+            if (cwe.HasValue)
+            {
+                return cwe;
+            }
+        }
+
+        // Some SARIF producers use rule relationships or taxonomy targets.
+        foreach (var relationship in rule?["relationships"]?.OfType<JObject>()
+                                     ?? Enumerable.Empty<JObject>())
+        {
+            var targetId = StringValue(relationship["target"]?["id"]);
+            var cwe = ExtractFirstCwe(targetId);
+
+            if (cwe.HasValue)
+            {
+                return cwe;
+            }
+        }
+
+        // Lower-confidence fallbacks.
+        return ExtractFirstCwe(
+            rule?["id"],
+            rule?["name"],
+            rule?["shortDescription"]?["text"],
+            rule?["fullDescription"]?["text"]);
+    }
+
+    private static int? ExtractFirstCwe(params JToken?[] tokens)
+    {
+        foreach (var token in tokens)
+        {
+            var value = StringValue(token);
+            var cwe = ExtractFirstCwe(value);
+
+            if (cwe.HasValue)
+            {
+                return cwe;
+            }
+        }
+
+        return null;
+    }
+
+    private static int? ExtractFirstCwe(params string?[] values)
+    {
+        foreach (var value in values.Where(x => !string.IsNullOrWhiteSpace(x)))
+        {
+            var match = CweRegex.Match(value!);
+
+            if (match.Success &&
+                int.TryParse(
+                    match.Groups["id"].Value,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out var cwe))
+            {
+                return cwe;
+            }
+        }
+
+        return null;
+    }
+
+    private static Dictionary<string, JObject> BuildRuleMap(JObject run) =>
+        Rules(run)
+            .Where(x => !string.IsNullOrWhiteSpace(StringValue(x["id"])))
+            .GroupBy(x => StringValue(x["id"])!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+    private static IEnumerable<JObject> Rules(JObject run) =>
+        run["tool"]?["driver"]?["rules"]?.OfType<JObject>()
+        ?? Enumerable.Empty<JObject>();
+
+    private static IEnumerable<int> ExtractCwes(JObject result, JObject? rule)
+    {
+        var candidates = new List<string?>
+        {
+            StringValue(result["properties"]?["cwe"]),
+            StringValue(result["properties"]?["CWE"]),
+            StringValue(rule?["properties"]?["cwe"]),
+            StringValue(rule?["properties"]?["CWE"]),
+            StringValue(rule?["id"]),
+            StringValue(rule?["name"]),
+            StringValue(rule?["shortDescription"]?["text"]),
+            StringValue(rule?["fullDescription"]?["text"])
+        };
+
+        candidates.AddRange(rule?["properties"]?["tags"]?.Values<string>()
+                            ?? Enumerable.Empty<string>());
+
+        candidates.AddRange(rule?["relationships"]?
+            .OfType<JObject>()
+            .Select(x => StringValue(x["target"]?["id"]))
+            ?? Enumerable.Empty<string?>());
+
+        foreach (var candidate in candidates.Where(x => !string.IsNullOrWhiteSpace(x)))
+        {
+            foreach (Match match in CweRegex.Matches(candidate!))
+            {
+                if (int.TryParse(match.Groups["id"].Value, out var cwe))
+                {
+                    yield return cwe;
+                }
+            }
+        }
+    }
+
+    private static string GetTitle(JObject result, JObject? rule, string? ruleId)
+    {
+        return StringValue(result["message"]?["text"])
+               ?? StringValue(rule?["shortDescription"]?["text"])
+               ?? StringValue(rule?["fullDescription"]?["text"])
+               ?? StringValue(rule?["name"])
+               ?? ruleId
+               ?? "SARIF finding";
+    }
+
+    private static string GetDescription(JObject result, JObject? rule)
+    {
+        var parts = new List<string>();
+        AddPart(parts, "Result message", StringValue(result["message"]?["text"]));
+        AddPart(parts, "Snippet", StringValue(result["locations"]?[0]?["physicalLocation"]?["region"]?["snippet"]?["text"]));
+        AddPart(parts, "Rule name", StringValue(rule?["name"]));
+        AddPart(parts, "Rule short description", StringValue(rule?["shortDescription"]?["text"]));
+        AddPart(parts, "Rule full description", StringValue(rule?["fullDescription"]?["text"]));
+        return string.Join(Environment.NewLine, parts);
+    }
+
+    private static void AddPart(ICollection<string> parts, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value) &&
+            !parts.Any(x => x.EndsWith(value, StringComparison.Ordinal)))
+        {
+            parts.Add($"**{label}:** {value}");
+        }
+    }
+
+    private static string GetSeverity(JObject result, JObject? rule)
+    {
+        var level = StringValue(result["level"])
+                    ?? StringValue(rule?["defaultConfiguration"]?["level"]);
+
+        return level?.ToLowerInvariant() switch
+        {
+            "error" => "Critical",
+            "warning" => "Medium",
+            "note" => "Info",
+            "none" => "Info",
+            _ => "Medium"
+        };
+    }
+
+    private static string SeverityNumber(string severity) => severity switch
+    {
+        "Critical" => "100",
+        "High" => "75",
+        "Medium" => "50",
+        "Low" => "25",
+        _ => "0"
+    };
+
+    private static DateTime? GetRunDate(JObject run)
+    {
+        var raw = run["invocations"]?
+            .OfType<JObject>()
+            .Select(x => StringValue(x["endTimeUtc"]) ?? StringValue(x["startTimeUtc"]))
+            .LastOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+        return DateTime.TryParse(
+            raw,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var date)
+            ? date
+            : null;
+    }
+
+    private static string? FindFirstCve(params string?[] values)
+    {
+        foreach (var value in values.Where(x => !string.IsNullOrWhiteSpace(x)))
+        {
+            var match = CveRegex.Match(value!);
+            if (match.Success)
+            {
+                return match.Value.ToUpperInvariant();
+            }
+        }
+
+        return null;
+    }
+
+    private static string Truncate(string value, int maximumLength) =>
+        value.Length <= maximumLength ? value : value[..maximumLength];
+
+    private static string? StringValue(JToken? token)
+    {
+        if (token is null || token.Type is JTokenType.Null or JTokenType.Undefined)
+        {
+            return null;
+        }
+
+        if (token.Type == JTokenType.Array)
+        {
+            return string.Join(" ", token.Values<string>());
+        }
+
+        return token.Type == JTokenType.String ? token.Value<string>() : token.ToString(Formatting.None);
+    }
+
+    private static int? IntValue(JToken? token) => token?.Value<int?>();
+
+    public void Dispose()
+    {
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }
-

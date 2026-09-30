@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.Input;
+using DocumentFormat.OpenXml.ExtendedProperties;
 using MediatR;
 using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
@@ -29,6 +30,28 @@ public partial class ReportPageModel : BaseViewModel
     private ObservableCollection<FalseNegativeParetoSeries>
         _falseNegativeParetoSeries = [];
 
+    private ObservableCollection<RelationshipMixSeries>  _relationshipMixSeries = [];
+
+    public ObservableCollection<RelationshipMixSeries>
+    RelationshipMixSeries
+    {
+        get => _relationshipMixSeries;
+        private set => SetProperty(
+        ref _relationshipMixSeries,
+        value);
+    }
+
+    private ObservableCollection<RelationshipMixChartPoint>
+    _relationshipMixChartData = [];
+
+    public ObservableCollection<RelationshipMixChartPoint>
+        RelationshipMixChartData
+    {
+        get => _relationshipMixChartData;
+        private set => SetProperty(
+            ref _relationshipMixChartData,
+            value);
+    }
     private bool _isNavigatedTo;
     private bool _isLoading;
     private bool _dataLoaded;
@@ -196,7 +219,7 @@ public partial class ReportPageModel : BaseViewModel
 
         OnPropertyChanged(
             nameof(AvailableRelationships));
-
+        BuildRelationshipMix();
         /*
          * Join every raw test result to its saved relationship report.
          *
@@ -207,36 +230,36 @@ public partial class ReportPageModel : BaseViewModel
          * in report generation remain visible.
          */
         var mappedItems = testResult.Items
-            .Select(item =>
-            {
-                var reportKey = (
-                    item.ScanId,
-                    ScannerCweId: item.ScannerFoundCWE,
-                    GroundTruthCweId:
-                        item.TestPathListedCWE);
+    .Select(item =>
+    {
+        var reportKey = (
+            item.ScanId,
+            ScannerCweId: item.ScannerFoundCWE,
+            GroundTruthCweId:
+                item.TestPathListedCWE);
 
-                var hasSavedReport =
-                    reportLookup.TryGetValue(
-                        reportKey,
-                        out var savedReport);
+        var hasSavedReport =
+            reportLookup.TryGetValue(
+                reportKey,
+                out var savedReport);
 
-                return new CweTestResults
-                {
-                    Id = item.Id,
-                    ScannerFoundCWE =
-                        item.ScannerFoundCWE,
-                    ScanId = item.ScanId,
-                    TestPathListedCWE =
-                        item.TestPathListedCWE,
+        return new CweTestResults
+        {
+            Id = item.Id,
+            ScannerFoundCWE =
+                item.ScannerFoundCWE,
+            ScanId = item.ScanId,
+            TestPathListedCWE =
+                item.TestPathListedCWE,
 
-                    ErrorValue =
-                        hasSavedReport &&
-                        savedReport!.RelationshipScore > 0
-                            ? RelatedErrorValue
-                            : UnrelatedErrorValue
-                };
-            })
-            .ToList();
+            ErrorValue =
+                hasSavedReport &&
+                savedReport!.RelationshipScore > 0
+                    ? RelatedErrorValue
+                    : UnrelatedErrorValue
+        };
+    })
+    .ToList();
 
         Items = new ObservableCollection<CweTestResults>(
             mappedItems);
@@ -293,20 +316,13 @@ public partial class ReportPageModel : BaseViewModel
 
         var source = data
             .Where(item =>
-                !string.IsNullOrWhiteSpace(
-                    item.ScannerName))
-            .Where(item =>
                 item.FalseNegatives > 0)
             .ToList();
 
         var scannerSeries = source
-            .GroupBy(
-                item => item.ScannerName,
-                StringComparer.OrdinalIgnoreCase)
-            .OrderBy(
-                group => group.Key,
-                StringComparer.OrdinalIgnoreCase)
-            .Select(scannerGroup =>
+ .GroupBy(item => item.ScanId)
+ .OrderBy(group => group.Key)
+             .Select(scannerGroup =>
             {
                 /*
                  * Group by CweId instead of only CweName.
@@ -367,7 +383,7 @@ public partial class ReportPageModel : BaseViewModel
                         return new FalseNegativeChartPoint
                         {
                             ScannerName =
-                                scannerGroup.Key,
+                                "Scan ID" + scannerGroup.Key,
                             CweId =
                                 item.CweId,
                             CweName =
@@ -388,7 +404,7 @@ public partial class ReportPageModel : BaseViewModel
 
                 return new FalseNegativeParetoSeries
                 {
-                    ScannerName = scannerGroup.Key,
+                    ScannerName = "Scan Id" + scannerGroup.Key,
                     Items = points
                 };
             })
@@ -398,7 +414,96 @@ public partial class ReportPageModel : BaseViewModel
             new ObservableCollection<FalseNegativeParetoSeries>(
                 scannerSeries);
     }
+    private static readonly string[]
+  RelationshipDisplayOrder =
+  [
+  "Exact",
+"DirectSibling",
+"SameRootCauseBroaderCwe",
+"DirectParent",
+"DirectChild",
+"SharedAncestor",
+"CanPrecede",
+"Unrelated"
+  ];
 
+    private void BuildRelationshipMix()
+    {
+        var chartPoints =
+        new List<RelationshipMixChartPoint>();
+
+        foreach (var scannerSeries in
+        RelatedSeries.OrderBy(series =>
+        series.ScanId))
+        {
+            var relationshipCounts =
+            scannerSeries.Items
+            .Where(item =>
+            !string.IsNullOrWhiteSpace(
+            item.Relationship))
+            .GroupBy(
+            item => item.Relationship,
+            StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+            group => group.Key,
+            group => group.Sum(item =>
+            item.Count),
+            StringComparer.OrdinalIgnoreCase);
+
+            var totalCount =
+            relationshipCounts.Values.Sum();
+
+            if (totalCount <= 0)
+            {
+                continue;
+            }
+
+            var runningPercent = 0.0;
+
+            foreach (var relationship in
+            RelationshipDisplayOrder)
+            {
+                relationshipCounts.TryGetValue(
+                relationship,
+                out var count);
+
+                var percentage =
+                count * 100.0 / totalCount;
+
+                var low = runningPercent;
+                var high = runningPercent + percentage;
+
+                chartPoints.Add(
+                new RelationshipMixChartPoint
+                {
+                    ScannerName =
+                $"Scan ID{scannerSeries.ScanId}",
+
+                    Relationship =
+                relationship,
+
+                    Count =
+                count,
+
+                    Percentage =
+                percentage,
+
+                    Low =
+                low,
+
+                    High =
+                high
+                });
+
+                runningPercent = high;
+            }
+        }
+
+        RelationshipMixChartData =
+        new ObservableCollection<
+        RelationshipMixChartPoint>(
+        chartPoints);
+    }
     [RelayCommand]
     private void NavigatedTo()
     {
@@ -909,4 +1014,37 @@ public class AggrigatedItems
     public int CweId { get; set; }
 
     public int Count { get; set; }
+}
+
+public sealed class RelationshipMixSeries
+{
+    public int ScanId { get; set; }
+
+    public List<RelationshipMixPoint> Items { get; set; } = [];
+}
+
+public sealed class RelationshipMixPoint
+{
+    public string Relationship { get; set; } = string.Empty;
+
+    public int Count { get; set; }
+
+    public double Percentage { get; set; }
+}
+
+public sealed class RelationshipMixChartPoint
+{
+    public string ScannerName { get; set; } =
+        string.Empty;
+
+    public string Relationship { get; set; } =
+        string.Empty;
+
+    public int Count { get; set; }
+
+    public double Percentage { get; set; }
+
+    public double Low { get; set; }
+
+    public double High { get; set; }
 }

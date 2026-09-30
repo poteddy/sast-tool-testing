@@ -20,27 +20,26 @@ namespace ToolTester.Infrastructure.Services
         {
             var coverage = await _context.JulietCoverages                
                 .ToListAsync();
-
-            var tools = await _context.Tools
-                .Select(x => new
-                {
-                    x.Id,
-                    x.Name
-                })
-                .ToListAsync();
-
+         
             var reports = await _context.Reports
                 .ToListAsync();
-
+            var scans = await _context.Reports
+.Select(r => new
+{
+    r.ScanId,
+    r.ToolId
+})
+.Distinct()
+.ToListAsync();
             var results = new List<ScannerFalseNegativeDto>();
 
-            foreach (var tool in tools)
+            foreach (var scan in scans)
             {
                 foreach (var cwe in coverage)
                 {
                     var detected = reports
     .Where(r =>
-    r.ToolId == tool.Id &&
+    r.ScanId == scan.ScanId &&
     r.GroundTruthCweId == cwe.CweId &&
     r.Relationship !=
     CweRelationshipKind.Unrelated.ToString())
@@ -48,7 +47,7 @@ namespace ToolTester.Infrastructure.Services
                     results.Add(
                         new ScannerFalseNegativeDto
                         {
-                            ScannerName = tool.Name,
+                            ScanId = scan.ScanId,
 
                             CweId = cwe.CweId,
 
@@ -75,8 +74,8 @@ namespace ToolTester.Infrastructure.Services
     }
     public sealed class ScannerFalseNegativeDto
     {
-        public string ScannerName { get; set; } = string.Empty;
-
+        public int ScanId { get; set; }
+     
         public int CweId { get; set; }
 
         public string CweName { get; set; } = string.Empty;

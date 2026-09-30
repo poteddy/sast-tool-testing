@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using Microsoft.Maui.ApplicationModel;
 using Syncfusion.Maui.Toolkit.Charts;
 using ToolTester.Presentation.Models;
@@ -106,7 +107,11 @@ public partial class ReportPage : ContentPage
         AddFalseNegativeParetoCharts();
 
         ChartContainer.Children.Add(
+CreateRelationshipMixChart());
+
+        ChartContainer.Children.Add(
             BuildPolarChart());
+        
     }
 
     private void AddFalseNegativeParetoCharts()
@@ -409,6 +414,98 @@ public partial class ReportPage : ContentPage
         return chart;
     }
 
+    private void AddRelationshipRangeSeries(
+     SfCartesianChart chart,
+     string relationship,
+     Color color)
+    {
+        var items =
+            _reportPageModel
+                .RelationshipMixChartData
+                .Where(item =>
+                    string.Equals(
+                        item.Relationship,
+                        relationship,
+                        StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+        chart.Series.Add(
+            new RangeColumnSeries
+            {
+                Label =
+                    relationship,
+
+                ItemsSource =
+                    items,
+
+                XBindingPath =
+                    nameof(
+                        RelationshipMixChartPoint
+                            .ScannerName),
+
+                Low =
+                    nameof(
+                        RelationshipMixChartPoint
+                            .Low),
+
+                High =
+                    nameof(
+                        RelationshipMixChartPoint
+                            .High),
+
+                Fill =
+                    new SolidColorBrush(color),
+
+                EnableTooltip = true,
+
+                TooltipTemplate =
+                    RelationshipMixToolTip()
+            });
+    }
+    private static DataTemplate
+    RelationshipMixToolTip()
+    {
+        return new DataTemplate(() =>
+        {
+            var layout =
+                CreateTooltipLayout();
+
+            layout.Add(
+                CreateTooltipRow(
+                    "Scanner:",
+                    "Item.ScannerName"));
+
+            layout.Add(
+                CreateTooltipRow(
+                    "Relationship:",
+                    "Item.Relationship"));
+
+            layout.Add(
+                CreateTooltipRow(
+                    "Count:",
+                    "Item.Count"));
+
+            layout.Add(
+                CreateTooltipRow(
+                    "Percentage:",
+                    "Item.Percentage",
+                    "{0:F2}%"));
+
+            layout.Add(
+                CreateTooltipRow(
+                    "Range:",
+                    "Item.Low",
+                    "{0:F2}%"));
+
+            layout.Add(
+                CreateTooltipRow(
+                    "To:",
+                    "Item.High",
+                    "{0:F2}%"));
+
+            return layout;
+        });
+    }
     private SfPolarChart BuildPolarChart()
     {
         var chart = new SfPolarChart
@@ -622,8 +719,8 @@ public partial class ReportPage : ContentPage
 
             layout.Add(
                 CreateTooltipRow(
-                    "Scanner:",
-                    "Item.ScannerName"));
+                    "Scan id:",
+                    "Item.ScanId"));
 
             layout.Add(
                 CreateTooltipRow(
@@ -796,5 +893,103 @@ public partial class ReportPage : ContentPage
         row.Add(value);
 
         return row;
+    }
+    private SfCartesianChart
+    CreateRelationshipMixChart()
+    {
+        var chart = new SfCartesianChart
+        {
+            Title =
+                "Relationship Mix by Scanner",
+
+            HeightRequest = 550,
+
+            HorizontalOptions =
+                LayoutOptions.Fill,
+
+            ZoomPanBehavior =
+                new ChartZoomPanBehavior
+                {
+                    EnableDirectionalZooming = true,
+                    EnableSelectionZooming = true
+                },
+
+            Legend =
+                new ChartLegend
+                {
+                    IsVisible = true,
+                    ToggleSeriesVisibility = true
+                }
+        };
+
+        chart.XAxes.Add(
+            new CategoryAxis
+            {
+                Title =
+                    new ChartAxisTitle
+                    {
+                        Text = "Scanner"
+                    },
+
+                ShowMajorGridLines = false
+            });
+
+        chart.YAxes.Add(
+            new NumericalAxis
+            {
+                Title =
+                    new ChartAxisTitle
+                    {
+                        Text =
+                            "Cumulative Relationship Mix"
+                    },
+
+                Minimum = 0,
+                Maximum = 100,
+                Interval = 10,
+                ShowMajorGridLines = true
+            });
+
+        AddRelationshipRangeSeries(
+            chart,
+            "Exact",
+            Colors.SteelBlue);
+
+        AddRelationshipRangeSeries(
+            chart,
+            "DirectSibling",
+            Colors.ForestGreen);
+
+        AddRelationshipRangeSeries(
+            chart,
+            "SameRootCauseBroaderCwe",
+            Colors.LightBlue);
+
+        AddRelationshipRangeSeries(
+            chart,
+            "DirectParent",
+            Colors.Gold);
+
+        AddRelationshipRangeSeries(
+            chart,
+            "DirectChild",
+            Colors.DarkOrange);
+
+        AddRelationshipRangeSeries(
+            chart,
+            "SharedAncestor",
+            Colors.Gray);
+
+        AddRelationshipRangeSeries(
+            chart,
+            "CanPrecede",
+            Colors.Purple);
+
+        AddRelationshipRangeSeries(
+            chart,
+            "Unrelated",
+            Colors.Red);
+
+        return chart;
     }
 }
