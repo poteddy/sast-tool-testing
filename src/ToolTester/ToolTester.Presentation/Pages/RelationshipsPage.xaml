@@ -8,7 +8,7 @@
          
              x:Class="ToolTester.Presentation.Pages.RelationshipsPage"
              x:DataType="PageModels:RelationshipsPageModel"
-           
+             x:Name="RelationshipsPageModel"
              Title="Relationships">
 
 
@@ -20,8 +20,10 @@
            EventName="NavigatedFrom"
            Command="{Binding NavigatedFromCommand}" />
         <toolkit:EventToCommandBehavior
-           EventName="Appearing"                
-           Command="{Binding AppearingCommand}" />
+BindingContext="{Binding BindingContext, Source={x:Reference RelationshipsPageModel}}"
+EventName="Appearing"
+Command="{Binding AppearingCommand}" />
+    
     </ContentPage.Behaviors>
 
     <pullToRefresh:SfPullToRefresh

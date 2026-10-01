@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ToolTester.Application.Common.Interfaces;
@@ -705,8 +706,8 @@ public sealed class ApplicationDbContextSeed
     }
 
     private async Task SeedJulietCoverageAsync(
-        ApplicationDbContext context,
-        CancellationToken cancellationToken)
+      ApplicationDbContext context,
+      CancellationToken cancellationToken)
     {
         if (await context.JulietCoverages
                 .AnyAsync(cancellationToken))
@@ -729,23 +730,55 @@ public sealed class ApplicationDbContextSeed
         var fileCounts =
             _zipfileService.FileCount(settings.Path);
 
+        var validCweIds = await context.CWECatalogs
+            .AsNoTracking()
+            .Select(x => x.CweId)
+            .ToHashSetAsync(cancellationToken);
+
+        var missingCweIds = new List<int>();
+        var cweLookup = await context.CWECatalogs
+    .ToDictionaryAsync(
+        x => x.CweId,
+        x => x.Id,
+        cancellationToken);
         foreach (var fileCount in fileCounts)
         {
-            context.JulietCoverages.Add(
-                new JulietCoverage
-                {
-                    CweId = fileCount.Key,
-                    Covered = fileCount.Value
-                });
+            if (!cweLookup.TryGetValue(
+                    fileCount.Key,
+                    out var catalogId))
+            {
+                Debug.WriteLine(
+                    $"Missing CWE {fileCount.Key}");
+
+                continue;
+            }
+
+            var coverage = new JulietCoverage
+            {
+                CweId = fileCount.Key,
+                Covered = fileCount.Value
+            };
+
+            Debug.WriteLine(
+                $"Adding CWE={fileCount.Key} CatalogId={coverage.CweId}");
+
+            context.JulietCoverages.Add(coverage);
         }
 
-        if (context.ChangeTracker.HasChanges())
+        if (missingCweIds.Count > 0)
         {
-            await context.SaveChangesAsync(
-                cancellationToken);
+            throw new InvalidDataException(
+                "The following Juliet CWE IDs do not exist in the " +
+                $"MITRE catalog: {string.Join(", ", missingCweIds.Order())}");
+        }
+        foreach (var entry in context.ChangeTracker
+.Entries<JulietCoverage>())
+        {
+            Debug.WriteLine(
+            $"Coverage FK={entry.Entity.CweId}");
         }
 
-     
+        await context.SaveChangesAsync(cancellationToken);
     }
     private IReadOnlyCollection<SemanticRule>
     CreateJulietSemanticRules()
@@ -772,7 +805,7 @@ public sealed class ApplicationDbContextSeed
                 SourceCweId: g.Key.SecondaryCweId,
                 TargetCweId: g.Key.PrimaryCweId,
                 Relationship: CweRelationshipKind.JulietRootCause,
-                Score: 75,
+                Score: 750,
                 Rationale: "Observed in Juliet naming convention.",
                 EvidenceReference: g.First().FileName))
             .ToList();

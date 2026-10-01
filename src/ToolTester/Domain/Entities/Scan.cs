@@ -5,24 +5,19 @@ using System.Text;
 using System.Threading.Tasks;
 using ToolTester.Domain.Common;
 
-namespace ToolTester.Domain.Entities
+namespace ToolTester.Domain.Entities;
+
+public sealed class Scan : IEntity
 {
-    public class Scan : IEntity
-    {
-        public int Id { get; set; }
+    public int Id { get; set; }
 
-        public int ToolId { get; set; }
-        public Tool Tool { get; set; }
+    public int ToolId { get; set; }
 
-      
-        public List<CWETestResult> TestResults { get; set; }
-    }
-    public class Tool :IEntity
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Format {  get; set; }
+    public Tool Tool { get; set; } = null!;
 
-    }
+    public List<CWETestResult> TestResults { get; set; } =
+        [];
 
+    public List<Report> Reports { get; set; } =
+        [];
 }

@@ -1,4 +1,3 @@
-using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using Microsoft.Maui.ApplicationModel;
 using Syncfusion.Maui.Toolkit.Charts;
 using ToolTester.Presentation.Models;
@@ -13,6 +12,8 @@ public partial class ReportPage : ContentPage
 
     private const string CumulativePercentAxisName =
         "CumulativePercentAxis";
+
+    private const double MaximumChartWidth = 1400;
 
     private readonly ReportPageModel _reportPageModel;
 
@@ -37,10 +38,6 @@ public partial class ReportPage : ContentPage
         _reportPageModel.ReportDataLoaded +=
             OnReportDataLoaded;
 
-        /*
-         * If the model was loaded before this page appeared,
-         * rebuild the charts immediately.
-         */
         if (_reportPageModel.HasLoadedData)
         {
             MainThread.BeginInvokeOnMainThread(
@@ -68,6 +65,31 @@ public partial class ReportPage : ContentPage
     {
         ChartContainer.Children.Clear();
 
+        ChartContainer.Children.Add(
+            CreateChartSection(
+                BuildFalsePositiveChart()));
+
+        ChartContainer.Children.Add(
+            CreateRelationshipFilter());
+
+        ChartContainer.Children.Add(
+            CreateChartSection(
+                BuildRelatedChart()));
+
+        AddFalseNegativeParetoCharts();
+
+        ChartContainer.Children.Add(
+            CreateChartSection(
+                CreateRelationshipMixChart()));
+
+        ChartContainer.Children.Add(
+            CreateChartSection(
+                BuildPolarChart(),
+                includeZoomControls: false));
+    }
+
+    private View CreateRelationshipFilter()
+    {
         var relationshipPicker = new Picker
         {
             Title = "Relationship Filter",
@@ -76,42 +98,267 @@ public partial class ReportPage : ContentPage
             SelectedItem =
                 _reportPageModel.SelectedRelationship,
             HorizontalOptions =
-                LayoutOptions.Fill
+                LayoutOptions.Fill,
+            //MaximumWidthRequest =
+            //    MaximumChartWidth
         };
 
         relationshipPicker.SelectedIndexChanged +=
             (_, _) =>
             {
                 _reportPageModel.SelectedRelationship =
-                    relationshipPicker
-                        .SelectedItem?
+                    relationshipPicker.SelectedItem?
                         .ToString()
                     ?? "All";
 
                 PopulateRelatedChart();
             };
 
-        ChartContainer.Children.Add(
-            BuildFalsePositiveChart());
+        return new Border
+        {
+            //HorizontalOptions =
+            //    LayoutOptions.Center,
+            //MaximumWidthRequest =
+            //    MaximumChartWidth,
+            Stroke =
+                Brush.Transparent,
+            Padding =
+                new Thickness(12, 4),
+            Content =
+                relationshipPicker
+        };
+    }
 
-        ChartContainer.Children.Add(
-            relationshipPicker);
+    private static ChartZoomPanBehavior
+        CreateZoomBehavior()
+    {
+        return new ChartZoomPanBehavior
+        {
+            /*
+             * Keep this true.
+             *
+             * Syncfusion uses mouse-wheel zoom when
+             * EnablePinchZooming is false. Keeping it
+             * true prevents normal mouse-wheel scrolling
+             * from unintentionally zooming the chart.
+             */
+            EnablePinchZooming = true,
 
-        ChartContainer.Children.Add(
-            BuildRelatedChart());
+            /*
+             * Desktop users can drag a rectangle directly
+             * over the chart to zoom into an area.
+             */
+            EnableSelectionZooming = true,
 
-        /*
-         * Add one false-negative Pareto chart
-         * for each scanner.
-         */
-        AddFalseNegativeParetoCharts();
+            /*
+             * Once zoomed, users can drag the chart to
+             * move through the visible range.
+             */
+            EnablePanning = true,
 
-        ChartContainer.Children.Add(
-CreateRelationshipMixChart());
+            /*
+             * Directional zooming depends on pinch
+             * direction. XY provides predictable behavior
+             * for toolbar and selection zooming.
+             */
+            EnableDirectionalZooming = false,
+            EnableDoubleTap = false,
+            ZoomMode = ZoomMode.XY,
 
-        ChartContainer.Children.Add(
-            BuildPolarChart());
-        
+            /*
+             * Prevent users from zooming so deeply that
+             * they lose context.
+             */
+            MaximumZoomLevel = 20,
+
+            SelectionRectFill =
+                new SolidColorBrush(
+                    Color.FromArgb("#3380BFFF")),
+
+            SelectionRectStroke =
+                new SolidColorBrush(
+                    Colors.DodgerBlue),
+
+            SelectionRectStrokeWidth = 2
+        };
+    }
+
+    private static View CreateChartSection(
+        SfCartesianChart chart,
+        bool includeZoomControls = true)
+    {
+        var content = new VerticalStackLayout
+        {
+            Spacing = 6,
+            HorizontalOptions =
+                LayoutOptions.Fill
+        };
+
+        if (includeZoomControls &&
+            chart.ZoomPanBehavior is not null)
+        {
+            content.Add(
+                CreateChartToolbar(
+                    chart.ZoomPanBehavior));
+        }
+
+        content.Add(chart);
+
+        return new Border
+        {
+            //HorizontalOptions =
+            //    LayoutOptions.Center,
+            //MaximumWidthRequest =
+            //    MaximumChartWidth,
+            Stroke =
+                new SolidColorBrush(
+                    Color.FromArgb("#D9D9D9")),
+            StrokeThickness = 1,
+            Padding = 10,
+            Margin =
+                new Thickness(8, 6),
+            Content = content
+        };
+    }
+
+    private static View CreateChartSection(
+        SfPolarChart chart,
+        bool includeZoomControls)
+    {
+        return new Border
+        {
+            //HorizontalOptions =
+            //    LayoutOptions.Center,
+            //MaximumWidthRequest =
+            //    MaximumChartWidth,
+            Stroke =
+                new SolidColorBrush(
+                    Color.FromArgb("#D9D9D9")),
+            StrokeThickness = 1,
+            Padding = 10,
+            Margin =
+                new Thickness(8, 6),
+            Content = chart
+        };
+    }
+
+    private static Grid CreateChartToolbar(
+        ChartZoomPanBehavior zoomBehavior)
+    {
+        var toolbar = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(
+                    GridLength.Star),
+
+                new ColumnDefinition(
+                    GridLength.Auto),
+
+                new ColumnDefinition(
+                    GridLength.Auto),
+
+                new ColumnDefinition(
+                    GridLength.Auto)
+            },
+
+            ColumnSpacing = 6,
+            HorizontalOptions =
+                LayoutOptions.Fill
+        };
+
+        var instructions = new Label
+        {
+            Text =
+                "Mouse wheel scrolls the report. " +
+                "Drag on the chart to select a zoom area.",
+            FontSize = 12,
+            TextColor =
+                Colors.Gray,
+            VerticalTextAlignment =
+                TextAlignment.Center,
+            LineBreakMode =
+                LineBreakMode.TailTruncation
+        };
+
+        var zoomInButton =
+            CreateToolbarButton(
+                "Zoom In",
+                "Zoom in");
+
+        var zoomOutButton =
+            CreateToolbarButton(
+                "Zoom Out",
+                "Zoom out");
+
+        var resetButton =
+            CreateToolbarButton(
+                "Reset",
+                "Reset zoom");
+
+        zoomInButton.Clicked +=
+            (_, _) =>
+                zoomBehavior.ZoomIn();
+
+        zoomOutButton.Clicked +=
+            (_, _) =>
+                zoomBehavior.ZoomOut();
+
+        resetButton.Clicked +=
+            (_, _) =>
+                zoomBehavior.Reset();
+
+        Grid.SetColumn(
+            instructions,
+            0);
+
+        Grid.SetColumn(
+            zoomInButton,
+            1);
+
+        Grid.SetColumn(
+            zoomOutButton,
+            2);
+
+        Grid.SetColumn(
+            resetButton,
+            3);
+
+        toolbar.Children.Add(
+            instructions);
+
+        toolbar.Children.Add(
+            zoomInButton);
+
+        toolbar.Children.Add(
+            zoomOutButton);
+
+        toolbar.Children.Add(
+            resetButton);
+
+        return toolbar;
+    }
+
+    private static Button CreateToolbarButton(
+        string text,
+        string semanticDescription)
+    {
+        var button = new Button
+        {
+            Text = text,
+            FontSize = 12,
+            Padding =
+                new Thickness(12, 6),
+            MinimumHeightRequest = 36,
+            VerticalOptions =
+                LayoutOptions.Center
+        };
+
+        SemanticProperties.SetDescription(
+            button,
+            semanticDescription);
+
+        return button;
     }
 
     private void AddFalseNegativeParetoCharts()
@@ -147,8 +394,9 @@ CreateRelationshipMixChart());
             }
 
             ChartContainer.Children.Add(
-                BuildFalseNegativeParetoChart(
-                    scannerSeries));
+                CreateChartSection(
+                    BuildFalseNegativeParetoChart(
+                        scannerSeries)));
         }
     }
 
@@ -168,22 +416,13 @@ CreateRelationshipMixChart());
                 LayoutOptions.Fill,
 
             ZoomPanBehavior =
-                new ChartZoomPanBehavior
-                {
-                    EnableDirectionalZooming =
-                        true,
-
-                    EnableSelectionZooming =
-                        true
-                },
+                CreateZoomBehavior(),
 
             Legend =
                 new ChartLegend
                 {
                     IsVisible = true,
-
-                    ToggleSeriesVisibility =
-                        true
+                    ToggleSeriesVisibility = true
                 }
         };
 
@@ -197,7 +436,6 @@ CreateRelationshipMixChart());
                 },
 
             ShowMajorGridLines = false,
-
             LabelRotation = -45
         };
 
@@ -215,7 +453,6 @@ CreateRelationshipMixChart());
                     },
 
                 Minimum = 0,
-
                 ShowMajorGridLines = true
             };
 
@@ -235,13 +472,7 @@ CreateRelationshipMixChart());
                 Minimum = 0,
                 Maximum = 100,
                 Interval = 20,
-
-                /*
-                 * Place the percentage axis on the
-                 * opposite side of the chart.
-                 */
                 CrossesAt = double.MaxValue,
-
                 ShowMajorGridLines = false
             };
 
@@ -277,7 +508,6 @@ CreateRelationshipMixChart());
                     FalseNegativeAxisName,
 
                 EnableTooltip = true,
-
                 ShowDataLabels = true,
 
                 TooltipTemplate =
@@ -307,7 +537,6 @@ CreateRelationshipMixChart());
                     CumulativePercentAxisName,
 
                 EnableTooltip = true,
-
                 ShowMarkers = true,
 
                 TooltipTemplate =
@@ -323,33 +552,27 @@ CreateRelationshipMixChart());
         return chart;
     }
 
-    private SfCartesianChart BuildFalsePositiveChart()
+    private SfCartesianChart
+        BuildFalsePositiveChart()
     {
         var chart = new SfCartesianChart
         {
-            Title = "False Positive",
+            Title =
+                "False Positive",
+
             HeightRequest = 450,
 
             HorizontalOptions =
                 LayoutOptions.Fill,
 
             ZoomPanBehavior =
-                new ChartZoomPanBehavior
-                {
-                    EnableDirectionalZooming =
-                        true,
-
-                    EnableSelectionZooming =
-                        true
-                },
+                CreateZoomBehavior(),
 
             Legend =
                 new ChartLegend
                 {
                     IsVisible = true,
-
-                    ToggleSeriesVisibility =
-                        true
+                    ToggleSeriesVisibility = true
                 }
         };
 
@@ -377,7 +600,6 @@ CreateRelationshipMixChart());
                     },
 
                 Minimum = 0,
-
                 ShowMajorGridLines = true
             });
 
@@ -401,8 +623,8 @@ CreateRelationshipMixChart());
                         nameof(
                             AggrigatedItems.Count),
 
-                    PointWidth = 5,
-                    PointHeight = 5,
+                    PointWidth = 7,
+                    PointHeight = 7,
 
                     EnableTooltip = true,
 
@@ -414,172 +636,8 @@ CreateRelationshipMixChart());
         return chart;
     }
 
-    private void AddRelationshipRangeSeries(
-     SfCartesianChart chart,
-     string relationship,
-     Color color)
-    {
-        var items =
-            _reportPageModel
-                .RelationshipMixChartData
-                .Where(item =>
-                    string.Equals(
-                        item.Relationship,
-                        relationship,
-                        StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-        chart.Series.Add(
-            new RangeColumnSeries
-            {
-                Label =
-                    relationship,
-
-                ItemsSource =
-                    items,
-
-                XBindingPath =
-                    nameof(
-                        RelationshipMixChartPoint
-                            .ScannerName),
-
-                Low =
-                    nameof(
-                        RelationshipMixChartPoint
-                            .Low),
-
-                High =
-                    nameof(
-                        RelationshipMixChartPoint
-                            .High),
-
-                Fill =
-                    new SolidColorBrush(color),
-
-                EnableTooltip = true,
-
-                TooltipTemplate =
-                    RelationshipMixToolTip()
-            });
-    }
-    private static DataTemplate
-    RelationshipMixToolTip()
-    {
-        return new DataTemplate(() =>
-        {
-            var layout =
-                CreateTooltipLayout();
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Scanner:",
-                    "Item.ScannerName"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Relationship:",
-                    "Item.Relationship"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Count:",
-                    "Item.Count"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Percentage:",
-                    "Item.Percentage",
-                    "{0:F2}%"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Range:",
-                    "Item.Low",
-                    "{0:F2}%"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "To:",
-                    "Item.High",
-                    "{0:F2}%"));
-
-            return layout;
-        });
-    }
-    private SfPolarChart BuildPolarChart()
-    {
-        var chart = new SfPolarChart
-        {
-            Title =
-                "Scanner CWE Distribution",
-
-            HeightRequest = 450,
-
-            HorizontalOptions =
-                LayoutOptions.Fill,
-
-            Legend =
-                new ChartLegend
-                {
-                    IsVisible = true,
-
-                    ToggleSeriesVisibility =
-                        true
-                },
-
-            PrimaryAxis =
-                new NumericalAxis
-                {
-                    Title =
-                        new ChartAxisTitle
-                        {
-                            Text =
-                                "Scanner CWE"
-                        }
-                },
-
-            SecondaryAxis =
-                new NumericalAxis
-                {
-                    Title =
-                        new ChartAxisTitle
-                        {
-                            Text =
-                                "Finding Count"
-                        },
-
-                    Minimum = 0
-                }
-        };
-
-        foreach (var series in
-                 _reportPageModel.AggregatedSeries)
-        {
-            chart.Series.Add(
-                new PolarAreaSeries
-                {
-                    Label =
-                        $"Scan {series.ScanId}",
-
-                    ItemsSource =
-                        series.Items,
-
-                    XBindingPath =
-                        nameof(
-                            AggrigatedItems.CweId),
-
-                    YBindingPath =
-                        nameof(
-                            AggrigatedItems.Count),
-
-                    ShowDataLabels = true
-                });
-        }
-
-        return chart;
-    }
-
-    private SfCartesianChart BuildRelatedChart()
+    private SfCartesianChart
+        BuildRelatedChart()
     {
         _relatedChart =
             new SfCartesianChart
@@ -593,22 +651,13 @@ CreateRelationshipMixChart());
                     LayoutOptions.Fill,
 
                 ZoomPanBehavior =
-                    new ChartZoomPanBehavior
-                    {
-                        EnableDirectionalZooming =
-                            true,
-
-                        EnableSelectionZooming =
-                            true
-                    },
+                    CreateZoomBehavior(),
 
                 Legend =
                     new ChartLegend
                     {
                         IsVisible = true,
-
-                        ToggleSeriesVisibility =
-                            true
+                        ToggleSeriesVisibility = true
                     }
             };
 
@@ -663,13 +712,14 @@ CreateRelationshipMixChart());
                     .SelectedRelationship == "All"
                     ? sourceItems
                     : sourceItems
-                        .Where(item =>
-                            string.Equals(
-                                item.Relationship,
-                                _reportPageModel
-                                    .SelectedRelationship,
-                                StringComparison
-                                    .OrdinalIgnoreCase))
+                        .Where(
+                            item =>
+                                string.Equals(
+                                    item.Relationship,
+                                    _reportPageModel
+                                        .SelectedRelationship,
+                                    StringComparison
+                                        .OrdinalIgnoreCase))
                         .ToList();
 
             if (filteredItems.Count == 0)
@@ -709,193 +759,8 @@ CreateRelationshipMixChart());
         }
     }
 
-    private static DataTemplate
-        FalseNegativeToolTip()
-    {
-        return new DataTemplate(() =>
-        {
-            var layout =
-                CreateTooltipLayout();
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Scan id:",
-                    "Item.ScanId"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Ground Truth CWE:",
-                    "Item.CweLabel"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "CWE Name:",
-                    "Item.CweName"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Known Opportunities:",
-                    "Item.Opportunities"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Detected:",
-                    "Item.Detected"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "False Negatives:",
-                    "Item.FalseNegatives"));
-
-            return layout;
-        });
-    }
-
-    private static DataTemplate
-        CumulativePercentToolTip()
-    {
-        return new DataTemplate(() =>
-        {
-            var layout =
-                CreateTooltipLayout();
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Scanner:",
-                    "Item.ScannerName"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Ground Truth CWE:",
-                    "Item.CweLabel"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Cumulative %:",
-                    "Item.CumulativePercent",
-                    "{0:F2}%"));
-
-            return layout;
-        });
-    }
-
-    private static DataTemplate RelatedToolTip()
-    {
-        return new DataTemplate(() =>
-        {
-            var layout =
-                CreateTooltipLayout();
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Ground Truth CWE:",
-                    "Item.GroundTruthCweId"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Scanner Identified Related CWE:",
-                    "Item.ScannerCweId"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Relationship:",
-                    "Item.Relationship"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Scanner Finding Confidence:",
-                    "Item.RelationshipScore"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Count:",
-                    "Item.Count"));
-
-            return layout;
-        });
-    }
-
-    private static DataTemplate
-        FalsePositiveToolTip()
-    {
-        return new DataTemplate(() =>
-        {
-            var layout =
-                CreateTooltipLayout();
-
-            layout.Add(
-                CreateTooltipRow(
-                    "CWE:",
-                    "Item.CweId"));
-
-            layout.Add(
-                CreateTooltipRow(
-                    "Count:",
-                    "Item.Count"));
-
-            return layout;
-        });
-    }
-
-    private static VerticalStackLayout
-        CreateTooltipLayout()
-    {
-        return new VerticalStackLayout
-        {
-            BackgroundColor =
-                Colors.Black,
-
-            Padding = 6,
-            Spacing = 2
-        };
-    }
-
-    private static HorizontalStackLayout
-        CreateTooltipRow(
-            string caption,
-            string bindingPath,
-            string? stringFormat = null)
-    {
-        var row =
-            new HorizontalStackLayout
-            {
-                BackgroundColor =
-                    Colors.Black,
-
-                Spacing = 4
-            };
-
-        row.Add(
-            new Label
-            {
-                Padding = 2,
-                FontSize = 10,
-                TextColor =
-                    Colors.White,
-                Text = caption
-            });
-
-        var value =
-            new Label
-            {
-                Padding = 2,
-                FontSize = 10,
-                TextColor =
-                    Colors.White
-            };
-
-        value.SetBinding(
-            Label.TextProperty,
-            new Binding(
-                bindingPath,
-                stringFormat: stringFormat));
-
-        row.Add(value);
-
-        return row;
-    }
     private SfCartesianChart
-    CreateRelationshipMixChart()
+        CreateRelationshipMixChart()
     {
         var chart = new SfCartesianChart
         {
@@ -908,11 +773,7 @@ CreateRelationshipMixChart());
                 LayoutOptions.Fill,
 
             ZoomPanBehavior =
-                new ChartZoomPanBehavior
-                {
-                    EnableDirectionalZooming = true,
-                    EnableSelectionZooming = true
-                },
+                CreateZoomBehavior(),
 
             Legend =
                 new ChartLegend
@@ -991,5 +852,373 @@ CreateRelationshipMixChart());
             Colors.Red);
 
         return chart;
+    }
+
+    private void AddRelationshipRangeSeries(
+        SfCartesianChart chart,
+        string relationship,
+        Color color)
+    {
+        var items =
+            _reportPageModel
+                .RelationshipMixChartData
+                .Where(
+                    item =>
+                        string.Equals(
+                            item.Relationship,
+                            relationship,
+                            StringComparison
+                                .OrdinalIgnoreCase))
+                .ToList();
+
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        chart.Series.Add(
+            new RangeColumnSeries
+            {
+                Label =
+                    relationship,
+
+                ItemsSource =
+                    items,
+
+                XBindingPath =
+                    nameof(
+                        RelationshipMixChartPoint
+                            .ScannerName),
+
+                Low =
+                    nameof(
+                        RelationshipMixChartPoint
+                            .Low),
+
+                High =
+                    nameof(
+                        RelationshipMixChartPoint
+                            .High),
+
+                Fill =
+                    new SolidColorBrush(
+                        color),
+
+                EnableTooltip = true,
+
+                TooltipTemplate =
+                    RelationshipMixToolTip()
+            });
+    }
+
+    private SfPolarChart BuildPolarChart()
+    {
+        var chart = new SfPolarChart
+        {
+            Title =
+                "Scanner CWE Distribution",
+
+            HeightRequest = 450,
+
+            HorizontalOptions =
+                LayoutOptions.Fill,
+
+            Legend =
+                new ChartLegend
+                {
+                    IsVisible = true,
+                    ToggleSeriesVisibility = true
+                },
+
+            PrimaryAxis =
+                new NumericalAxis
+                {
+                    Title =
+                        new ChartAxisTitle
+                        {
+                            Text =
+                                "Scanner CWE"
+                        }
+                },
+
+            SecondaryAxis =
+                new NumericalAxis
+                {
+                    Title =
+                        new ChartAxisTitle
+                        {
+                            Text =
+                                "Finding Count"
+                        },
+
+                    Minimum = 0
+                }
+        };
+
+        foreach (var series in
+                 _reportPageModel.AggregatedSeries)
+        {
+            chart.Series.Add(
+                new PolarAreaSeries
+                {
+                    Label =
+                        $"Scan {series.ScanId}",
+
+                    ItemsSource =
+                        series.Items,
+
+                    XBindingPath =
+                        nameof(
+                            AggrigatedItems.CweId),
+
+                    YBindingPath =
+                        nameof(
+                            AggrigatedItems.Count),
+
+                    ShowDataLabels = true
+                });
+        }
+
+        return chart;
+    }
+
+    private static DataTemplate
+        FalseNegativeToolTip()
+    {
+        return new DataTemplate(
+            () =>
+            {
+                var layout =
+                    CreateTooltipLayout();
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Scan id:",
+                        "Item.ScanId"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Ground Truth CWE:",
+                        "Item.CweLabel"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "CWE Name:",
+                        "Item.CweName"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Known Opportunities:",
+                        "Item.Opportunities"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Detected:",
+                        "Item.Detected"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "False Negatives:",
+                        "Item.FalseNegatives"));
+
+                return layout;
+            });
+    }
+
+    private static DataTemplate
+        CumulativePercentToolTip()
+    {
+        return new DataTemplate(
+            () =>
+            {
+                var layout =
+                    CreateTooltipLayout();
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Scanner:",
+                        "Item.ScannerName"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Ground Truth CWE:",
+                        "Item.CweLabel"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Cumulative %:",
+                        "Item.CumulativePercent",
+                        "{0:F2}%"));
+
+                return layout;
+            });
+    }
+
+    private static DataTemplate
+        RelatedToolTip()
+    {
+        return new DataTemplate(
+            () =>
+            {
+                var layout =
+                    CreateTooltipLayout();
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Ground Truth CWE:",
+                        "Item.GroundTruthCweId"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Scanner Identified Related CWE:",
+                        "Item.ScannerCweId"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Relationship:",
+                        "Item.Relationship"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Scanner Finding Confidence:",
+                        "Item.RelationshipScore"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Count:",
+                        "Item.Count"));
+
+                return layout;
+            });
+    }
+
+    private static DataTemplate
+        FalsePositiveToolTip()
+    {
+        return new DataTemplate(
+            () =>
+            {
+                var layout =
+                    CreateTooltipLayout();
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "CWE:",
+                        "Item.CweId"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Count:",
+                        "Item.Count"));
+
+                return layout;
+            });
+    }
+
+    private static DataTemplate
+        RelationshipMixToolTip()
+    {
+        return new DataTemplate(
+            () =>
+            {
+                var layout =
+                    CreateTooltipLayout();
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Scanner:",
+                        "Item.ScannerName"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Relationship:",
+                        "Item.Relationship"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Count:",
+                        "Item.Count"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Percentage:",
+                        "Item.Percentage",
+                        "{0:F2}%"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Range From:",
+                        "Item.Low",
+                        "{0:F2}%"));
+
+                layout.Add(
+                    CreateTooltipRow(
+                        "Range To:",
+                        "Item.High",
+                        "{0:F2}%"));
+
+                return layout;
+            });
+    }
+
+    private static VerticalStackLayout
+        CreateTooltipLayout()
+    {
+        return new VerticalStackLayout
+        {
+            BackgroundColor =
+                Colors.Black,
+
+            Padding = 8,
+            Spacing = 3
+        };
+    }
+
+    private static HorizontalStackLayout
+        CreateTooltipRow(
+            string caption,
+            string bindingPath,
+            string? stringFormat = null)
+    {
+        var row =
+            new HorizontalStackLayout
+            {
+                BackgroundColor =
+                    Colors.Black,
+
+                Spacing = 4
+            };
+
+        row.Add(
+            new Label
+            {
+                Padding = 2,
+                FontSize = 11,
+                FontAttributes =
+                    FontAttributes.Bold,
+                TextColor =
+                    Colors.White,
+                Text = caption
+            });
+
+        var value =
+            new Label
+            {
+                Padding = 2,
+                FontSize = 11,
+                TextColor =
+                    Colors.White
+            };
+
+        value.SetBinding(
+            Label.TextProperty,
+            new Binding(
+                bindingPath,
+                stringFormat:
+                    stringFormat));
+
+        row.Add(value);
+
+        return row;
     }
 }

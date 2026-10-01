@@ -24,7 +24,7 @@ namespace ToolTester.Application.JulietCoeverages.DTO
 
         }
         public int Id { get; set; }
-        public int CWE_ID { get; set; }
+        public int CweId { get; set; }
         public int Covered { get; set; }
     }
 }

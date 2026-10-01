@@ -20,19 +20,7 @@ namespace ToolTester.Presentation.PageModels
             _applicationDbContextSeed = applicationDbContextSeed;
            _errorHandler = errorHandler;
         }
-        private async Task InitData()
-        {
-            var JulietzipPath = _configuration.GetRequiredSection("JulietProjectSetting").Get<JulietProjectSetting>().Path;
-            if (!File.Exists(JulietzipPath))
-            {
-                //do counts here
-                Console.WriteLine();
-            }
-
-
-       
-         await   _applicationDbContextSeed.SeedCWECatalog();
-        }
+      
         [RelayCommand]
         private void NavigatedTo() =>
          _isNavigatedTo = true;
@@ -40,21 +28,21 @@ namespace ToolTester.Presentation.PageModels
         [RelayCommand]
         private void NavigatedFrom() =>
             _isNavigatedTo = false;
-        [RelayCommand]
-        private async Task Appearing()
-        {
-            if (!_dataLoaded)
-            {
-                await InitData();
-                _dataLoaded = true;
-                await Refresh();
-            }
-            // This means we are being navigated to
-            else if (!_isNavigatedTo)
-            {
-                await Refresh();
-            }
-        }
+        //[RelayCommand]
+        //private async Task Appearing()
+        //{
+        //    if (!_dataLoaded)
+        //    {
+        //        await InitData();
+        //        _dataLoaded = true;
+        //        await Refresh();
+        //    }
+        //    // This means we are being navigated to
+        //    else if (!_isNavigatedTo)
+        //    {
+        //        await Refresh();
+        //    }
+        //}
         [RelayCommand]
         private async Task Refresh()
         {

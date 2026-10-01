@@ -43,7 +43,7 @@ namespace ToolTester.Presentation.PageModels
                     items.Add(new JulietCoverage()
                     {
                         Id = item.Id,
-                        CWE_ID = item.CWE_ID,
+                        CweId = item.CweId,
                          Covered = item.Covered
                       
                     });

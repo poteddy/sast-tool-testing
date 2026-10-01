@@ -58,7 +58,7 @@
                             <syncfusion:ChartTooltipBehavior />
                         </syncfusion:SfCartesianChart.TooltipBehavior>
                         <syncfusion:ColumnSeries ItemsSource="{Binding Items}"
-                        XBindingPath="CWE_ID"
+                        XBindingPath="CweId"
                         YBindingPath="Covered"  
                         EnableTooltip="True"
                         XAxisName="CWE ID"                                                      

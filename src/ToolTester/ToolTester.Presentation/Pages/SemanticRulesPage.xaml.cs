@@ -9,4 +9,5 @@ public partial class SemanticRulesPage : ContentPage
         InitializeComponent();
         BindingContext = SmPageModel;
     }
+
 }

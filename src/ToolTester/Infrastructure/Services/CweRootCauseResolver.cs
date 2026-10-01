@@ -7,6 +7,18 @@ namespace ToolTester.Infrastructure.Services;
 
 public sealed class CweRootCauseResolver : ICweRootCauseResolver
 {
+    private static readonly string[] RootCauseRelationships =
+    [
+        nameof(
+            CweRelationshipKind.SameRootCauseBroaderCwe),
+
+        nameof(
+            CweRelationshipKind.SameRootCauseNarrowerCwe),
+
+        nameof(
+            CweRelationshipKind.JulietRootCause)
+    ];
+
     private readonly IDbContextFactory<ApplicationDbContext>
         _contextFactory;
 
@@ -23,28 +35,45 @@ public sealed class CweRootCauseResolver : ICweRootCauseResolver
         int? groundTruthCweId = null,
         CancellationToken cancellationToken = default)
     {
+        if (scannerCweId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(scannerCweId),
+                scannerCweId,
+                "The scanner CWE ID must be greater than zero.");
+        }
+
         await using var context =
             await _contextFactory.CreateDbContextAsync(
                 cancellationToken);
 
-        var rootCauseRule =
+        /*
+         * Keep the entire query translatable by SQLite.
+         *
+         * RootCauseRelationships.Contains(rule.Relationship)
+         * is translated to a SQL IN expression.
+         */
+        var rootCauseCweId =
             await context.CweSemanticRules
                 .AsNoTracking()
                 .Where(rule =>
                     rule.Enabled &&
                     rule.SourceCweId == scannerCweId &&
-                    IsRootCauseRelationship(
+                    RootCauseRelationships.Contains(
                         rule.Relationship))
                 .OrderByDescending(rule => rule.Score)
+                .ThenBy(rule => rule.TargetCweId)
+                .Select(rule => (int?)rule.TargetCweId)
                 .FirstOrDefaultAsync(cancellationToken);
 
-        if (rootCauseRule != null)
+        if (rootCauseCweId.HasValue)
         {
-            return rootCauseRule.TargetCweId;
+            return rootCauseCweId.Value;
         }
 
         /*
-         * Exact scanner match.
+         * If no semantic root-cause rule exists, preserve an
+         * exact scanner-to-ground-truth match.
          */
         if (groundTruthCweId.HasValue &&
             scannerCweId == groundTruthCweId.Value)
@@ -55,13 +84,12 @@ public sealed class CweRootCauseResolver : ICweRootCauseResolver
         return null;
     }
 
-    private static bool IsRootCauseRelationship(
-       string relationship)
+    public static bool IsRootCauseRelationship(
+        string? relationship)
     {
-        return relationship ==
-            nameof(CweRelationshipKind.SameRootCauseBroaderCwe)
-            ||
-            relationship ==
-            nameof(CweRelationshipKind.SameRootCauseNarrowerCwe);
+        return relationship is not null &&
+            RootCauseRelationships.Contains(
+                relationship,
+                StringComparer.Ordinal);
     }
 }

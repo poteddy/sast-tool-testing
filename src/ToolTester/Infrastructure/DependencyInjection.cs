@@ -10,15 +10,20 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
-        
+
+
+        var dbPath = Path.Combine(
+      Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+      "tooltester.db");
 
         services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseInMemoryDatabase("ToolTester")
+        options.UseSqlite($"Data Source={dbPath}"));
 
-                );
-        services.AddDbContextFactory<ApplicationDbContext>(
-     options =>
-       options.UseInMemoryDatabase("ToolTester"));
+        services.AddDbContextFactory<ApplicationDbContext>(options =>
+        options.UseSqlite($"Data Source={dbPath}"));
+
+        services.AddScoped<IApplicationDbContext>(
+        provider => provider.GetRequiredService<ApplicationDbContext>());
 
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>());

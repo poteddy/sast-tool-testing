@@ -52,7 +52,7 @@ namespace ToolTester.Infrastructure.Services
                             CweId = cwe.CweId,
 
                             CweName =
-                                cwe.CWECatalog?.Name ??
+                                
                                 $"CWE-{cwe.CweId}",
 
                             Opportunities =

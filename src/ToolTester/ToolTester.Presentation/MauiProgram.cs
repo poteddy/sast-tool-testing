@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -64,9 +65,11 @@ namespace ToolTester.Presentation
           
             var context = app.Services.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureCreated();
-         
+          var seed = app.Services.GetRequiredService<IApplicationDbContextSeed>();
+            seed.SeedCWECatalog();
             return app;
         }
+     
     }
     
 }

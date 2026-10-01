@@ -11,8 +11,12 @@ namespace ToolTester.Infrastructure.Services;
 public sealed partial class ParsingService : IParsingService
 {
     private readonly ILogger<ParsingService> _logger;
-    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
-    private readonly ICweRootCauseResolver _rootCauseResolver;
+
+    private readonly IDbContextFactory<ApplicationDbContext>
+        _contextFactory;
+
+    private readonly ICweRootCauseResolver
+        _rootCauseResolver;
 
     private bool _disposedValue;
 
@@ -22,13 +26,16 @@ public sealed partial class ParsingService : IParsingService
         ICweRootCauseResolver rootCauseResolver)
     {
         _logger = logger
-            ?? throw new ArgumentNullException(nameof(logger));
+            ?? throw new ArgumentNullException(
+                nameof(logger));
 
         _contextFactory = contextFactory
-            ?? throw new ArgumentNullException(nameof(contextFactory));
+            ?? throw new ArgumentNullException(
+                nameof(contextFactory));
 
         _rootCauseResolver = rootCauseResolver
-            ?? throw new ArgumentNullException(nameof(rootCauseResolver));
+            ?? throw new ArgumentNullException(
+                nameof(rootCauseResolver));
     }
 
     public async Task<int> Parse(
@@ -36,9 +43,15 @@ public sealed partial class ParsingService : IParsingService
         string filePath,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        ObjectDisposedException.ThrowIf(
+            _disposedValue,
+            this);
 
-        var normalizedFilePath = filePath.Trim('"');
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            filePath);
+
+        var normalizedFilePath =
+            filePath.Trim('"');
 
         if (!File.Exists(normalizedFilePath))
         {
@@ -47,14 +60,19 @@ public sealed partial class ParsingService : IParsingService
                 normalizedFilePath);
         }
 
-        await using var stream = File.OpenRead(normalizedFilePath);
+        await using var stream =
+            File.OpenRead(normalizedFilePath);
 
         List<CWEs> findings = toolId switch
         {
             1 => await ParseSemgrepAsync(stream),
+
             2 => await ParseSarifAsync(stream),
+
             3 => await ParseVeracodeAsync(stream),
+
             4 => await ParseCppCheckerAsync(stream),
+
             5 => await ParseCheckmarxAsync(stream),
 
             _ => throw new ArgumentOutOfRangeException(
@@ -69,33 +87,53 @@ public sealed partial class ParsingService : IParsingService
             cancellationToken);
     }
 
-    private static async Task<List<CWEs>> ParseSemgrepAsync(Stream stream)
+    private static async Task<List<CWEs>>
+        ParseSemgrepAsync(
+            Stream stream)
     {
-        using var parser = new ToolTester.Parsers.SemGrep.Parser();
+        using var parser =
+            new ToolTester.Parsers.SemGrep.Parser();
+
         return await parser.Get_findings(stream);
     }
 
-    private static async Task<List<CWEs>> ParseSarifAsync(Stream stream)
+    private static async Task<List<CWEs>>
+        ParseSarifAsync(
+            Stream stream)
     {
-        using var parser = new ToolTester.Parsers.Sarif.Parser();
+        using var parser =
+            new ToolTester.Parsers.Sarif.Parser();
+
         return await parser.Get_findings(stream);
     }
 
-    private static async Task<List<CWEs>> ParseVeracodeAsync(Stream stream)
+    private static async Task<List<CWEs>>
+        ParseVeracodeAsync(
+            Stream stream)
     {
-        using var parser = new ToolTester.Parsers.Veracode.Parser();
+        using var parser =
+            new ToolTester.Parsers.Veracode.Parser();
+
         return await parser.Get_findings(stream);
     }
 
-    private static async Task<List<CWEs>> ParseCppCheckerAsync(Stream stream)
+    private static async Task<List<CWEs>>
+        ParseCppCheckerAsync(
+            Stream stream)
     {
-        using var parser = new ToolTester.Parsers.CPPChecker.Parser();
+        using var parser =
+            new ToolTester.Parsers.CPPChecker.Parser();
+
         return await parser.Get_findings(stream);
     }
 
-    private static async Task<List<CWEs>> ParseCheckmarxAsync(Stream stream)
+    private static async Task<List<CWEs>>
+        ParseCheckmarxAsync(
+            Stream stream)
     {
-        using var parser = new ToolTester.Parsers.Checkmarx.Parser();
+        using var parser =
+            new ToolTester.Parsers.Checkmarx.Parser();
+
         return await parser.Get_findings(stream);
     }
 
@@ -110,131 +148,278 @@ public sealed partial class ParsingService : IParsingService
         }
 
         await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
+            await _contextFactory.CreateDbContextAsync(
+                cancellationToken);
 
-        var scanId = await GetNextScanIdAsync(
-            context,
-            cancellationToken);
+        /*
+         * Validate the Tool foreign key before creating the Scan.
+         */
+        var toolExists = await context.Tools
+            .AsNoTracking()
+            .AnyAsync(
+                tool => tool.Id == toolId,
+                cancellationToken);
 
-        var results = new List<CWETestResult>(cwes.Count);
+        if (!toolExists)
+        {
+            throw new InvalidOperationException(
+                $"Tool {toolId} does not exist. " +
+                "Ensure the Tool seed completed before parsing.");
+        }
+
+        /*
+         * Create the parent Scan entity.
+         *
+         * Do not calculate Scan.Id manually. SQLite generates the
+         * key when SaveChangesAsync inserts the Scan.
+         */
+        var scan = new Scan
+        {
+            ToolId = toolId,
+            TestResults = []
+        };
 
         foreach (var cweResult in cwes)
         {
-            var groundTruthCwe = ExtractGroundTruthCwe(
-                cweResult.FilePath);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var groundTruthCwe =
+                ExtractGroundTruthCwe(
+                    cweResult.FilePath);
 
             if (!groundTruthCwe.HasValue)
             {
                 _logger.LogWarning(
-                    "No ground-truth CWE was found in file path {FilePath}.",
+                    "No ground-truth CWE was found in " +
+                    "file path {FilePath}.",
                     cweResult.FilePath);
 
                 continue;
             }
 
-            var scannerCwe = cweResult.Cwe;
+            var scannerCwe =
+                cweResult.Cwe;
 
             int? rootCauseCwe = null;
 
             if (scannerCwe > 0)
             {
                 rootCauseCwe =
-                    await _rootCauseResolver.ResolveRootCauseAsync(
-                        scannerCwe,
-                        groundTruthCwe.Value,
-                        cancellationToken);
+                    await _rootCauseResolver
+                        .ResolveRootCauseAsync(
+                            scannerCwe,
+                            groundTruthCwe.Value,
+                            cancellationToken);
             }
 
             var result = new CWETestResult
             {
-                TestPathListedCWE = groundTruthCwe.Value,
-                ScannerFoundCWE = scannerCwe,
-                RootCauseCWE = rootCauseCwe,
+                TestPathListedCWE =
+                    groundTruthCwe.Value,
 
-                Cve = cweResult.Cve ?? string.Empty,
-                Date = DateTime.UtcNow,
-                Description = cweResult.Description ?? string.Empty,
-                DynamicFinding = cweResult.DynamicFinding,
-                FilePath = cweResult.FilePath ?? string.Empty,
-                FoundBy = cweResult.FoundBy,
-                Line = cweResult.Line,
-                Mitigation = cweResult.Mitigation ?? string.Empty,
-                NumericalSeverity = cweResult.NumericalSeverity,
-                References = cweResult.References ?? string.Empty,
-                Severity = cweResult.Severity ?? string.Empty,
-                StaticFinding = cweResult.StaticFinding,
-                Test = cweResult.Test,
-                Title = cweResult.Title ?? string.Empty,
+                ScannerFoundCWE =
+                    scannerCwe,
+
+                RootCauseCWE =
+                    rootCauseCwe,
+
+                Cve =
+                    cweResult.Cve ??
+                    string.Empty,
+
+                Date =
+                    DateTime.UtcNow,
+
+                Description =
+                    cweResult.Description ??
+                    string.Empty,
+
+                DynamicFinding =
+                    cweResult.DynamicFinding,
+
+                FilePath =
+                    cweResult.FilePath,
+
+                FoundBy =
+                    cweResult.FoundBy ?? [],
+
+                Line =
+                    cweResult.Line,
+
+                Mitigation =
+                    cweResult.Mitigation ??
+                    string.Empty,
+
+                NumericalSeverity =
+                    cweResult.NumericalSeverity ??
+                    string.Empty,
+
+                References =
+                    cweResult.References ??
+                    string.Empty,
+
+                Severity =
+                    cweResult.Severity ??
+                    string.Empty,
+
+                StaticFinding =
+                    cweResult.StaticFinding,
+
+                Test =
+                    cweResult.Test,
+
+                Title =
+                    cweResult.Title ??
+                    string.Empty,
+
                 VulnIdFromTool =
-                    cweResult.VulnIdFromTool ?? string.Empty,
+                    cweResult.VulnIdFromTool ??
+                    string.Empty,
 
-                ScanId = scanId
+                /*
+                 * Establish the relationship using the navigation.
+                 *
+                 * EF assigns ScanId after the Scan row receives its
+                 * generated primary key.
+                 */
+                Scan =
+                    scan
             };
 
-            results.Add(result);
+            scan.TestResults.Add(result);
 
-            //_logger.LogDebug(
-            //    "CWE result: scanner CWE-{ScannerCwe}, " +
-            //    "ground truth CWE-{GroundTruthCwe}, " +
-            //    "root cause CWE-{RootCauseCwe}.",
-            //    scannerCwe,
-            //    groundTruthCwe,
-            //    rootCauseCwe);
+            _logger.LogDebug(
+                "Prepared scanner finding for CWE-{ScannerCwe}, " +
+                "ground truth CWE-{GroundTruthCwe}, " +
+                "root cause CWE-{RootCauseCwe}.",
+                scannerCwe,
+                groundTruthCwe.Value,
+                rootCauseCwe);
         }
 
-        if (results.Count == 0)
+        if (scan.TestResults.Count == 0)
         {
+            _logger.LogWarning(
+                "No scanner findings with valid ground-truth " +
+                "CWE values were available for tool {ToolId}.",
+                toolId);
+
             return -1;
         }
 
+        /*
+         * Add the root of the entity graph.
+         *
+         * EF discovers and tracks the CWETestResult children through
+         * Scan.TestResults. There is no need to call AddRange on the
+         * test results separately.
+         */
+        context.Scans.Add(scan);
+
         try
         {
-            await context.CWETestResults.AddRangeAsync(
-                results,
+            await context.SaveChangesAsync(
                 cancellationToken);
 
-            await context.SaveChangesAsync(cancellationToken);
-
             _logger.LogInformation(
-                "Saved {Count} findings for tool {ToolId} as scan {ScanId}.",
-                results.Count,
+                "Saved {Count} findings for tool {ToolId} " +
+                "as scan {ScanId}.",
+                scan.TestResults.Count,
                 toolId,
-                scanId);
+                scan.Id);
 
-            return scanId;
+            return scan.Id;
+        }
+        catch (DbUpdateException exception)
+        {
+            LogFailedEntities(
+                context,
+                exception);
+
+            _logger.LogError(
+                exception,
+                "Failed to save CWE results for tool {ToolId}.",
+                toolId);
+
+            throw;
         }
         catch (Exception exception)
         {
             _logger.LogError(
                 exception,
-                "Failed to save CWE results for tool {ToolId} and scan {ScanId}.",
-                toolId,
-                scanId);
+                "Failed to save CWE results for tool {ToolId}.",
+                toolId);
 
             throw;
         }
     }
 
-    private static async Task<int> GetNextScanIdAsync(
+    private void LogFailedEntities(
         ApplicationDbContext context,
-        CancellationToken cancellationToken)
+        DbUpdateException exception)
     {
-        var maximumScanId =
-            await context.CWETestResults
-                .Select(result => (int?)result.ScanId)
-                .MaxAsync(cancellationToken);
+        var entries = exception.Entries.Count > 0
+            ? exception.Entries
+            : context.ChangeTracker
+                .Entries()
+                .Where(entry =>
+                    entry.State == EntityState.Added ||
+                    entry.State == EntityState.Modified)
+                .ToList();
 
-        return maximumScanId.GetValueOrDefault() + 1;
+        foreach (var entry in entries)
+        {
+            _logger.LogError(
+                "Failed entity {EntityType} in state {State}.",
+                entry.Metadata.DisplayName(),
+                entry.State);
+
+            foreach (var property in entry.Properties)
+            {
+                _logger.LogError(
+                    "Property {PropertyName}={PropertyValue}.",
+                    property.Metadata.Name,
+                    property.CurrentValue);
+            }
+
+            foreach (var foreignKey in
+                     entry.Metadata.GetForeignKeys())
+            {
+                var foreignKeyValues =
+                    foreignKey.Properties
+                        .Select(property =>
+                        {
+                            var value = entry
+                                .Property(property.Name)
+                                .CurrentValue;
+
+                            return
+                                $"{property.Name}=" +
+                                $"{value ?? "<null>"}";
+                        });
+
+                _logger.LogError(
+                    "Foreign key from {DependentEntity} to " +
+                    "{PrincipalEntity}: {ForeignKeyValues}.",
+                    entry.Metadata.DisplayName(),
+                    foreignKey.PrincipalEntityType.DisplayName(),
+                    string.Join(
+                        ", ",
+                        foreignKeyValues));
+            }
+        }
     }
 
-    private static int? ExtractGroundTruthCwe(string? filePath)
+    private static int? ExtractGroundTruthCwe(
+        string? filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
             return null;
         }
 
-        var match = CweFromPathRegex().Match(filePath);
+        var match =
+            CweFromPathRegex().Match(filePath);
 
         if (!match.Success)
         {
@@ -254,7 +439,8 @@ public sealed partial class ParsingService : IParsingService
         RegexOptions.CultureInvariant)]
     private static partial Regex CweFromPathRegex();
 
-    private void Dispose(bool disposing)
+    private void Dispose(
+        bool disposing)
     {
         if (_disposedValue)
         {
@@ -269,6 +455,4 @@ public sealed partial class ParsingService : IParsingService
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
-
-  
 }

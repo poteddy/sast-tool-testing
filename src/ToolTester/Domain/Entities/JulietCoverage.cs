@@ -1,10 +1,13 @@
 ﻿namespace ToolTester.Domain.Entities
 {
-    public class JulietCoverage()
+    public sealed class JulietCoverage
     {
         public int Id { get; set; }
+
+        // Actual CWE number, for example 78, 126, or 129.
         public int CweId { get; set; }
-        public CWECatalog CWECatalog { get; set; }
-        public int Covered {  get; set; }
+
+        public int Covered { get; set; }
+
     }
 }

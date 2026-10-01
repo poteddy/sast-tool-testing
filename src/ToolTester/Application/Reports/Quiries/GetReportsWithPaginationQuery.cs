@@ -10,14 +10,14 @@ namespace ToolTester.Application.Reports.Quiries
 {
 
 
-    public record GetReportsWithPaginationQuery : IRequest<PaginatedList<ReportDTO>>
+    public record GetReportsWithPaginationQuery : IRequest<PaginatedList<ReportDto>>
     {
         public int Id { get; init; }
         public int PageNumber { get; init; } = 1;
         public int PageSize { get; init; } = 10;
     }
 
-    public class GetReportsWithPaginationQueryHandler : IRequestHandler<GetReportsWithPaginationQuery, PaginatedList<ReportDTO>>
+    public class GetReportsWithPaginationQueryHandler : IRequestHandler<GetReportsWithPaginationQuery, PaginatedList<ReportDto>>
     {
         private readonly IApplicationDbContext _context;
         private readonly IMapper _mapper;
@@ -28,11 +28,11 @@ namespace ToolTester.Application.Reports.Quiries
             _mapper = mapper;
         }
 
-        public async Task<PaginatedList<ReportDTO>> Handle(GetReportsWithPaginationQuery request, CancellationToken cancellationToken)
+        public async Task<PaginatedList<ReportDto>> Handle(GetReportsWithPaginationQuery request, CancellationToken cancellationToken)
         {
             return await _context.Reports
                 .OrderBy(x => x.GroundTruthCweId)
-                .ProjectTo<ReportDTO>(_mapper.ConfigurationProvider)
+                .ProjectTo<ReportDto>(_mapper.ConfigurationProvider)
                 .PaginatedListAsync(request.PageNumber, request.PageSize);
         }
     }

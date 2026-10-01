@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using ToolTester.Application.Common.Interfaces;
@@ -8,7 +9,9 @@ using ToolTester.Infrastructure.Persistance;
 
 namespace ToolTester.Infrastructure.Services;
 
-public sealed class ReportingService : IReportingService, IDisposable
+public sealed class ReportingService :
+    IReportingService,
+    IDisposable
 {
     private readonly ILogger<ReportingService> _logger;
 
@@ -30,10 +33,12 @@ public sealed class ReportingService : IReportingService, IDisposable
         ICweTopologyService cweTopologyService)
     {
         _logger = logger
-            ?? throw new ArgumentNullException(nameof(logger));
+            ?? throw new ArgumentNullException(
+                nameof(logger));
 
         _contextFactory = contextFactory
-            ?? throw new ArgumentNullException(nameof(contextFactory));
+            ?? throw new ArgumentNullException(
+                nameof(contextFactory));
 
         _relationshipService = relationshipService
             ?? throw new ArgumentNullException(
@@ -48,6 +53,10 @@ public sealed class ReportingService : IReportingService, IDisposable
         int scanid,
         int toolid)
     {
+        ObjectDisposedException.ThrowIf(
+            _disposedValue,
+            this);
+
         return GenerateReportAsync(
             scanid,
             toolid,
@@ -59,7 +68,9 @@ public sealed class ReportingService : IReportingService, IDisposable
         int toolId,
         CancellationToken cancellationToken)
     {
-        ValidateArguments(scanId, toolId);
+        ValidateArguments(
+            scanId,
+            toolId);
 
         await using var context =
             await _contextFactory.CreateDbContextAsync(
@@ -68,6 +79,37 @@ public sealed class ReportingService : IReportingService, IDisposable
         try
         {
             /*
+             * Verify that the requested scan exists and belongs
+             * to the requested tool.
+             */
+            var scan = await context.Scans
+                .AsNoTracking()
+                .Where(item => item.Id == scanId)
+                .Select(item => new
+                {
+                    item.Id,
+                    item.ToolId
+                })
+                .SingleOrDefaultAsync(
+                    cancellationToken);
+
+            if (scan is null)
+            {
+                throw new InvalidOperationException(
+                    $"Scan {scanId} does not exist.");
+            }
+
+            if (scan.ToolId != toolId)
+            {
+                throw new InvalidOperationException(
+                    $"Scan {scanId} belongs to tool " +
+                    $"{scan.ToolId}, not tool {toolId}.");
+            }
+
+            /*
+             * Apply SQLite-compatible filtering before projecting
+             * into the TestResultInput record.
+             *
              * Preserve all three different CWE values:
              *
              * ScannerCweId:
@@ -81,35 +123,45 @@ public sealed class ReportingService : IReportingService, IDisposable
              */
             var testResults = await context.CWETestResults
                 .AsNoTracking()
-                .Where(result => result.ScanId == scanId)
+                .Where(result =>
+                    result.ScanId == scanId &&
+                    result.ScannerFoundCWE > 0 &&
+                    result.TestPathListedCWE > 0)
                 .Select(result => new TestResultInput(
                     result.ScannerFoundCWE,
                     result.TestPathListedCWE,
                     result.RootCauseCWE))
-                .Where(result =>
-                    result.ScannerCweId > 0 &&
-                    result.GroundTruthCweId > 0)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(
+                    cancellationToken);
 
             if (testResults.Count == 0)
             {
                 _logger.LogInformation(
-                    "No CWE test results were found for scan {ScanId}.",
+                    "No CWE test results were found for " +
+                    "scan {ScanId}.",
                     scanId);
 
-                return CreateEmptyReport(scanId, toolId);
+                /*
+                 * Remove any old reports because the source test
+                 * results are now empty.
+                 */
+                await ReplaceReportsAsync(
+                    context,
+                    scanId,
+                    toolId,
+                    [],
+                    cancellationToken);
+
+                return CreateEmptyReport(
+                    scanId,
+                    toolId);
             }
 
             /*
              * Root cause is included in the grouping key.
              *
-             * This prevents these from being combined:
-             *
-             * Scanner CWE-676 -> ground truth CWE-121
-             *     -> root cause CWE-119
-             *
-             * Scanner CWE-676 -> ground truth CWE-121
-             *     -> no identified root cause
+             * This prevents findings with different root-cause
+             * results from being combined.
              */
             var groupedResults = testResults
                 .GroupBy(result => new CweReportKey(
@@ -132,14 +184,26 @@ public sealed class ReportingService : IReportingService, IDisposable
 
             foreach (var groupedResult in groupedResults)
             {
-                var key = groupedResult.Key;
+                cancellationToken
+                    .ThrowIfCancellationRequested();
+
+                var key =
+                    groupedResult.Key;
 
                 var relationship =
                     await _relationshipService.EvaluateAsync(
-                        scannerCweId: key.ScannerCweId,
-                        groundTruthCweId: key.GroundTruthCweId,
-                        scannerRuleId: null,
-                        programmingLanguage: null,
+                        scannerCweId:
+                            key.ScannerCweId,
+
+                        groundTruthCweId:
+                            key.GroundTruthCweId,
+
+                        scannerRuleId:
+                            null,
+
+                        programmingLanguage:
+                            null,
+
                         cancellationToken);
 
                 var topology = await TryGetTopologyAsync(
@@ -147,14 +211,15 @@ public sealed class ReportingService : IReportingService, IDisposable
                     key.ScannerCweId,
                     cancellationToken);
 
-                reports.Add(
-                    CreateReportEntity(
-                        scanId,
-                        toolId,
-                        key,
-                        groupedResult.Count,
-                        relationship,
-                        topology));
+                var report = CreateReportEntity(
+                    scanId,
+                    toolId,
+                    key,
+                    groupedResult.Count,
+                    relationship,
+                    topology);
+
+                reports.Add(report);
 
                 AppendSummaryLine(
                     reportSummary,
@@ -167,8 +232,10 @@ public sealed class ReportingService : IReportingService, IDisposable
                     "Scan {ScanId}: scanner CWE-{ScannerCweId}, " +
                     "ground-truth CWE-{GroundTruthCweId}, " +
                     "root-cause CWE-{RootCauseCweId}, " +
-                    "relationship {Relationship}, score {Score}, " +
-                    "topology {TopologyRelationship}, count {Count}.",
+                    "relationship {Relationship}, " +
+                    "score {Score}, " +
+                    "topology {TopologyRelationship}, " +
+                    "count {Count}.",
                     scanId,
                     key.ScannerCweId,
                     key.GroundTruthCweId,
@@ -212,10 +279,11 @@ public sealed class ReportingService : IReportingService, IDisposable
              * Source is the ground-truth CWE.
              * Target is the scanner-reported CWE.
              */
-            return await _cweTopologyService.GetRelationshipAsync(
-                groundTruthCweId,
-                scannerCweId,
-                cancellationToken);
+            return await _cweTopologyService
+                .GetRelationshipAsync(
+                    groundTruthCweId,
+                    scannerCweId,
+                    cancellationToken);
         }
         catch (KeyNotFoundException exception)
         {
@@ -249,23 +317,28 @@ public sealed class ReportingService : IReportingService, IDisposable
         IReadOnlyCollection<TestResultInput> testResults,
         int distinctCombinationCount)
     {
-        var rootCauseIdentifiedCount = testResults.Count(
-            result => result.RootCauseCweId.HasValue);
+        var rootCauseIdentifiedCount =
+            testResults.Count(
+                result =>
+                    result.RootCauseCweId.HasValue);
 
         var rootCauseMissingCount =
-            testResults.Count - rootCauseIdentifiedCount;
+            testResults.Count -
+            rootCauseIdentifiedCount;
 
-        var rootCauseMatchesGroundTruthCount = testResults.Count(
-            result =>
-                result.RootCauseCweId.HasValue &&
-                result.RootCauseCweId.Value ==
-                result.GroundTruthCweId);
+        var rootCauseMatchesGroundTruthCount =
+            testResults.Count(
+                result =>
+                    result.RootCauseCweId.HasValue &&
+                    result.RootCauseCweId.Value ==
+                    result.GroundTruthCweId);
 
-        var rootCauseMatchesScannerCount = testResults.Count(
-            result =>
-                result.RootCauseCweId.HasValue &&
-                result.RootCauseCweId.Value ==
-                result.ScannerCweId);
+        var rootCauseMatchesScannerCount =
+            testResults.Count(
+                result =>
+                    result.RootCauseCweId.HasValue &&
+                    result.RootCauseCweId.Value ==
+                    result.ScannerCweId);
 
         var summary = new StringBuilder();
 
@@ -276,7 +349,8 @@ public sealed class ReportingService : IReportingService, IDisposable
             $"Total findings: {testResults.Count}");
 
         summary.AppendLine(
-            $"Distinct CWE combinations: {distinctCombinationCount}");
+            $"Distinct CWE combinations: " +
+            $"{distinctCombinationCount}");
 
         summary.AppendLine(
             $"Findings with identified root cause: " +
@@ -309,12 +383,27 @@ public sealed class ReportingService : IReportingService, IDisposable
     {
         return new Report
         {
-            ScanId = scanId,
-            ToolId = toolId,
+            ScanId =
+                scanId,
 
-            GroundTruthCweId = key.GroundTruthCweId,
-            ScannerCweId = key.ScannerCweId,
-            RootCauseCweId = key.RootCauseCweId,
+            ToolId =
+                toolId,
+
+            /*
+             * These are CWE numbers, not CWECatalog primary keys.
+             *
+             * They should remain scalar report values unless their
+             * relationships are explicitly configured against
+             * CWECatalog.CweId as an alternate principal key.
+             */
+            GroundTruthCweId =
+                key.GroundTruthCweId,
+
+            ScannerCweId =
+                key.ScannerCweId,
+
+            RootCauseCweId =
+                key.RootCauseCweId,
 
             RootCauseMatchesGroundTruth =
                 key.RootCauseCweId.HasValue &&
@@ -326,7 +415,8 @@ public sealed class ReportingService : IReportingService, IDisposable
                 key.RootCauseCweId.Value ==
                 key.ScannerCweId,
 
-            Count = count,
+            Count =
+                count,
 
             Relationship =
                 relationship.Relationship.ToString(),
@@ -335,8 +425,8 @@ public sealed class ReportingService : IReportingService, IDisposable
                 relationship.Score,
 
             /*
-             * Topology can be null when one of the CWEs is not
-             * present in the imported MITRE dataset.
+             * Topology can be unavailable when one of the CWEs
+             * does not exist in the imported MITRE dataset.
              */
             TopologyRelationship =
                 topology?.Relationship.ToString()
@@ -355,7 +445,7 @@ public sealed class ReportingService : IReportingService, IDisposable
         };
     }
 
-    private static async Task ReplaceReportsAsync(
+    private async Task ReplaceReportsAsync(
         ApplicationDbContext context,
         int scanId,
         int toolId,
@@ -363,32 +453,213 @@ public sealed class ReportingService : IReportingService, IDisposable
         CancellationToken cancellationToken)
     {
         /*
-         * Delete previously generated reports for this scan and tool
-         * so report generation remains idempotent.
+         * Validate the actual foreign-key parents before attempting
+         * to replace the report rows.
          */
-        if (context.Database.IsInMemory())
-        {
-            var existingReports = await context.Reports
-                .Where(report =>
-                    report.ScanId == scanId &&
-                    report.ToolId == toolId)
-                .ToListAsync(cancellationToken);
+        var scanExists = await context.Scans
+            .AsNoTracking()
+            .AnyAsync(
+                scan =>
+                    scan.Id == scanId &&
+                    scan.ToolId == toolId,
+                cancellationToken);
 
-            context.Reports.RemoveRange(existingReports);
-        }
-        else
+        if (!scanExists)
         {
-            await context.Reports
-                .Where(report =>
-                    report.ScanId == scanId &&
-                    report.ToolId == toolId)
-                .ExecuteDeleteAsync(cancellationToken);
+            throw new InvalidOperationException(
+                $"Scan {scanId} for tool {toolId} " +
+                "does not exist.");
         }
 
-        context.Reports.AddRange(reports);
+        var toolExists = await context.Tools
+            .AsNoTracking()
+            .AnyAsync(
+                tool => tool.Id == toolId,
+                cancellationToken);
 
-        await context.SaveChangesAsync(
-            cancellationToken);
+        if (!toolExists)
+        {
+            throw new InvalidOperationException(
+                $"Tool {toolId} does not exist.");
+        }
+
+        IDbContextTransaction? transaction = null;
+
+        try
+        {
+            if (context.Database.IsRelational())
+            {
+                transaction =
+                    await context.Database
+                        .BeginTransactionAsync(
+                            cancellationToken);
+            }
+
+            /*
+             * Delete previously generated reports for this scan
+             * and tool so report generation remains idempotent.
+             */
+            if (context.Database.IsInMemory())
+            {
+                var existingReports =
+                    await context.Reports
+                        .Where(report =>
+                            report.ScanId == scanId &&
+                            report.ToolId == toolId)
+                        .ToListAsync(
+                            cancellationToken);
+
+                context.Reports.RemoveRange(
+                    existingReports);
+
+                /*
+                 * Save the tracked deletions before adding the
+                 * replacement records.
+                 */
+                if (existingReports.Count > 0)
+                {
+                    await context.SaveChangesAsync(
+                        cancellationToken);
+                }
+            }
+            else
+            {
+                await context.Reports
+                    .Where(report =>
+                        report.ScanId == scanId &&
+                        report.ToolId == toolId)
+                    .ExecuteDeleteAsync(
+                        cancellationToken);
+            }
+
+            foreach (var report in reports)
+            {
+                /*
+                 * Ensure EF treats every replacement as a new row.
+                 */
+                report.Id = 0;
+
+                /*
+                 * Ensure all reports reference the validated
+                 * parent records.
+                 */
+                report.ScanId = scanId;
+                report.ToolId = toolId;
+            }
+
+            if (reports.Count > 0)
+            {
+                context.Reports.AddRange(
+                    reports);
+
+                await context.SaveChangesAsync(
+                    cancellationToken);
+            }
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(
+                    cancellationToken);
+            }
+
+            _logger.LogInformation(
+                "Replaced reports for scan {ScanId}, " +
+                "tool {ToolId}. New report count: {Count}.",
+                scanId,
+                toolId,
+                reports.Count);
+        }
+        catch (DbUpdateException exception)
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(
+                    cancellationToken);
+            }
+
+            LogFailedReportEntities(
+                context,
+                exception);
+
+            throw;
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(
+                    cancellationToken);
+            }
+
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
+    }
+
+    private void LogFailedReportEntities(
+        ApplicationDbContext context,
+        DbUpdateException exception)
+    {
+        var entries = exception.Entries.Count > 0
+            ? exception.Entries
+            : context.ChangeTracker
+                .Entries()
+                .Where(entry =>
+                    entry.State == EntityState.Added ||
+                    entry.State == EntityState.Modified ||
+                    entry.State == EntityState.Deleted)
+                .ToList();
+
+        foreach (var entry in entries)
+        {
+            _logger.LogError(
+                "Failed report entity {EntityType}, " +
+                "state {State}.",
+                entry.Metadata.DisplayName(),
+                entry.State);
+
+            foreach (var property in entry.Properties)
+            {
+                _logger.LogError(
+                    "Property {PropertyName}={PropertyValue}.",
+                    property.Metadata.Name,
+                    property.CurrentValue);
+            }
+
+            foreach (var foreignKey in
+                     entry.Metadata.GetForeignKeys())
+            {
+                var values = foreignKey.Properties
+                    .Select(property =>
+                    {
+                        var value = entry
+                            .Property(property.Name)
+                            .CurrentValue;
+
+                        return
+                            $"{property.Name}=" +
+                            $"{value ?? "<null>"}";
+                    });
+
+                _logger.LogError(
+                    "Foreign key from {DependentEntity} to " +
+                    "{PrincipalEntity}: {Values}.",
+                    entry.Metadata.DisplayName(),
+                    foreignKey.PrincipalEntityType.DisplayName(),
+                    string.Join(", ", values));
+            }
+        }
+
+        _logger.LogError(
+            exception,
+            "SQLite rejected one or more report changes " +
+            "because of a foreign-key constraint.");
     }
 
     private static void AppendSummaryLine(
@@ -409,21 +680,26 @@ public sealed class ReportingService : IReportingService, IDisposable
         if (key.RootCauseCweId.HasValue)
         {
             summary.Append("CWE-");
-            summary.Append(key.RootCauseCweId.Value);
+            summary.Append(
+                key.RootCauseCweId.Value);
         }
         else
         {
-            summary.Append("not identified");
+            summary.Append(
+                "not identified");
         }
 
         summary.Append(": relationship ");
-        summary.Append(relationship.Relationship);
+        summary.Append(
+            relationship.Relationship);
 
         summary.Append(", score ");
-        summary.Append(relationship.Score);
+        summary.Append(
+            relationship.Score);
 
         summary.Append(", classification ");
-        summary.Append(relationship.Classification);
+        summary.Append(
+            relationship.Classification);
 
         summary.Append(", topology ");
         summary.Append(
@@ -434,15 +710,18 @@ public sealed class ReportingService : IReportingService, IDisposable
 
         if (topology is not null)
         {
-            summary.Append(topology.Distance);
+            summary.Append(
+                topology.Distance);
         }
         else
         {
-            summary.Append("not available");
+            summary.Append(
+                "not available");
         }
 
         summary.Append(", findings ");
-        summary.AppendLine(count.ToString());
+        summary.AppendLine(
+            count.ToString());
     }
 
     private static StringBuilder CreateEmptyReport(
@@ -495,7 +774,8 @@ public sealed class ReportingService : IReportingService, IDisposable
         CweReportKey Key,
         int Count);
 
-    private void Dispose(bool disposing)
+    private void Dispose(
+        bool disposing)
     {
         if (_disposedValue)
         {

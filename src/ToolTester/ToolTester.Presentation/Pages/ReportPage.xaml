@@ -22,7 +22,7 @@
             BindingContext="{Binding BindingContext, Source={x:Reference ReportPageView}}"
             EventName="NavigatedFrom"
             Command="{Binding NavigatedFromCommand}" />
-
+     
     </ContentPage.Behaviors>
 
     <Grid>
