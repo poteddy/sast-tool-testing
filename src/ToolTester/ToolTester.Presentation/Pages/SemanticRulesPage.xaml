@@ -7,63 +7,411 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
     <Grid
+        Padding="16"
+        ColumnDefinitions="3*,2*"
         RowDefinitions="Auto,*"
-        Padding="10">
+        ColumnSpacing="16"
+        RowSpacing="12">
 
-        <!-- Editor -->
+        <!-- Header -->
+        <VerticalStackLayout
+            Grid.Row="0"
+            Grid.ColumnSpan="2"
+            Spacing="4">
 
-        <ScrollView Grid.Row="0">
+            <Label
+                FontAttributes="Bold"
+                FontSize="24"
+                Text="Semantic Rules" />
 
+            <Label
+                FontSize="13"
+                TextColor="Gray"
+                Text="Manage CWE normalization rules — select a rule to edit or create a new one." />
 
-            <VerticalStackLayout Spacing="10">
+        </VerticalStackLayout>
 
-                <Label
-                    FontAttributes="Bold"
-                    FontSize="24"
-                    Text="Semantic Rule Editor" />
+        <!-- LEFT PANEL -->
+        <Grid
+            Grid.Row="1"
+            Grid.Column="0"
+            RowDefinitions="Auto,*"
+            RowSpacing="12">
 
-                <Label
-                    FontSize="12"
-                    TextColor="Gray"
-                    Text="Create and manage CWE relationship normalization rules." />
+            <!-- Search / Actions -->
+            <Grid
+                Grid.Row="0"
+                ColumnDefinitions="*,Auto,Auto"
+                ColumnSpacing="8">
 
-                <Border
-                    Padding="15"
-                    StrokeShape="RoundRectangle 8">
+                <SearchBar
+    x:Name="SearchBar"
+    Grid.Column="0"
+    Placeholder="Search by CWE, relationship, scanner id..."
+    Text="{Binding SearchText, Mode=TwoWay}" />
 
-                    <VerticalStackLayout Spacing="10">
+                <Button
+                    Grid.Column="1"
+                    Text="Import"
+                    Command="{Binding ImportRulesCommand}" />
 
-                        <Entry
-                            Keyboard="Numeric"
-                            Placeholder="Scanner CWE ID"
-                            Text="{Binding CurrentRule.SourceCweId}" />
+                <Button
+                    Grid.Column="2"
+                    Text="Export"
+                    Command="{Binding ExportRulesCommand}" />
 
-                        <Entry
-                            Keyboard="Numeric"
-                            Placeholder="Test Case CWE ID"
-                            Text="{Binding CurrentRule.TargetCweId}" />
+            </Grid>
+
+            <!-- Rule List -->
+            <CollectionView
+                Grid.Row="1"
+                ItemsSource="{Binding Rules}"
+                SelectionMode="Single"
+                SelectedItem="{Binding SelectedRule, Mode=TwoWay}"
+                VerticalOptions="FillAndExpand">
+
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout
+                        Orientation="Vertical"
+                        ItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+
+                        <Border
+                            Padding="12"
+                            Stroke="#DDDDDD"
+                            BackgroundColor="{AppThemeBinding Light=#F9F9F9, Dark=#1E1E1E}">
+
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8" />
+                            </Border.StrokeShape>
+
+                            <Grid
+                                RowDefinitions="Auto,Auto,Auto"
+                                RowSpacing="8">
+
+                                <!-- Row 1 -->
+                                <Grid ColumnDefinitions="*,Auto">
+
+                                    <HorizontalStackLayout
+                                        Grid.Column="0"
+                                        Spacing="8"
+                                        VerticalOptions="Center">
+
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="16"
+                                            Text="{Binding SourceCweId, StringFormat='CWE-{0}'}" />
+
+                                        <Label
+                                            FontSize="16"
+                                            Text="➜"
+                                            TextColor="Gray" />
+
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="16"
+                                            Text="{Binding TargetCweId, StringFormat='CWE-{0}'}" />
+
+                                    </HorizontalStackLayout>
+
+                                    <HorizontalStackLayout
+                                        Grid.Column="1"
+                                        Spacing="6">
+
+                                        <Button
+                                            Text="Edit"
+                                            FontSize="12"
+                                            Padding="12,4"
+                                            Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.EditRuleCommand}"
+                                            CommandParameter="{Binding .}" />
+
+                                        <Button
+                                            Text="Delete"
+                                            FontSize="12"
+                                            Padding="12,4"
+                                            BackgroundColor="IndianRed"
+                                            TextColor="White"
+                                            Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.DeleteRuleCommand}"
+                                            CommandParameter="{Binding .}" />
+
+                                    </HorizontalStackLayout>
+
+                                </Grid>
+
+                                <!-- Row 2 -->
+                                <HorizontalStackLayout
+                                    Grid.Row="1"
+                                    Spacing="12">
+
+                                    <Label
+                                        FontSize="12"
+                                        FontAttributes="Italic"
+                                        Text="{Binding Relationship}"
+                                        TextColor="DodgerBlue" />
+
+                                    <Label
+                                        FontSize="12"
+                                        Text="{Binding Score, StringFormat='Conf: {0}'}"
+                                        TextColor="Gray" />
+
+                                </HorizontalStackLayout>
+
+                                <!-- Row 3 -->
+                                <Grid
+                                    Grid.Row="2"
+                                    ColumnDefinitions="*,Auto,Auto,Auto"
+                                    ColumnSpacing="12">
+
+                                    <Label
+                                        Grid.Column="0"
+                                        FontSize="11"
+                                        TextColor="Gray"
+                                        Text="{Binding EvidenceReference}"
+                                        MaxLines="1"
+                                        LineBreakMode="TailTruncation" />
+
+                                    <Label
+                                        Grid.Column="1"
+                                        FontSize="11"
+                                        FontAttributes="Bold"
+                                        TextColor="Gray"
+                                        Text="{Binding ScannerRuleId}" />
+
+                                    <Label
+                                        Grid.Column="2"
+                                        FontSize="11"
+                                        TextColor="Gray"
+                                        Text="{Binding ProgrammingLanguage}" />
+
+                                    <Label
+                                        Grid.Column="3"
+                                        FontSize="11"
+                                        TextColor="Gray"
+                                        Text="{Binding Version, StringFormat='v{0}'}" />
+
+                                </Grid>
+
+                            </Grid>
+
+                        </Border>
+
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+
+        </Grid>
+
+        <!-- RIGHT PANEL -->
+        <ScrollView
+            Grid.Row="1"
+            Grid.Column="1">
+
+            <Border
+                Padding="16"
+                Stroke="#D6D6D6"
+                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#252525}">
+
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="14">
+
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="18"
+                        Text="Rule Editor" />
+
+                    <!-- CWEs -->
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="8">
+
+                        <VerticalStackLayout
+                            Grid.Column="0"
+                            Spacing="2">
+
+                            <Label
+                                Text="Source CWE"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                TextColor="Gray" />
+
+                            <Entry
+                                Keyboard="Numeric"
+                                Placeholder="79"
+                                Text="{Binding CurrentRule.SourceCweId}" />
+
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout
+                            Grid.Column="1"
+                            Spacing="2">
+
+                            <Label
+                                Text="Target CWE"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                TextColor="Gray" />
+
+                            <Entry
+                                Keyboard="Numeric"
+                                Placeholder="20"
+                                Text="{Binding CurrentRule.TargetCweId}" />
+
+                        </VerticalStackLayout>
+
+                    </Grid>
+
+                    <!-- Relationship -->
+                    <VerticalStackLayout Spacing="2">
+
+                        <Label
+                            Text="Relationship"
+                            FontSize="11"
+                            FontAttributes="Bold"
+                            TextColor="Gray" />
 
                         <Picker
-                            Title="Relationship"
+                            Title="Select Relationship"
                             ItemsSource="{Binding RelationshipTypes}"
                             SelectedItem="{Binding CurrentRule.Relationship}" />
 
-                        <Entry
-                            Keyboard="Numeric"
-                            Placeholder="Confidence Score (0-1000)"
-                            Text="{Binding CurrentRule.Score}" />
+                    </VerticalStackLayout>
 
-                        <Editor
-                            AutoSize="TextChanges"
-                            HeightRequest="120"
-                            Placeholder="Rationale"
-                            Text="{Binding CurrentRule.Rationale}" />
+                    <!-- Score + Scanner Rule -->
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="8">
+
+                        <VerticalStackLayout
+                            Grid.Column="0"
+                            Spacing="2">
+
+                            <Label
+                                Text="Confidence Score"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                TextColor="Gray" />
+
+                            <Entry
+                                Keyboard="Numeric"
+                                Placeholder="0-1000"
+                                Text="{Binding CurrentRule.Score}" />
+
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout
+                            Grid.Column="1"
+                            Spacing="2">
+
+                            <Label
+                                Text="Scanner Rule Id"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                TextColor="Gray" />
+
+                            <Entry
+                                Placeholder="Optional"
+                                Text="{Binding CurrentRule.ScannerRuleId}" />
+
+                        </VerticalStackLayout>
+
+                    </Grid>
+
+                    <!-- Language + Version -->
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="8">
+
+                        <VerticalStackLayout
+                            Grid.Column="0"
+                            Spacing="2">
+
+                            <Label
+                                Text="Programming Language"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                TextColor="Gray" />
+
+                            <Entry
+                                Placeholder="C#, Java, C++, etc."
+                                Text="{Binding CurrentRule.ProgrammingLanguage}" />
+
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout
+                            Grid.Column="1"
+                            Spacing="2">
+
+                            <Label
+                                Text="Version"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                TextColor="Gray" />
+
+                            <Entry
+                                Placeholder="1.0"
+                                Text="{Binding CurrentRule.Version}" />
+
+                        </VerticalStackLayout>
+
+                    </Grid>
+
+                    <!-- Rationale -->
+                    <VerticalStackLayout Spacing="2">
+
+                        <Label
+                            Text="Rationale"
+                            FontSize="11"
+                            FontAttributes="Bold"
+                            TextColor="Gray" />
+
+                        <Border
+                            Padding="2"
+                            Stroke="#CCCCCC">
+
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="4" />
+                            </Border.StrokeShape>
+
+                            <Editor
+                                HeightRequest="100"
+                                AutoSize="TextChanges"
+                                Placeholder="Reason for rule classification..."
+                                Text="{Binding CurrentRule.Rationale}" />
+
+                        </Border>
+
+                    </VerticalStackLayout>
+
+                    <!-- Evidence -->
+                    <VerticalStackLayout Spacing="2">
+
+                        <Label
+                            Text="Evidence Reference"
+                            FontSize="11"
+                            FontAttributes="Bold"
+                            TextColor="Gray" />
 
                         <Entry
-                            Placeholder="Evidence Reference"
+                            Placeholder="Report, file, CWE documentation..."
                             Text="{Binding CurrentRule.EvidenceReference}" />
 
-                        <HorizontalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- Flags -->
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="16">
+
+                        <HorizontalStackLayout
+                            Grid.Column="0"
+                            Spacing="6">
 
                             <Label
                                 VerticalOptions="Center"
@@ -74,124 +422,60 @@
 
                         </HorizontalStackLayout>
 
-                        <Label
-                            Text="{Binding ValidationMessage}"
-                            TextColor="Red" />
-
                         <HorizontalStackLayout
-                            HorizontalOptions="Center"
-                            Spacing="10">
+                            Grid.Column="1"
+                            Spacing="6">
 
-                            <Button
-                                Command="{Binding NewRuleCommand}"
-                                Text="New" />
+                            <Label
+                                VerticalOptions="Center"
+                                Text="Enabled" />
 
-                            <Button
-                                Command="{Binding SaveRuleCommand}"
-                                Text="Save" />
-
-                            <Button
-                                Command="{Binding ImportRulesCommand}"
-                                Text="Import" />
-                            <Button
-                                Command="{Binding ExportRulesCommand}"
-                                Text="Export" />
-                            
-                            <Button
-                                Command="{Binding CancelEditCommand}"
-                                Text="Cancel" />
+                            <Switch
+                                IsToggled="{Binding CurrentRule.Enabled}" />
 
                         </HorizontalStackLayout>
 
-                    </VerticalStackLayout>
+                    </Grid>
 
-                </Border>
+                    <!-- Rule Id -->
+                    <Label
+                        FontSize="11"
+                        TextColor="Gray"
+                        Text="{Binding CurrentRule.Id, StringFormat='Rule Id: {0}'}" />
 
-            </VerticalStackLayout>
+                    <!-- Validation -->
+                    <Label
+                        Text="{Binding ValidationMessage}"
+                        TextColor="Red" />
+
+                    <BoxView
+                        HeightRequest="1"
+                        Color="#DDDDDD" />
+
+                    <!-- Buttons -->
+                    <HorizontalStackLayout
+                        HorizontalOptions="End"
+                        Spacing="8">
+
+                        <Button
+                            Text="New"
+                            Command="{Binding NewRuleCommand}" />
+
+                        <Button
+                            Text="Save"
+                            Command="{Binding SaveRuleCommand}" />
+
+                        <Button
+                            Text="Cancel"
+                            Command="{Binding CancelEditCommand}" />
+
+                    </HorizontalStackLayout>
+
+                </VerticalStackLayout>
+
+            </Border>
 
         </ScrollView>
-
-        <!-- Rules List -->
-
-        <CollectionView
-            Grid.Row="1"
-            ItemsSource="{Binding Rules}"
-            Margin="0,10,0,0">
-
-            <CollectionView.ItemTemplate>
-
-                <DataTemplate>
-
-                    <Border
-                        Padding="10"
-                        Margin="0,0,0,8"
-                        StrokeShape="RoundRectangle 8">
-
-                        <VerticalStackLayout Spacing="4">
-
-                            <Label
-                                FontAttributes="Bold"
-                                FontSize="18"
-                                Text="{Binding SourceCweId, StringFormat='CWE-{0}'}" />
-
-                            <Label
-                                Text="{Binding TargetCweId, StringFormat='→ CWE-{0}'}" />
-
-                            <Label
-                                FontAttributes="Italic"
-                                Text="{Binding Relationship}" />
-
-                            <Label
-                                Text="{Binding Score, StringFormat='Confidence: {0}'}" />
-
-                            <Label
-                                LineBreakMode="TailTruncation"
-                                MaxLines="2"
-                                Text="{Binding Rationale}" />
-
-                            <Label
-                                FontSize="12"
-                                TextColor="Gray"
-                                Text="{Binding EvidenceReference}" />
-
-                            <HorizontalStackLayout
-                                Spacing="5">
-
-                                <Label Text="Bidirectional:" />
-
-                                <Label
-                                    Text="{Binding Bidirectional}" />
-
-                            </HorizontalStackLayout>
-
-                            <HorizontalStackLayout
-                                HorizontalOptions="End"
-                                Spacing="10">
-
-                                <Button
-    Text="Edit"
-    Command="{Binding Source={x:Reference PageRoot},
-                      Path=BindingContext.EditRuleCommand}"
-    CommandParameter="{Binding .}" />
-
-                                <Button
-                                    BackgroundColor="IndianRed"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteRuleCommand}"
-                                    CommandParameter="{Binding}"
-                                    Text="Delete"
-                                    TextColor="White" />
-
-                            </HorizontalStackLayout>
-
-                        </VerticalStackLayout>
-
-                    </Border>
-
-                </DataTemplate>
-
-            </CollectionView.ItemTemplate>
-
-        </CollectionView>
 
     </Grid>
 

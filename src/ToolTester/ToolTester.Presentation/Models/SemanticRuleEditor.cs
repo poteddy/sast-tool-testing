@@ -25,6 +25,19 @@ public partial class SemanticRuleEditor : ObservableObject
     [ObservableProperty]
     private bool bidirectional;
 
+    // New properties that reflect the database entity
+    [ObservableProperty]
+    private string scannerRuleId = string.Empty;
+
+    [ObservableProperty]
+    private string programmingLanguage = string.Empty;
+
+    [ObservableProperty]
+    private bool enabled = true;
+
+    [ObservableProperty]
+    private int version = 1;
+
     public SemanticRule ToSemanticRule()
     {
         return new SemanticRule(
@@ -34,7 +47,11 @@ public partial class SemanticRuleEditor : ObservableObject
             Score: Score,
             Rationale: Rationale.Trim(),
             EvidenceReference: EvidenceReference.Trim(),
-            Bidirectional: Bidirectional);
+            ScannerRuleId: string.IsNullOrWhiteSpace(ScannerRuleId) ? null : ScannerRuleId.Trim(),
+            ProgrammingLanguage: string.IsNullOrWhiteSpace(ProgrammingLanguage) ? null : ProgrammingLanguage.Trim(),
+            Bidirectional: Bidirectional,
+            Enabled: Enabled,
+            Version: Version);
     }
 
     public static SemanticRuleEditor FromSemanticRule(SemanticRule rule)
@@ -49,7 +66,11 @@ public partial class SemanticRuleEditor : ObservableObject
             Score = rule.Score,
             Rationale = rule.Rationale,
             EvidenceReference = rule.EvidenceReference,
-            Bidirectional = rule.Bidirectional
+            Bidirectional = rule.Bidirectional,
+            ScannerRuleId = rule.ScannerRuleId ?? string.Empty,
+            ProgrammingLanguage = rule.ProgrammingLanguage ?? string.Empty,
+            Enabled = rule.Enabled,
+            Version = rule.Version
         };
     }
 }

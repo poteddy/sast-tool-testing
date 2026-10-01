@@ -149,24 +149,40 @@ public sealed class ApplicationDbContextSeed
         IReadOnlyCollection<SemanticRule> semanticRules,
         CancellationToken cancellationToken)
     {
-        await UpsertCweNodesAsync(
-            context,
-            weaknessCatalog,
-            cancellationToken);
+        // Only create CWECatalog rows if none exist yet.
+        if (!await context.CWECatalogs.AnyAsync(cancellationToken))
+        {
+            await UpsertCweNodesAsync(
+                context,
+                weaknessCatalog,
+                cancellationToken);
+        }
 
-        await UpsertDirectRelationshipsAsync(
-            context,
-            weaknessCatalog,
-            cancellationToken);
+        // Only create direct relationships if none exist yet.
+        if (!await context.Relationships.AnyAsync(cancellationToken))
+        {
+            await UpsertDirectRelationshipsAsync(
+                context,
+                weaknessCatalog,
+                cancellationToken);
+        }
 
-        await AddInverseRelationshipsAsync(
-            context,
-            cancellationToken);
+        // Only add derived/inverse relationships if there are no derived relationships yet.
+        if (!await context.Relationships.AnyAsync(r => r.IsDerived, cancellationToken))
+        {
+            await AddInverseRelationshipsAsync(
+                context,
+                cancellationToken);
+        }
 
-        await UpsertSemanticRulesAsync(
-            context,
-            semanticRules,
-            cancellationToken);
+        // Only import semantic rules if none exist yet.
+        if (!await context.CweSemanticRules.AnyAsync(cancellationToken))
+        {
+            await UpsertSemanticRulesAsync(
+                context,
+                semanticRules,
+                cancellationToken);
+        }
     }
 
     private static async Task UpsertCweNodesAsync(
