@@ -394,7 +394,9 @@ public partial class SemanticRulesViewModel : ObservableObject
                 ProgrammingLanguage = string.IsNullOrWhiteSpace(rule.ProgrammingLanguage) ? null : rule.ProgrammingLanguage,
                 Bidirectional = rule.Bidirectional,
                 Enabled = rule.Enabled,
-                Version = rule.Version
+                Version = rule.Version,
+                IsCustom = rule.IsCustom
+
             };
 
             context.CweSemanticRules.Add(entity);
@@ -409,6 +411,7 @@ public partial class SemanticRulesViewModel : ObservableObject
             existing.Bidirectional = rule.Bidirectional;
             existing.Enabled = rule.Enabled;
             existing.Version = rule.Version;
+            existing.IsCustom = rule.IsCustom;
         }
     }
 
