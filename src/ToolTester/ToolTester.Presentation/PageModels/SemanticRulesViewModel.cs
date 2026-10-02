@@ -72,7 +72,9 @@ public partial class SemanticRulesViewModel : ObservableObject
                     ProgrammingLanguage: string.IsNullOrWhiteSpace(e.ProgrammingLanguage) ? null : e.ProgrammingLanguage,
                     Bidirectional: e.Bidirectional,
                     Enabled: e.Enabled,
-                    Version: e.Version);
+                    Version: e.Version,
+                    IsCustom: e.IsCustom
+                    );
 
                 _allRules.Add(record);
             }
@@ -313,28 +315,37 @@ public partial class SemanticRulesViewModel : ObservableObject
                     List<SemanticRule>>(
                     stream,
                     options);
-
+            
             if (importedRules is null)
             {
                 ValidationMessage = "The selected file contained no rules.";
                 return;
             }
-
+         
             await using var context = await _contextFactory.CreateDbContextAsync();
             int importedCount = 0;
 
             foreach (var rule in importedRules)
             {
-                if (!_allRules.Any(existing =>
-                    existing.SourceCweId == rule.SourceCweId &&
-                    existing.TargetCweId == rule.TargetCweId &&
-                    existing.Relationship == rule.Relationship &&
-                    (existing.ScannerRuleId ?? string.Empty) == (rule.ScannerRuleId ?? string.Empty) &&
-                    (existing.ProgrammingLanguage ?? string.Empty) == (rule.ProgrammingLanguage ?? string.Empty) &&
-                    existing.Version == rule.Version))
+                var customRule = rule with
                 {
-                    _allRules.Add(rule);
-                    await UpsertSemanticRuleEntityAsync(rule, context);
+                    IsCustom = true
+                };
+
+                if (!_allRules.Any(existing =>
+                    existing.SourceCweId == customRule.SourceCweId &&
+                    existing.TargetCweId == customRule.TargetCweId &&
+                    existing.Relationship == customRule.Relationship &&
+                    (existing.ScannerRuleId ?? string.Empty) == (customRule.ScannerRuleId ?? string.Empty) &&
+                    (existing.ProgrammingLanguage ?? string.Empty) == (customRule.ProgrammingLanguage ?? string.Empty) &&
+                    existing.Version == customRule.Version))
+                {
+                    _allRules.Add(customRule);
+
+                    await UpsertSemanticRuleEntityAsync(
+                        customRule,
+                        context);
+
                     importedCount++;
                 }
             }
@@ -415,8 +426,11 @@ public partial class SemanticRulesViewModel : ObservableObject
 
     private void SaveRules()
     {
+        var customRules = _allRules
+.Where(x => x.IsCustom)
+.ToList();
         string json = JsonSerializer.Serialize(
-            _allRules,
+            customRules,
             new JsonSerializerOptions
             {
                 WriteIndented = true

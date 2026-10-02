@@ -74,7 +74,8 @@ public sealed record SemanticRule(
     string? ProgrammingLanguage = null,
     bool Bidirectional = false,
     bool Enabled = true,
-    int Version = 1);
+    int Version = 1,
+    bool IsCustom = false);
 
 public sealed record RelationshipResult(
     int ScannerCweId,

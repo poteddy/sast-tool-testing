@@ -38,6 +38,9 @@ public partial class SemanticRuleEditor : ObservableObject
     [ObservableProperty]
     private int version = 1;
 
+    [ObservableProperty]
+    private bool isCustom = true;
+
     public SemanticRule ToSemanticRule()
     {
         return new SemanticRule(
@@ -51,7 +54,8 @@ public partial class SemanticRuleEditor : ObservableObject
             ProgrammingLanguage: string.IsNullOrWhiteSpace(ProgrammingLanguage) ? null : ProgrammingLanguage.Trim(),
             Bidirectional: Bidirectional,
             Enabled: Enabled,
-            Version: Version);
+            Version: Version,
+            IsCustom: IsCustom);
     }
 
     public static SemanticRuleEditor FromSemanticRule(SemanticRule rule)
@@ -70,7 +74,9 @@ public partial class SemanticRuleEditor : ObservableObject
             ScannerRuleId = rule.ScannerRuleId ?? string.Empty,
             ProgrammingLanguage = rule.ProgrammingLanguage ?? string.Empty,
             Enabled = rule.Enabled,
-            Version = rule.Version
+            Version = rule.Version,
+            IsCustom = rule.IsCustom
+
         };
     }
 }

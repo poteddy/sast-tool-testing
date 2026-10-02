@@ -143,19 +143,33 @@
 
                                 <!-- Row 2 -->
                                 <HorizontalStackLayout
-                                    Grid.Row="1"
-                                    Spacing="12">
+    Grid.Row="1"
+    Spacing="12">
 
                                     <Label
-                                        FontSize="12"
-                                        FontAttributes="Italic"
-                                        Text="{Binding Relationship}"
-                                        TextColor="DodgerBlue" />
+        FontSize="12"
+        FontAttributes="Italic"
+        Text="{Binding Relationship}"
+        TextColor="DodgerBlue" />
 
                                     <Label
-                                        FontSize="12"
-                                        Text="{Binding Score, StringFormat='Conf: {0}'}"
-                                        TextColor="Gray" />
+        FontSize="12"
+        Text="{Binding Score, StringFormat='Conf: {0}'}"
+        TextColor="Gray" />
+
+                                    <Border
+        Padding="6,2"
+        BackgroundColor="{Binding IsCustom, Converter={StaticResource BoolToColorConverter}}">
+
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="4" />
+                                        </Border.StrokeShape>
+
+                                        <Label
+            FontSize="11"
+            FontAttributes="Bold"
+            Text="{Binding IsCustom, StringFormat='Custom: {0}'}" />
+                                    </Border>
 
                                 </HorizontalStackLayout>
 
@@ -405,33 +419,47 @@
                     </VerticalStackLayout>
 
                     <!-- Flags -->
+                    <!-- Flags -->
                     <Grid
-                        ColumnDefinitions="*,*"
-                        ColumnSpacing="16">
+    ColumnDefinitions="*,*,*"
+    ColumnSpacing="16">
 
                         <HorizontalStackLayout
-                            Grid.Column="0"
-                            Spacing="6">
+        Grid.Column="0"
+        Spacing="6">
 
                             <Label
-                                VerticalOptions="Center"
-                                Text="Bidirectional" />
+            VerticalOptions="Center"
+            Text="Bidirectional" />
 
                             <Switch
-                                IsToggled="{Binding CurrentRule.Bidirectional}" />
+            IsToggled="{Binding CurrentRule.Bidirectional}" />
 
                         </HorizontalStackLayout>
 
                         <HorizontalStackLayout
-                            Grid.Column="1"
-                            Spacing="6">
+        Grid.Column="1"
+        Spacing="6">
 
                             <Label
-                                VerticalOptions="Center"
-                                Text="Enabled" />
+            VerticalOptions="Center"
+            Text="Enabled" />
 
                             <Switch
-                                IsToggled="{Binding CurrentRule.Enabled}" />
+            IsToggled="{Binding CurrentRule.Enabled}" />
+
+                        </HorizontalStackLayout>
+
+                        <HorizontalStackLayout
+        Grid.Column="2"
+        Spacing="6">
+
+                            <Label
+            VerticalOptions="Center"
+            Text="Custom" />
+
+                            <Switch
+            IsToggled="{Binding CurrentRule.IsCustom}" />
 
                         </HorizontalStackLayout>
 

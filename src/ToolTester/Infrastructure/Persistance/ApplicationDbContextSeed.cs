@@ -49,16 +49,11 @@ public sealed class ApplicationDbContextSeed
     private async Task SeedCweCatalogAsync(
         CancellationToken cancellationToken)
     {
-        var semanticRulesFilePath = GetRulesFilePath();
+        var semanticRules = CreateJulietSemanticRules();
 
-     var semanticRules =
-           ( await LoadSemanticRulesAsync(
-                semanticRulesFilePath,
-                cancellationToken)).ToList();
-        semanticRules.AddRange(CreateJulietSemanticRules());
         await ImportMitreCatalogAsync(
-            semanticRules,
-            cancellationToken);
+        semanticRules,
+        cancellationToken);
 
         await using var context =
             await _contextFactory.CreateDbContextAsync(
@@ -546,7 +541,9 @@ public sealed class ApplicationDbContextSeed
                 rule.EvidenceReference.Trim(),
             Bidirectional = rule.Bidirectional,
             Enabled = rule.Enabled,
-            Version = rule.Version
+            Version = rule.Version,
+            IsCustom = false
+            
         };
     }
 
@@ -681,45 +678,52 @@ public sealed class ApplicationDbContextSeed
                 $"CWE-{rule.TargetCweId}.");
         }
     }
+    /// <summary>
+    /// moved to import
+    /// </summary>
+    /// <param name="context"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    /// <exception cref="InvalidDataException"></exception>
+    //private static async Task<
+    //    IReadOnlyCollection<SemanticRule>>
+    //    LoadSemanticRulesAsync(
+    //        string filePath,
+    //        CancellationToken cancellationToken)
+    //{
+    //    if (!File.Exists(filePath))
+    //    {
+    //        return [];
+    //    }
 
-    private static async Task<
-        IReadOnlyCollection<SemanticRule>>
-        LoadSemanticRulesAsync(
-            string filePath,
-            CancellationToken cancellationToken)
-    {
-        if (!File.Exists(filePath))
-        {
-            return [];
-        }
+    //    await using var stream =
+    //        File.OpenRead(filePath);
 
-        await using var stream =
-            File.OpenRead(filePath);
+    //    var options = new JsonSerializerOptions
+    //    {
+    //        PropertyNameCaseInsensitive = true,
+    //        ReadCommentHandling =
+    //            JsonCommentHandling.Skip,
+    //        AllowTrailingCommas = true
+    //    };
+    //    options.Converters.Add(new JsonStringEnumConverter());
+    //    try
+    //    {
+    //        var rules =
+    //            await JsonSerializer.DeserializeAsync<
+    //            List<SemanticRule>>(stream, options,cancellationToken);
 
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            ReadCommentHandling =
-                JsonCommentHandling.Skip,
-            AllowTrailingCommas = true
-        };
-        options.Converters.Add(new JsonStringEnumConverter());
-        try
-        {
-            var rules =
-                await JsonSerializer.DeserializeAsync<
-                List<SemanticRule>>(stream, options,cancellationToken);
-
-            return rules ?? [];
-        }
-        catch (JsonException exception)
-        {
-            throw new InvalidDataException(
-                $"The semantic-rule file '{filePath}' " +
-                "contains invalid JSON.",
-                exception);
-        }
-    }
+    //        return rules ?? [];
+    //    }
+    //    catch (JsonException exception)
+    //    {
+    //        throw new InvalidDataException(
+    //            $"The semantic-rule file '{filePath}' " +
+    //            "contains invalid JSON.",
+    //            exception);
+    //    }
+    //}
 
     private async Task SeedJulietCoverageAsync(
       ApplicationDbContext context,

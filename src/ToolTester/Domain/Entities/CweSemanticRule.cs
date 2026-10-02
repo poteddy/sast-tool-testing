@@ -27,5 +27,7 @@ namespace ToolTester.Domain.Entities
         public bool Enabled { get; set; } = true;
 
         public int Version { get; set; } = 1;
+
+        public bool IsCustom { get; set; }
     }
 }
