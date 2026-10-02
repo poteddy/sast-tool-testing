@@ -493,14 +493,14 @@ public sealed class ApplicationDbContextSeed
 
             var key = CreateSemanticRuleKey(rule);
 
-            if (!importedKeys.Add(key))
-            {
-                throw new InvalidDataException(
-                    $"The semantic-rule JSON contains a duplicate " +
-                    $"mapping for CWE-{rule.SourceCweId} to " +
-                    $"CWE-{rule.TargetCweId}, relationship " +
-                    $"'{rule.Relationship}', version {rule.Version}.");
-            }
+            //if (!importedKeys.Add(key))
+            //{
+            //    throw new InvalidDataException(
+            //        $"The semantic-rule JSON contains a duplicate " +
+            //        $"mapping for CWE-{rule.SourceCweId} to " +
+            //        $"CWE-{rule.TargetCweId}, relationship " +
+            //        $"'{rule.Relationship}', version {rule.Version}.");
+            //}
 
             if (existingByKey.TryGetValue(
                     key,

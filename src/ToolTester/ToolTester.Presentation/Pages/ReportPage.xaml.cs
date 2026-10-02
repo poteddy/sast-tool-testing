@@ -610,7 +610,7 @@ public partial class ReportPage : ContentPage
                 new ScatterSeries
                 {
                     Label =
-                        $"Scan {series.ScanId}",
+                        $"Scan {series.ScanName}",
 
                     ItemsSource =
                         series.Items,
@@ -731,7 +731,7 @@ public partial class ReportPage : ContentPage
                 new BubbleSeries
                 {
                     Label =
-                        $"Scan {series.ScanId}",
+                        $"Scan {series.ScanName}",
 
                     ItemsSource =
                         filteredItems,
@@ -962,7 +962,7 @@ public partial class ReportPage : ContentPage
                 new PolarAreaSeries
                 {
                     Label =
-                        $"Scan {series.ScanId}",
+                        $"Scan {series.ScanName}",
 
                     ItemsSource =
                         series.Items,

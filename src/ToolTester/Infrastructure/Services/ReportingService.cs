@@ -84,12 +84,7 @@ public sealed class ReportingService :
              */
             var scan = await context.Scans
                 .AsNoTracking()
-                .Where(item => item.Id == scanId)
-                .Select(item => new
-                {
-                    item.Id,
-                    item.ToolId
-                })
+                .Where(item => item.Id == scanId)               
                 .SingleOrDefaultAsync(
                     cancellationToken);
 
@@ -152,9 +147,7 @@ public sealed class ReportingService :
                     [],
                     cancellationToken);
 
-                return CreateEmptyReport(
-                    scanId,
-                    toolId);
+                return CreateEmptyReport(scan);
             }
 
             /*
@@ -724,14 +717,12 @@ public sealed class ReportingService :
             count.ToString());
     }
 
-    private static StringBuilder CreateEmptyReport(
-        int scanId,
-        int toolId)
+    private static StringBuilder CreateEmptyReport(Scan scan)
     {
         var report = new StringBuilder();
 
         report.AppendLine(
-            $"CWE report for scan {scanId}, tool {toolId}");
+            $"CWE report for scan {scan.Id}, tool {scan.ToolId}");
 
         report.AppendLine(
             "No CWE test results were found.");

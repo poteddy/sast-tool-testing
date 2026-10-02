@@ -2,9 +2,11 @@ using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.Input;
 using DocumentFormat.OpenXml.ExtendedProperties;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Reports.Quiries;
+using ToolTester.Infrastructure.Persistance;
 using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
@@ -22,6 +24,12 @@ public partial class ReportPageModel : BaseViewModel
     private readonly BenchmarkReportService _benchmarkService;
     private readonly ModalErrorHandler _errorHandler;
     private readonly IMediator _mediator;
+
+    private readonly IDbContextFactory<ApplicationDbContext>
+        _contextFactory;
+
+    private IReadOnlyDictionary<int, string> _scanNames =
+        new Dictionary<int, string>();
 
     private ObservableCollection<CweTestResults> _items = [];
     private ObservableCollection<TestSeries> _testSeries = [];
@@ -58,13 +66,26 @@ public partial class ReportPageModel : BaseViewModel
     private string _selectedRelationship = "All";
 
     public ReportPageModel(
-        ModalErrorHandler errorHandler,
-        IMediator mediator,
-        BenchmarkReportService benchmarkService)
+      ModalErrorHandler errorHandler,
+      IMediator mediator,
+      BenchmarkReportService benchmarkService,
+      IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _errorHandler = errorHandler;
-        _mediator = mediator;
-        _benchmarkService = benchmarkService;
+        _errorHandler = errorHandler
+            ?? throw new ArgumentNullException(
+                nameof(errorHandler));
+
+        _mediator = mediator
+            ?? throw new ArgumentNullException(
+                nameof(mediator));
+
+        _benchmarkService = benchmarkService
+            ?? throw new ArgumentNullException(
+                nameof(benchmarkService));
+
+        _contextFactory = contextFactory
+            ?? throw new ArgumentNullException(
+                nameof(contextFactory));
     }
 
     public event EventHandler? ReportDataLoaded;
@@ -149,6 +170,7 @@ public partial class ReportPageModel : BaseViewModel
     public async Task LoadItemsAsync(
         CancellationToken cancellationToken = default)
     {
+        await LoadScanNamesAsync(cancellationToken);
         var testResult = await _mediator.Send(
             new GetCweTestResultBasesWithPaginationQuery
             {
@@ -192,7 +214,7 @@ public partial class ReportPageModel : BaseViewModel
                 .Select(group => new RelatedSeries
                 {
                     ScanId = group.Key,
-
+                    ScanName = GetScanName(group.Key),
                     Items = group
                         .OrderBy(report =>
                             report.GroundTruthCweId)
@@ -287,7 +309,7 @@ public partial class ReportPageModel : BaseViewModel
                         new AggrigatedSeries
                         {
                             ScanId = group.Key,
-
+                            ScanName = GetScanName(group.Key),
                             Items = group
                                 .GroupBy(item =>
                                     item.ScannerFoundCWE)
@@ -310,7 +332,7 @@ public partial class ReportPageModel : BaseViewModel
     /// The cumulative percentage restarts at zero for every scanner.
     /// </summary>
     private void BuildFalseNegativePareto(
-        IEnumerable<ScannerFalseNegativeDto> data)
+    IEnumerable<ScannerFalseNegativeDto> data)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -320,15 +342,21 @@ public partial class ReportPageModel : BaseViewModel
             .ToList();
 
         var scannerSeries = source
- .GroupBy(item => item.ScanId)
- .OrderBy(group => group.Key)
-             .Select(scannerGroup =>
+            .GroupBy(item =>
+                item.ScanId)
+            .OrderBy(group =>
+                group.Key)
+            .Select(scannerGroup =>
             {
-                /*
-                 * Group by CweId instead of only CweName.
-                 * This prevents two different CWEs with similar or
-                 * empty names from being merged.
-                 */
+                var scanId =
+                    scannerGroup.Key;
+
+                var scanName =
+                    GetScanName(scanId);
+
+                var scanDisplayName =
+                    GetScanDisplayName(scanId);
+
                 var topMisses = scannerGroup
                     .GroupBy(item => new
                     {
@@ -338,17 +366,21 @@ public partial class ReportPageModel : BaseViewModel
                     .Select(cweGroup => new
                     {
                         cweGroup.Key.CweId,
+
                         CweName =
                             string.IsNullOrWhiteSpace(
                                 cweGroup.Key.CweName)
                                 ? $"CWE-{cweGroup.Key.CweId}"
                                 : cweGroup.Key.CweName,
+
                         Opportunities =
                             cweGroup.Sum(item =>
                                 item.Opportunities),
+
                         Detected =
                             cweGroup.Sum(item =>
                                 item.Detected),
+
                         FalseNegatives =
                             cweGroup.Sum(item =>
                                 item.FalseNegatives)
@@ -357,7 +389,8 @@ public partial class ReportPageModel : BaseViewModel
                         item.FalseNegatives > 0)
                     .OrderByDescending(item =>
                         item.FalseNegatives)
-                    .ThenBy(item => item.CweId)
+                    .ThenBy(item =>
+                        item.CweId)
                     .Take(ParetoCweLimit)
                     .ToList();
 
@@ -382,20 +415,30 @@ public partial class ReportPageModel : BaseViewModel
 
                         return new FalseNegativeChartPoint
                         {
+                            ScanId =
+                                scanId,
+
                             ScannerName =
-                                "Scan ID" + scannerGroup.Key,
+                                scanDisplayName,
+
                             CweId =
                                 item.CweId,
+
                             CweName =
                                 item.CweName,
+
                             CweLabel =
                                 $"CWE-{item.CweId}",
+
                             Opportunities =
                                 item.Opportunities,
+
                             Detected =
                                 item.Detected,
+
                             FalseNegatives =
                                 item.FalseNegatives,
+
                             CumulativePercent =
                                 cumulativePercent
                         };
@@ -404,14 +447,24 @@ public partial class ReportPageModel : BaseViewModel
 
                 return new FalseNegativeParetoSeries
                 {
-                    ScannerName = "Scan Id" + scannerGroup.Key,
-                    Items = points
+                    ScanId =
+                        scanId,
+
+                    ScanName =
+                        scanName,
+
+                    ScannerName =
+                        scanDisplayName,
+
+                    Items =
+                        points
                 };
             })
             .ToList();
 
         FalseNegativeParetoSeries =
-            new ObservableCollection<FalseNegativeParetoSeries>(
+            new ObservableCollection<
+                FalseNegativeParetoSeries>(
                 scannerSeries);
     }
     private static readonly string[]
@@ -430,28 +483,43 @@ public partial class ReportPageModel : BaseViewModel
     private void BuildRelationshipMix()
     {
         var chartPoints =
-        new List<RelationshipMixChartPoint>();
+            new List<RelationshipMixChartPoint>();
 
-        foreach (var scannerSeries in
-        RelatedSeries.OrderBy(series =>
-        series.ScanId))
+        var mixSeries =
+            new List<RelationshipMixSeries>();
+
+        foreach (var relatedSeries in
+                 RelatedSeries.OrderBy(series =>
+                     series.ScanId))
         {
+            var scanId =
+                relatedSeries.ScanId;
+
+            var scanName =
+                GetScanName(scanId);
+
+            var scanDisplayName =
+                GetScanDisplayName(scanId);
+
             var relationshipCounts =
-            scannerSeries.Items
-            .Where(item =>
-            !string.IsNullOrWhiteSpace(
-            item.Relationship))
-            .GroupBy(
-            item => item.Relationship,
-            StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-            group => group.Key,
-            group => group.Sum(item =>
-            item.Count),
-            StringComparer.OrdinalIgnoreCase);
+                relatedSeries.Items
+                    .Where(item =>
+                        !string.IsNullOrWhiteSpace(
+                            item.Relationship))
+                    .GroupBy(
+                        item =>
+                            item.Relationship,
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        group =>
+                            group.Key,
+                        group =>
+                            group.Sum(item =>
+                                item.Count),
+                        StringComparer.OrdinalIgnoreCase);
 
             var totalCount =
-            relationshipCounts.Values.Sum();
+                relationshipCounts.Values.Sum();
 
             if (totalCount <= 0)
             {
@@ -460,49 +528,95 @@ public partial class ReportPageModel : BaseViewModel
 
             var runningPercent = 0.0;
 
+            var seriesPoints =
+                new List<RelationshipMixPoint>();
+
             foreach (var relationship in
-            RelationshipDisplayOrder)
+                     RelationshipDisplayOrder)
             {
                 relationshipCounts.TryGetValue(
-                relationship,
-                out var count);
+                    relationship,
+                    out var count);
 
                 var percentage =
-                count * 100.0 / totalCount;
+                    count * 100.0 /
+                    totalCount;
 
-                var low = runningPercent;
-                var high = runningPercent + percentage;
+                var low =
+                    runningPercent;
+
+                var high =
+                    runningPercent +
+                    percentage;
+
+                seriesPoints.Add(
+                    new RelationshipMixPoint
+                    {
+                        Relationship =
+                            relationship,
+
+                        Count =
+                            count,
+
+                        Percentage =
+                            percentage
+                    });
 
                 chartPoints.Add(
-                new RelationshipMixChartPoint
-                {
-                    ScannerName =
-                $"Scan ID{scannerSeries.ScanId}",
+                    new RelationshipMixChartPoint
+                    {
+                        ScanId =
+                            scanId,
 
-                    Relationship =
-                relationship,
+                        ScanName =
+                            scanName,
 
-                    Count =
-                count,
+                        ScannerName =
+                            scanDisplayName,
 
-                    Percentage =
-                percentage,
+                        Relationship =
+                            relationship,
 
-                    Low =
-                low,
+                        Count =
+                            count,
 
-                    High =
-                high
-                });
+                        Percentage =
+                            percentage,
 
-                runningPercent = high;
+                        Low =
+                            low,
+
+                        High =
+                            high
+                    });
+
+                runningPercent =
+                    high;
             }
+
+            mixSeries.Add(
+                new RelationshipMixSeries
+                {
+                    ScanId =
+                        scanId,
+
+                    ScanName =
+                        scanName,
+
+                    Items =
+                        seriesPoints
+                });
         }
 
+        RelationshipMixSeries =
+            new ObservableCollection<
+                RelationshipMixSeries>(
+                mixSeries);
+
         RelationshipMixChartData =
-        new ObservableCollection<
-        RelationshipMixChartPoint>(
-        chartPoints);
+            new ObservableCollection<
+                RelationshipMixChartPoint>(
+                chartPoints);
     }
     [RelayCommand]
     private void NavigatedTo()
@@ -618,7 +732,7 @@ public partial class ReportPageModel : BaseViewModel
     }
 
     private void AddResultsWorksheet(
-        XLWorkbook workbook)
+    XLWorkbook workbook)
     {
         var worksheet = workbook.Worksheets.Add(
             "Results");
@@ -630,13 +744,16 @@ public partial class ReportPageModel : BaseViewModel
             "Scanner CWE";
 
         worksheet.Cell(1, 3).Value =
-            "Scan Id";
+            "Scan Name";
 
         worksheet.Cell(1, 4).Value =
+            "Scan Id";
+
+        worksheet.Cell(1, 5).Value =
             "Error Value";
 
         ApplyHeaderStyle(
-            worksheet.Range(1, 1, 1, 4));
+            worksheet.Range(1, 1, 1, 5));
 
         var row = 2;
 
@@ -649,9 +766,12 @@ public partial class ReportPageModel : BaseViewModel
                 item.ScannerFoundCWE;
 
             worksheet.Cell(row, 3).Value =
-                item.ScanId;
+                GetScanName(item.ScanId);
 
             worksheet.Cell(row, 4).Value =
+                item.ScanId;
+
+            worksheet.Cell(row, 5).Value =
                 item.ErrorValue;
 
             row++;
@@ -661,38 +781,41 @@ public partial class ReportPageModel : BaseViewModel
             worksheet,
             "ResultsTable",
             row - 1,
-            4);
+            5);
 
         worksheet.SheetView.FreezeRows(1);
         worksheet.Columns().AdjustToContents();
     }
 
     private void AddRelationshipsWorksheet(
-        XLWorkbook workbook)
+      XLWorkbook workbook)
     {
         var worksheet = workbook.Worksheets.Add(
             "Relationships");
 
         worksheet.Cell(1, 1).Value =
-            "Scan Id";
+            "Scan Name";
 
         worksheet.Cell(1, 2).Value =
-            "Ground Truth CWE";
+            "Scan Id";
 
         worksheet.Cell(1, 3).Value =
-            "Scanner CWE";
+            "Ground Truth CWE";
 
         worksheet.Cell(1, 4).Value =
-            "Relationship";
+            "Scanner CWE";
 
         worksheet.Cell(1, 5).Value =
-            "Score";
+            "Relationship";
 
         worksheet.Cell(1, 6).Value =
+            "Score";
+
+        worksheet.Cell(1, 7).Value =
             "Count";
 
         ApplyHeaderStyle(
-            worksheet.Range(1, 1, 1, 6));
+            worksheet.Range(1, 1, 1, 7));
 
         var row = 2;
 
@@ -701,21 +824,24 @@ public partial class ReportPageModel : BaseViewModel
             foreach (var item in series.Items)
             {
                 worksheet.Cell(row, 1).Value =
-                    item.ScanId;
+                    series.ScanName;
 
                 worksheet.Cell(row, 2).Value =
-                    item.GroundTruthCweId;
+                    series.ScanId;
 
                 worksheet.Cell(row, 3).Value =
-                    item.ScannerCweId;
+                    item.GroundTruthCweId;
 
                 worksheet.Cell(row, 4).Value =
-                    item.Relationship;
+                    item.ScannerCweId;
 
                 worksheet.Cell(row, 5).Value =
-                    item.RelationshipScore;
+                    item.Relationship;
 
                 worksheet.Cell(row, 6).Value =
+                    item.RelationshipScore;
+
+                worksheet.Cell(row, 7).Value =
                     item.Count;
 
                 row++;
@@ -726,29 +852,32 @@ public partial class ReportPageModel : BaseViewModel
             worksheet,
             "RelationshipsTable",
             row - 1,
-            6);
+            7);
 
         worksheet.SheetView.FreezeRows(1);
         worksheet.Columns().AdjustToContents();
     }
 
     private void AddAggregatedWorksheet(
-        XLWorkbook workbook)
+     XLWorkbook workbook)
     {
         var worksheet = workbook.Worksheets.Add(
             "Aggregated");
 
         worksheet.Cell(1, 1).Value =
-            "Scan Id";
+            "Scan Name";
 
         worksheet.Cell(1, 2).Value =
-            "CWE";
+            "Scan Id";
 
         worksheet.Cell(1, 3).Value =
+            "CWE";
+
+        worksheet.Cell(1, 4).Value =
             "Count";
 
         ApplyHeaderStyle(
-            worksheet.Range(1, 1, 1, 3));
+            worksheet.Range(1, 1, 1, 4));
 
         var row = 2;
 
@@ -757,12 +886,15 @@ public partial class ReportPageModel : BaseViewModel
             foreach (var item in series.Items)
             {
                 worksheet.Cell(row, 1).Value =
-                    series.ScanId;
+                    series.ScanName;
 
                 worksheet.Cell(row, 2).Value =
-                    item.CweId;
+                    series.ScanId;
 
                 worksheet.Cell(row, 3).Value =
+                    item.CweId;
+
+                worksheet.Cell(row, 4).Value =
                     item.Count;
 
                 row++;
@@ -773,67 +905,74 @@ public partial class ReportPageModel : BaseViewModel
             worksheet,
             "AggregatedTable",
             row - 1,
-            3);
+            4);
 
         worksheet.SheetView.FreezeRows(1);
         worksheet.Columns().AdjustToContents();
     }
 
     private void AddFalseNegativesWorksheet(
-        XLWorkbook workbook)
+      XLWorkbook workbook)
     {
         var worksheet = workbook.Worksheets.Add(
             "False Negatives");
 
         worksheet.Cell(1, 1).Value =
-            "Scanner";
+            "Scan Name";
 
         worksheet.Cell(1, 2).Value =
-            "CWE";
+            "Scan Id";
 
         worksheet.Cell(1, 3).Value =
-            "CWE Name";
+            "CWE";
 
         worksheet.Cell(1, 4).Value =
-            "Known Opportunities";
+            "CWE Name";
 
         worksheet.Cell(1, 5).Value =
-            "Detected";
+            "Known Opportunities";
 
         worksheet.Cell(1, 6).Value =
-            "False Negatives";
+            "Detected";
 
         worksheet.Cell(1, 7).Value =
+            "False Negatives";
+
+        worksheet.Cell(1, 8).Value =
             "Cumulative Percent";
 
         ApplyHeaderStyle(
-            worksheet.Range(1, 1, 1, 7));
+            worksheet.Range(1, 1, 1, 8));
 
         var row = 2;
 
-        foreach (var series in FalseNegativeParetoSeries)
+        foreach (var series in
+                 FalseNegativeParetoSeries)
         {
             foreach (var item in series.Items)
             {
                 worksheet.Cell(row, 1).Value =
-                    item.ScannerName;
+                    series.ScanName;
 
                 worksheet.Cell(row, 2).Value =
-                    item.CweLabel;
+                    series.ScanId;
 
                 worksheet.Cell(row, 3).Value =
-                    item.CweName;
+                    item.CweLabel;
 
                 worksheet.Cell(row, 4).Value =
-                    item.Opportunities;
+                    item.CweName;
 
                 worksheet.Cell(row, 5).Value =
-                    item.Detected;
+                    item.Opportunities;
 
                 worksheet.Cell(row, 6).Value =
-                    item.FalseNegatives;
+                    item.Detected;
 
                 worksheet.Cell(row, 7).Value =
+                    item.FalseNegatives;
+
+                worksheet.Cell(row, 8).Value =
                     item.CumulativePercent / 100.0;
 
                 row++;
@@ -843,7 +982,7 @@ public partial class ReportPageModel : BaseViewModel
         if (row > 2)
         {
             worksheet
-                .Range(2, 7, row - 1, 7)
+                .Range(2, 8, row - 1, 8)
                 .Style
                 .NumberFormat
                 .Format = "0.00%";
@@ -853,7 +992,7 @@ public partial class ReportPageModel : BaseViewModel
             worksheet,
             "FalseNegativesTable",
             row - 1,
-            7);
+            8);
 
         worksheet.SheetView.FreezeRows(1);
         worksheet.Columns().AdjustToContents();
@@ -952,10 +1091,48 @@ public partial class ReportPageModel : BaseViewModel
                 lastColumn)
             .CreateTable(tableName);
     }
+    private async Task LoadScanNamesAsync(
+    CancellationToken cancellationToken)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(
+                cancellationToken);
+
+        _scanNames = await context.Scans
+            .AsNoTracking()
+           
+            .ToDictionaryAsync(
+                scan => scan.Id,
+                scan => string.IsNullOrWhiteSpace(scan.Name)
+                    ? $"Scan {scan.Id}"
+                    : scan.Name,
+                cancellationToken);
+    }
+
+    private string GetScanName(
+        int scanId)
+    {
+        return _scanNames.TryGetValue(
+            scanId,
+            out var scanName)
+                ? scanName
+                : $"Scan {scanId}";
+    }
+
+    private string GetScanDisplayName(
+        int scanId)
+    {
+        return $"{GetScanName(scanId)} ({scanId})";
+    }
 }
 
 public sealed class FalseNegativeParetoSeries
 {
+    public int ScanId { get; set; }
+
+    public string ScanName { get; set; } =
+        string.Empty;
+
     public string ScannerName { get; set; } =
         string.Empty;
 
@@ -965,6 +1142,8 @@ public sealed class FalseNegativeParetoSeries
 
 public sealed class FalseNegativeChartPoint
 {
+    public int ScanId { get; set; }
+
     public string ScannerName { get; set; } =
         string.Empty;
 
@@ -989,6 +1168,9 @@ public class TestSeries
 {
     public int ScanId { get; set; }
 
+    public string ScanName { get; set; } =
+        string.Empty;
+
     public List<CweTestResults> Items { get; set; } =
         [];
 }
@@ -997,6 +1179,9 @@ public class RelatedSeries
 {
     public int ScanId { get; set; }
 
+    public string ScanName { get; set; } =
+        string.Empty;
+
     public List<RelatedItemsInTest> Items { get; set; } =
         [];
 }
@@ -1004,6 +1189,9 @@ public class RelatedSeries
 public class AggrigatedSeries
 {
     public int ScanId { get; set; }
+
+    public string ScanName { get; set; } =
+        string.Empty;
 
     public List<AggrigatedItems> Items { get; set; } =
         [];
@@ -1020,12 +1208,17 @@ public sealed class RelationshipMixSeries
 {
     public int ScanId { get; set; }
 
-    public List<RelationshipMixPoint> Items { get; set; } = [];
+    public string ScanName { get; set; } =
+        string.Empty;
+
+    public List<RelationshipMixPoint> Items { get; set; } =
+        [];
 }
 
 public sealed class RelationshipMixPoint
 {
-    public string Relationship { get; set; } = string.Empty;
+    public string Relationship { get; set; } =
+        string.Empty;
 
     public int Count { get; set; }
 
@@ -1034,6 +1227,15 @@ public sealed class RelationshipMixPoint
 
 public sealed class RelationshipMixChartPoint
 {
+    public int ScanId { get; set; }
+
+    public string ScanName { get; set; } =
+        string.Empty;
+
+    /*
+     * Keep this property if the existing XAML charts bind to
+     * ScannerName. Its value is now derived from Scan.Name and Id.
+     */
     public string ScannerName { get; set; } =
         string.Empty;
 

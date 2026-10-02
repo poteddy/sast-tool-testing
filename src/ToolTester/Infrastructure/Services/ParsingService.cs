@@ -84,10 +84,21 @@ public sealed partial class ParsingService : IParsingService
         return await SaveReportAsync(
             findings,
             toolId,
+            GetTruncatedFileName(filePath, 8),
             cancellationToken);
     }
 
-    private static async Task<List<CWEs>>
+private static string GetTruncatedFileName(string filePath, int maxLength)
+{
+    var fileName = Path.GetFileNameWithoutExtension(filePath);
+
+    if (fileName.Length <= maxLength)
+        return fileName;
+
+    return fileName[..maxLength];
+}
+
+private static async Task<List<CWEs>>
         ParseSemgrepAsync(
             Stream stream)
     {
@@ -140,6 +151,7 @@ public sealed partial class ParsingService : IParsingService
     private async Task<int> SaveReportAsync(
         IReadOnlyCollection<CWEs> cwes,
         int toolId,
+        string scanName ,
         CancellationToken cancellationToken)
     {
         if (cwes.Count == 0)
@@ -174,7 +186,8 @@ public sealed partial class ParsingService : IParsingService
          * key when SaveChangesAsync inserts the Scan.
          */
         var scan = new Scan
-        {
+        {            
+            Name = scanName,
             ToolId = toolId,
             TestResults = []
         };

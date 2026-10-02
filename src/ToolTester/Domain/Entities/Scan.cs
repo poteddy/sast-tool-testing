@@ -13,6 +13,8 @@ public sealed class Scan : IEntity
 
     public int ToolId { get; set; }
 
+    public string Name { get; set; }
+
     public Tool Tool { get; set; } = null!;
 
     public List<CWETestResult> TestResults { get; set; } =
