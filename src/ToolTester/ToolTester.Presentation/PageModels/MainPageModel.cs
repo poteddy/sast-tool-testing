@@ -79,5 +79,8 @@ namespace ToolTester.Presentation.PageModels
      [RelayCommand]
         private  Task NavigateToRulesPage(SemanticRulesPage project)
         => Shell.Current.GoToAsync("rules");
+     [RelayCommand]
+        private Task NavigateToScanPage(ScansPage project)
+           => Shell.Current.GoToAsync("scan");
     }
 }

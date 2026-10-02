@@ -16,6 +16,7 @@ namespace ToolTester.Presentation
             Routing.RegisterRoute("parse", typeof(ParsePage)); // Register the route
             Routing.RegisterRoute("report", typeof(ReportPage)); // Register the route
             Routing.RegisterRoute("rules", typeof(SemanticRulesPage));
+            Routing.RegisterRoute("scan", typeof(ScansPage));
 
             var currentTheme = Microsoft.Maui.Controls.Application.Current!.RequestedTheme;
             ThemeSegmentedControl.SelectedIndex = currentTheme == AppTheme.Light ? 0 : 1;

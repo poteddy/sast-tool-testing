@@ -69,7 +69,13 @@
           SemanticProperties.Hint="Counts the number of times you click"                  
           Command="{Binding NavigateToRulesPageCommand}" 
           HorizontalOptions="Fill" />
-    
+        <Button
+        x:Name="ScanLink"
+        Text="Scans" 
+        SemanticProperties.Hint="Counts the number of times you click"                  
+        Command="{Binding NavigateToScanPageCommand}" 
+        HorizontalOptions="Fill" />
+        
     </VerticalStackLayout>
 
 </ContentPage>

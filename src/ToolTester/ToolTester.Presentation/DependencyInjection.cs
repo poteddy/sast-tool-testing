@@ -20,8 +20,10 @@ namespace ToolTester.Presentation
             services.AddSingleton<ParsePageModel>();
             services.AddSingleton<ReportPageModel>();
             services.AddSingleton<SemanticRulesViewModel>();
-
-        
+            // inside your existing AddPresentationServices() extension method add:            
+            services.AddTransient<PageModels.ScansPageModel>();
+            services.AddTransient<Pages.ScansPage>();
+            services.AddTransient<PageModels.ScansPageModel>();
             //builder.Services.AddSingleton<ProjectRepository>();
             //builder.Services.AddSingleton<TaskRepository>();
             //builder.Services.AddSingleton<CategoryRepository>();

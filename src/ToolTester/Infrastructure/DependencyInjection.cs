@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped <ICweTopologyService,CweTopologyService > ();
         services.AddScoped<ICweRootCauseResolver, CweRootCauseResolver>();
         services.AddScoped<BenchmarkReportService>();
+        services.AddScoped<IScanService, ScanService>();
         return services;
     }
 
