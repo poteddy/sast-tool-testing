@@ -52,10 +52,10 @@
                 Series="{Binding Series}"
                 XAxes="{Binding XAxes}"
                 YAxes="{Binding YAxes}"
-                LegendPosition="Bottom"
+               LegendPosition="Top"
                 TooltipPosition="Top"
                 ZoomMode="Both" />
-
+         
         </Grid>
 
     </RefreshView>
