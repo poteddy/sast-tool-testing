@@ -1,8 +1,10 @@
 ﻿using CommunityToolkit.Maui;
+using LiveChartsCore.SkiaSharpView.Maui;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SkiaSharp.Views.Maui.Controls.Hosting;
 using Syncfusion.Maui.Core.Hosting;
 using Syncfusion.Maui.Toolkit.Hosting;
 using System.Reflection;
@@ -34,6 +36,8 @@ namespace ToolTester.Presentation
                 .UseMauiCommunityToolkit()
                 .ConfigureSyncfusionToolkit()
                 .ConfigureSyncfusionCore()
+                .UseSkiaSharp()
+                .UseLiveCharts()
                 .ConfigureMauiHandlers(handlers =>
                 {
 #if IOS || MACCATALYST

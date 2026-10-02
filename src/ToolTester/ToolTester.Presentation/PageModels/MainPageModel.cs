@@ -82,5 +82,8 @@ namespace ToolTester.Presentation.PageModels
      [RelayCommand]
         private Task NavigateToScanPage(ScansPage project)
            => Shell.Current.GoToAsync("scan");
+     [RelayCommand]
+        private Task NavigateToTestPage(NewPage1 project)
+           => Shell.Current.GoToAsync("test");
     }
 }

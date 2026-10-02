@@ -75,6 +75,12 @@
         SemanticProperties.Hint="Counts the number of times you click"                  
         Command="{Binding NavigateToScanPageCommand}" 
         HorizontalOptions="Fill" />
+        <Button
+        x:Name="TestLink"
+        Text="Test" 
+        SemanticProperties.Hint="Counts the number of times you click"                  
+        Command="{Binding NavigateToTestPageCommand}" 
+        HorizontalOptions="Fill" />
         
     </VerticalStackLayout>
 

@@ -1,11 +1,13 @@
-﻿
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using MediatR;
 using System.Collections.ObjectModel;
 using ToolTester.Application.JulietCoeverages.Queries;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 using ToolTester.Presentation.Ulitlities;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.Measure;
 
 namespace ToolTester.Presentation.PageModels
 {
@@ -17,15 +19,39 @@ namespace ToolTester.Presentation.PageModels
         private readonly ModalErrorHandler _errorHandler;
         private readonly IMediator _mediator;
 
-         public ObservableCollection<JulietCoverage> Items
+        private IEnumerable<ISeries>? _series;
+        private Axis[]? _xAxes;
+        private Axis[]? _yAxes;
+
+        public ObservableCollection<JulietCoverage> Items
         {
             get => _items;
             set => SetProperty(ref _items, value); // SetProperty handles property change notification
         }
+
+        public IEnumerable<ISeries>? Series
+        {
+            get => _series;
+            set => SetProperty(ref _series, value);
+        }
+
+        public Axis[]? XAxes
+        {
+            get => _xAxes;
+            set => SetProperty(ref _xAxes, value);
+        }
+
+        public Axis[]? YAxes
+        {
+            get => _yAxes;
+            set => SetProperty(ref _yAxes, value);
+        }
+
         public JulietCoveragesPageModel(ModalErrorHandler errorHandler, IMediator mediator)
         {
             _errorHandler = errorHandler;
             _mediator = mediator;
+            _items = new ObservableCollection<JulietCoverage>();
         }
 
         public async Task LoadItemsAsync()
@@ -37,20 +63,37 @@ namespace ToolTester.Presentation.PageModels
                 PageSize = 10000
             };
             var result = await _mediator.Send(query);
-         
-                foreach (var item in result.Items)
+
+            foreach (var item in result.Items)
+            {
+                items.Add(new JulietCoverage()
                 {
-                    items.Add(new JulietCoverage()
-                    {
-                        Id = item.Id,
-                        CweId = item.CweId,
-                         Covered = item.Covered
-                      
-                    });
-                }
-            
+                    Id = item.Id,
+                    CweId = item.CweId,
+                    Covered = item.Covered
+
+                });
+            }
+
             Items = new ObservableCollection<JulietCoverage>(items);
-          }
+
+            // Build LiveCharts2 series and axes from Items
+            var values = Items.Select(i => (double)i.Covered).ToArray();
+            Series = new ISeries[]
+            {
+                new ColumnSeries<double> { Values = values }
+            };
+
+            XAxes = new Axis[]
+            {
+                new Axis { Labels = Items.Select(i => i.CweId.ToString()).ToArray() }
+            };
+
+            YAxes = new Axis[]
+            {
+                new Axis()
+            };
+        }
 
         [RelayCommand]
         private void NavigatedTo() =>
@@ -105,7 +148,5 @@ namespace ToolTester.Presentation.PageModels
             => Shell.Current.GoToAsync($"project?id={project.ID}");
 
     }
-
-  
 
 }
