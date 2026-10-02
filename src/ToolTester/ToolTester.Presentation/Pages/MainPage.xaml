@@ -38,10 +38,16 @@
                 SemanticProperties.Description="Welcome to dot net Multi platform App U I" />
 
         <Button
+                x:Name="Cataloglink"
+                Text="Catalog" 
+                SemanticProperties.Hint="Counts the number of times you click"                  
+                Command="{Binding NavigateToCatalogpPageCommand}" 
+                HorizontalOptions="Fill" />
+        <Button
                 x:Name="Relationshiplink"
                 Text="Relationships" 
                 SemanticProperties.Hint="Counts the number of times you click"                  
-                Command="{Binding NavigateToCatalogPageCommand}" 
+                Command="{Binding NavigateToRelationshipPageCommand}" 
                 HorizontalOptions="Fill" />
 
         <Button
@@ -75,13 +81,7 @@
         SemanticProperties.Hint="Counts the number of times you click"                  
         Command="{Binding NavigateToScanPageCommand}" 
         HorizontalOptions="Fill" />
-        <Button
-        x:Name="TestLink"
-        Text="Test" 
-        SemanticProperties.Hint="Counts the number of times you click"                  
-        Command="{Binding NavigateToTestPageCommand}" 
-        HorizontalOptions="Fill" />
-        
+    
     </VerticalStackLayout>
 
 </ContentPage>

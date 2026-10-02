@@ -1,141 +1,63 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"  
-             xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
-             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"           
-             xmlns:syncfusion="http://schemas.syncfusion.com/maui/toolkit"    
-             xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
-         
-             x:Class="ToolTester.Presentation.Pages.RelationshipsPage"
-             x:DataType="PageModels:RelationshipsPageModel"
-             x:Name="RelationshipsPageModel"
-             Title="Relationships">
 
+<ContentPage
+    x:Class="ToolTester.Presentation.Pages.RelationshipsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
+    x:DataType="PageModels:RelationshipsPageModel"
+    x:Name="Page"
+    Title="Relationships">
 
     <ContentPage.Behaviors>
+
         <toolkit:EventToCommandBehavior
-           EventName="NavigatedTo"
-           Command="{Binding NavigatedToCommand}" />
+            EventName="NavigatedTo"
+            Command="{Binding NavigatedToCommand}" />
+
         <toolkit:EventToCommandBehavior
-           EventName="NavigatedFrom"
-           Command="{Binding NavigatedFromCommand}" />
+            EventName="NavigatedFrom"
+            Command="{Binding NavigatedFromCommand}" />
+
         <toolkit:EventToCommandBehavior
-BindingContext="{Binding BindingContext, Source={x:Reference RelationshipsPageModel}}"
-EventName="Appearing"
-Command="{Binding AppearingCommand}" />
-    
+            BindingContext="{Binding BindingContext, Source={x:Reference RelationshipsPage}}"
+            EventName="Appearing"
+            Command="{Binding AppearingCommand}" />
+
     </ContentPage.Behaviors>
 
-    <pullToRefresh:SfPullToRefresh
-                   IsRefreshing="{Binding IsRefreshing}"
-                   RefreshCommand="{Binding RefreshCommand}">
-        <pullToRefresh:SfPullToRefresh.PullableContent>
+    <RefreshView
+        IsRefreshing="{Binding IsRefreshing}"
+        Command="{Binding RefreshCommand}">
 
-            <ScrollView>
-                <VerticalStackLayout
-      Spacing="25"
-      Margin="0"
-      VerticalOptions="Start">
-                    <syncfusion:SfCartesianChart>
-                        
+        <Grid
+            Padding="10"
+            RowDefinitions="Auto,*">
 
-                        <syncfusion:SfCartesianChart.XAxes>
-                            <syncfusion:NumericalAxis/>
-                        </syncfusion:SfCartesianChart.XAxes>
+            <Label
+                Grid.Row="0"
+                Margin="10"
+                Text="CWE Relationships"
+                FontSize="24"
+                FontAttributes="Bold"
+                SemanticProperties.HeadingLevel="Level1" />
 
-                        <syncfusion:SfCartesianChart.YAxes>
-                            <syncfusion:NumericalAxis/>
-                        </syncfusion:SfCartesianChart.YAxes>
+            <lvc:CartesianChart
+                Grid.Row="1"
+                HeightRequest="650"
+                HorizontalOptions="Fill"
+                VerticalOptions="Fill"
+                Series="{Binding Series}"
+                XAxes="{Binding XAxes}"
+                YAxes="{Binding YAxes}"
+                LegendPosition="Bottom"
+                TooltipPosition="Top"
+                ZoomMode="Both" />
 
-                        <syncfusion:SfCartesianChart.ZoomPanBehavior>
-                            <syncfusion:ChartZoomPanBehavior EnablePanning = "True" EnableDoubleTap="True" EnablePinchZooming="True"/>
-                        </syncfusion:SfCartesianChart.ZoomPanBehavior>
-                        <syncfusion:SfCartesianChart.Legend>
-                            <syncfusion:ChartLegend ToggleSeriesVisibility="True"/>
-                        </syncfusion:SfCartesianChart.Legend>
-                    
-                        <syncfusion:SfCartesianChart.TooltipBehavior>
-                            <syncfusion:ChartTooltipBehavior />
-                        </syncfusion:SfCartesianChart.TooltipBehavior>
+        </Grid>
 
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[0].Items}" 
-                                                  Label= "{Binding Groups[0].Nature}"       
-                          XBindingPath="CWEID"                                                                                 
-                          YBindingPath="RelatedCweID"       
-                                                  EnableTooltip="True"
-                           PointHeight="5"
-                             PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[1].Items}"
-                                                  Label= "{Binding Groups[1].Nature}"
-XBindingPath="CWEID"                                                                                 
-YBindingPath="RelatedCweID"
-                                                  EnableTooltip="True"
-   IsVisibleOnLegend="True"                         
- PointHeight="5"
-   PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[2].Items}" 
-                                                  Label = "{Binding Groups[2].Nature}"
-XBindingPath="CWEID"                                                                                 
-YBindingPath="RelatedCweID"
-                                                  EnableTooltip="True"
-   IsVisibleOnLegend="True"                         
- PointHeight="5"
-   PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[3].Items}"
-                                                  Label= "{Binding Groups[3].Nature}"
-XBindingPath="CWEID"                                                                                 
-YBindingPath="RelatedCweID"
-   IsVisibleOnLegend="True"                         
- PointHeight="5"
-   PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[4].Items}"
-                                                  Label= "{Binding Groups[4].Nature}"
-XBindingPath="CWEID"                                                                                 
-YBindingPath="RelatedCweID"
-                                                  EnableTooltip="True"
-   IsVisibleOnLegend="True"                         
- PointHeight="5"
-   PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[5].Items}"
-                                                  Label= "{Binding Groups[5].Nature}"
-XBindingPath="CWEID"                                                                                 
-YBindingPath="RelatedCweID"
-                                                  EnableTooltip="True"
-   IsVisibleOnLegend="True"                         
- PointHeight="5"
-   PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[6].Items}"
-                                                  Label= "{Binding Groups[6].Nature}"
-XBindingPath="CWEID"                                                                                 
-YBindingPath="RelatedCweID"
-                                                  EnableTooltip="True"
-   IsVisibleOnLegend="True"                         
- PointHeight="5"
-   PointWidth="5"/>
-                        <syncfusion:ScatterSeries ItemsSource="{Binding Groups[7].Items}"
-                                                   Label= "{Binding Groups[7].Nature}"
-XBindingPath="CWEID"                                                                                 
-YBindingPath="RelatedCweID"
-                                                  EnableTooltip="True"
-   IsVisibleOnLegend="True"                         
- PointHeight="5"
-   PointWidth="5"/>
+    </RefreshView>
 
-
-
-                    </syncfusion:SfCartesianChart>
-
-
-
-                    <!--<Button
-               x:Name="CounterBtn"
-               Text="Click me" 
-               SemanticProperties.Hint="Counts the number of times you click"
-               Clicked="OnCounterClicked"
-               HorizontalOptions="Fill" />-->
-
-                </VerticalStackLayout>
-            </ScrollView>
-        </pullToRefresh:SfPullToRefresh.PullableContent>
-    </pullToRefresh:SfPullToRefresh>
 </ContentPage>

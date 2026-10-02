@@ -5,8 +5,7 @@
              xmlns:pullToRefresh="clr-namespace:Syncfusion.Maui.Toolkit.PullToRefresh;assembly=Syncfusion.Maui.Toolkit"         
              xmlns:PageModels="clr-namespace:ToolTester.Presentation.PageModels"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"           
-             xmlns:syncfusion="http://schemas.syncfusion.com/maui/toolkit"    
-             xmlns:syncfusioncommercial="clr-namespace:Syncfusion.Maui.DataGrid;assembly=Syncfusion.Maui.DataGrid"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
              Title="CatalogPage">
 
     <ContentPage.Behaviors>
@@ -42,23 +41,11 @@
                SemanticProperties.HeadingLevel="Level1" />
 
 
-                    <syncfusion:SfCartesianChart>
-                        <syncfusion:SfCartesianChart.XAxes>
-                            <syncfusion:CategoryAxis/>
-                        </syncfusion:SfCartesianChart.XAxes>
-
-                        <syncfusion:SfCartesianChart.YAxes>
-                            <syncfusion:NumericalAxis/>
-                        </syncfusion:SfCartesianChart.YAxes>
-
-                        <syncfusion:ColumnSeries ItemsSource="{Binding Items}"
-                        XBindingPath="Id"
-                        YBindingPath="Status"/>
-                    </syncfusion:SfCartesianChart>
-                    
-                    <syncfusioncommercial:SfDataGrid x:Name="dataGrid"
-                               ItemsSource="{Binding Items}">
-                    </syncfusioncommercial:SfDataGrid>
+                    <lvc:CartesianChart
+HeightRequest="400"
+Series="{Binding Series}"
+XAxes="{Binding XAxes}"
+YAxes="{Binding YAxes}" />
                     <Label
                Text="Welcome to &#10;.NET Multi-platform App UI"
                Style="{StaticResource SubHeadline}"

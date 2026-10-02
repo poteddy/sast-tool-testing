@@ -61,8 +61,11 @@ namespace ToolTester.Presentation.PageModels
             }
         }
         [RelayCommand]
-        private  Task NavigateToCatalogPage(RelationshipsPage project)
+        private  Task NavigateToRelationshipPage(RelationshipsPage project)
         => Shell.Current.GoToAsync("relationships");
+        [RelayCommand]
+        private  Task NavigateToCatalogpPage(RelationshipsPage project)
+        => Shell.Current.GoToAsync("catalog");
 
         [RelayCommand]
         private  Task NavigateToJulietPage(JulietCoveragePage project)
@@ -82,8 +85,6 @@ namespace ToolTester.Presentation.PageModels
      [RelayCommand]
         private Task NavigateToScanPage(ScansPage project)
            => Shell.Current.GoToAsync("scan");
-     [RelayCommand]
-        private Task NavigateToTestPage(NewPage1 project)
-           => Shell.Current.GoToAsync("test");
+    
     }
 }

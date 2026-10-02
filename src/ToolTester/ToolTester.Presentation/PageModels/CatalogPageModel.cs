@@ -1,99 +1,194 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.CWECatalogs.Queries;
-using ToolTester.Domain.Entities;
-using ToolTester.Presentation.Interfaces;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 using ToolTester.Presentation.Ulitlities;
 
 namespace ToolTester.Presentation.PageModels;
-public partial class CatalogPageModel : BaseViewModel // Assuming you have ObservableObject for property change notification
+
+public partial class CatalogPageModel : BaseViewModel
 {
-
-
-    private ObservableCollection<CweCatalog> _items;
-    private bool _isNavigatedTo;
-    private bool _dataLoaded;
     private readonly ModalErrorHandler _errorHandler;
     private readonly IMediator _mediator;
 
-    public ObservableCollection<CweCatalog> Items
-    {
-        get => _items;
-        set => SetProperty(ref _items, value); // SetProperty handles property change notification
-    }
+    private bool _isNavigatedTo;
+    private bool _dataLoaded;
 
-    public CatalogPageModel(ModalErrorHandler errorHandler, IMediator mediator)
+    [ObservableProperty]
+    private ObservableCollection<CweCatalog> items = [];
+
+    [ObservableProperty]
+    private ISeries[] series = [];
+
+    [ObservableProperty]
+    private Axis[] xAxes = [];
+
+    [ObservableProperty]
+    private Axis[] yAxes = [];
+
+    public CatalogPageModel(
+        ModalErrorHandler errorHandler,
+        IMediator mediator)
     {
         _errorHandler = errorHandler;
         _mediator = mediator;
-    }
-    public async Task LoadItemsAsync()
-    {
 
-        ObservableCollection<CweCatalog> cWECatalogs = new ObservableCollection<CweCatalog>();
-        var result = await _mediator.Send(new GetCweCatalogsWithPaginationQuery());
-        foreach (var catalog in result.Items)
-        {
-            cWECatalogs.Add(new CweCatalog()
+        ConfigureEmptyChart();
+    }
+
+    private void ConfigureEmptyChart()
+    {
+        Series =
+        [
+            new ColumnSeries<double>
             {
+                Name = "Status",
+                Values = []
+            }
+        ];
+
+        XAxes =
+        [
+            new Axis
+            {
+                Name = "CWE",
+                Labels = [],
+                LabelsRotation = 90
+            }
+        ];
+
+        YAxes =
+        [
+            new Axis
+            {
+                Name = "Status",
+                MinLimit = 0
+            }
+        ];
+    }
+
+    private async Task LoadItemsAsync()
+    {
+        var result = await _mediator.Send(
+            new GetCweCatalogsWithPaginationQuery());
+
+        Items = new ObservableCollection<CweCatalog>(
+            result.Items.Select(catalog => new CweCatalog
+            {
+                Id = catalog.Id,
                 Name = catalog.Name,
                 Abstraction = catalog.Abstraction,
                 Description = catalog.Description,
-                Status = catalog.Status,
-                Id = catalog.Id,
-            });
-        }
-        Items = new ObservableCollection<CweCatalog>(cWECatalogs);
+                Status = catalog.Status
+            }));
+
+        BuildChart();
     }
 
-    //[RelayCommand]
-    //private async Task GoToAuthor(CweCatalog? author)
-    //{
-    //    if (author is null)
-    //    {
-    //        return;
-    //    }
+    private void BuildChart()
+    {
+        if (Items.Count == 0)
+        {
+            ConfigureEmptyChart();
+            return;
+        }
 
-    //    // Very testable 😘
-    //    await Shell.Current.GoToAsync(nameof(CweCatalogDetailsPage), true, new Dictionary<string, object>
-    //    {
-    //        { "Author", author }
-    //    }
-    //    ); 
-    //}
+        var chartItems = Items
+            .OrderBy(item => item.Id)
+            .ToArray();
+
+        Series =
+        [
+            new ColumnSeries<double>
+            {
+                Name = "Status",
+                Values = chartItems
+                    .Select(item => ConvertStatusToNumber(item.Status))
+                    .ToArray()
+            }
+        ];
+
+        XAxes =
+        [
+            new Axis
+            {
+                Name = "CWE",
+                Labels = chartItems
+                    .Select(item => $"CWE-{item.Id}")
+                    .ToArray(),
+
+                LabelsRotation = 90
+            }
+        ];
+
+        YAxes =
+        [
+            new Axis
+            {
+                Name = "Status",
+                MinLimit = 0,
+                MinStep = 1
+            }
+        ];
+    }
+
+    private static double ConvertStatusToNumber(object? status)
+    {
+        if (status is null)
+        {
+            return 0;
+        }
+
+        if (status.GetType().IsEnum)
+        {
+            return Convert.ToDouble(status);
+        }
+
+        return status switch
+        {
+            byte value => value,
+            short value => value,
+            int value => value,
+            long value => value,
+            float value => value,
+            double value => value,
+            decimal value => (double)value,
+            bool value => value ? 1 : 0,
+            _ when double.TryParse(
+                status.ToString(),
+                out var parsedValue) => parsedValue,
+            _ => 0
+        };
+    }
 
     [RelayCommand]
-    private void NavigatedTo() =>
-    _isNavigatedTo = true;
+    private void NavigatedTo()
+    {
+        _isNavigatedTo = true;
+    }
 
     [RelayCommand]
-    private void NavigatedFrom() =>
+    private void NavigatedFrom()
+    {
         _isNavigatedTo = false;
-
+    }
 
     [RelayCommand]
     private async Task Appearing()
     {
         if (!_dataLoaded)
         {
-
-            //await InitData(_seedDataService);
-            _dataLoaded = true;
             await Refresh();
+            _dataLoaded = true;
+            return;
         }
-        // This means we are being navigated to
-        else if (!_isNavigatedTo)
+
+        if (!_isNavigatedTo)
         {
             await Refresh();
         }
@@ -102,14 +197,20 @@ public partial class CatalogPageModel : BaseViewModel // Assuming you have Obser
     [RelayCommand]
     private async Task Refresh()
     {
+        if (IsRefreshing)
+        {
+            return;
+        }
+
         try
         {
             IsRefreshing = true;
-            LoadItemsAsync().FireAndForgetSafeAsync(_errorHandler);
+            await LoadItemsAsync();
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-
+            Task.FromException(exception)
+            .FireAndForgetSafeAsync(_errorHandler);
         }
         finally
         {
@@ -119,11 +220,19 @@ public partial class CatalogPageModel : BaseViewModel // Assuming you have Obser
 
     [RelayCommand]
     private Task AddTask()
-          => Shell.Current.GoToAsync($"task");
+    {
+        return Shell.Current.GoToAsync("task");
+    }
 
     [RelayCommand]
-    private Task NavigateToProject(CweCatalogDetailsPage project)
-        => Shell.Current.GoToAsync($"project?id={project.ID}");
+    private Task NavigateToProject(CweCatalog? catalog)
+    {
+        if (catalog is null)
+        {
+            return Task.CompletedTask;
+        }
 
-
+        return Shell.Current.GoToAsync(
+            $"project?id={catalog.Id}");
+    }
 }
