@@ -828,25 +828,34 @@ public partial class ReportPageModel : BaseViewModel
     private void BuildRelationshipMixLiveChart()
     {
         var scannerNames = RelationshipMixChartData
-            .Select(item => item.ScannerName)
+            .Select(item => item.ScanName)
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         RelationshipMixXAxes =
-        [
-            new Axis
-            {
-                Name = "Scanner",
-                Labels = scannerNames,
-                MinStep = 1,
-                ForceStepToMin = true,
-                LabelsPaint = CreateTextPaint(),
-                NamePaint = CreateTextPaint(),
-                SeparatorsPaint = null
-            }
-        ];
+ [
+     new Axis
+    {
+        Name = "Scanner",
+
+        Labels = scannerNames,
+
+        MinLimit = -0.5,
+        MaxLimit = scannerNames.Length - 0.5,
+
+        MinStep = 1,
+        ForceStepToMin = true,
+
+        LabelsRotation = -45,
+
+        LabelsPaint = CreateTextPaint(),
+        NamePaint = CreateTextPaint(),
+
+        SeparatorsPaint = null
+    }
+ ];
 
         RelationshipMixYAxes =
         [
@@ -885,7 +894,7 @@ public partial class ReportPageModel : BaseViewModel
                     RelationshipMixChartData
                         .FirstOrDefault(point =>
                             string.Equals(
-                                point.ScannerName,
+                                point.ScanName,
                                 scannerName,
                                 StringComparison.OrdinalIgnoreCase) &&
                             string.Equals(
@@ -920,7 +929,7 @@ public partial class ReportPageModel : BaseViewModel
                     var sourcePoint = RelationshipMixChartData
                         .FirstOrDefault(item =>
                             string.Equals(
-                                item.ScannerName,
+                                item.ScanName,
                                 scannerName,
                                 StringComparison.OrdinalIgnoreCase) &&
                             string.Equals(
@@ -934,7 +943,7 @@ public partial class ReportPageModel : BaseViewModel
                           $"{definition.Relationship}" +
                           $"{Environment.NewLine}Percentage: " +
                           $"{point.Coordinate.PrimaryValue:F2}%"
-                        : $"Scanner: {sourcePoint.ScannerName}" +
+                        : $"Scanner: {sourcePoint.ScanName}" +
                           $"{Environment.NewLine}Relationship: " +
                           $"{sourcePoint.Relationship}" +
                           $"{Environment.NewLine}Count: {sourcePoint.Count}" +
@@ -981,7 +990,7 @@ public partial class ReportPageModel : BaseViewModel
                     StrokeThickness = 1
                 },
                 GeometrySize = 8,
-               
+
             });
         }
 
