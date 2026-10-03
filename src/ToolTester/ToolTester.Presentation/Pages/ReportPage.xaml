@@ -1,69 +1,187 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <ContentPage
+    x:Class="ToolTester.Presentation.Pages.ReportPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:pageModels="clr-namespace:ToolTester.Presentation.PageModels"
+    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
-    xmlns:core="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
-    x:Class="ToolTester.Presentation.Pages.ReportPage"
+    xmlns:pageModels="clr-namespace:ToolTester.Presentation.PageModels"
     x:DataType="pageModels:ReportPageModel"
-    x:Name="ReportPageView"
-    Title="Report">
+    Title="Reports">
 
-    <ContentPage.Behaviors>
+    <ScrollView>
 
-        <toolkit:EventToCommandBehavior
-            BindingContext="{Binding BindingContext, Source={x:Reference ReportPageView}}"
-            EventName="NavigatedTo"
-            Command="{Binding NavigatedToCommand}" />
+        <VerticalStackLayout
+            Padding="10"
+            Spacing="12">
 
-        <toolkit:EventToCommandBehavior
-            BindingContext="{Binding BindingContext, Source={x:Reference ReportPageView}}"
-            EventName="NavigatedFrom"
-            Command="{Binding NavigatedFromCommand}" />
-     
-    </ContentPage.Behaviors>
+            <ActivityIndicator
+                IsRunning="{Binding IsLoading}"
+                IsVisible="{Binding IsLoading}"
+                HorizontalOptions="Center" />
 
-    <Grid>
+            <Label
+                Text="{Binding ErrorMessage}"
+                TextColor="Red"
+                IsVisible="{Binding ErrorMessage}" />
 
-        <ScrollView>
+      
+            <!-- FALSE POSITIVES -->
 
-            <VerticalStackLayout
-                Padding="15"
-                Spacing="20">
+            <Border
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10">
 
-                <Button
-                    Text="Load Reports"
-                    Command="{Binding LoadReportsCommand}"
-                    HorizontalOptions="Center" />
-                <Button 
-                    Text="Export"
-                    Command="{Binding ExportCommand}" />
-                
-                <VerticalStackLayout
-                    x:Name="ChartContainer"
-                    Spacing="25"
-                    Padding="10"
-                     />
+                <VerticalStackLayout>
 
-            </VerticalStackLayout>
+                    <Label
+                        Text="False Positives"
+                        FontAttributes="Bold"
+                        FontSize="18" />
 
-        </ScrollView>
-        <Grid
-    IsVisible="{Binding IsLoading}"
-    BackgroundColor="#80000000"
-    ZIndex="100">
+                    <lvc:CartesianChart
+                        Series="{Binding FalsePositiveSeries}"
+                        XAxes="{Binding FalsePositiveXAxes}"
+                        YAxes="{Binding FalsePositiveYAxes}"
+                        ZoomMode="X"
+                        LegendPosition="Top"
+                        TooltipPosition="Top"
+                        HeightRequest="450" />
 
-            <core:SfBusyIndicator
-        IsRunning="{Binding IsLoading}"
-        IsVisible="{Binding IsLoading}"
-        AnimationType="CircularMaterial"
-        Title="Loading report..."
-        HorizontalOptions="Center"
-        VerticalOptions="Center" />
+                </VerticalStackLayout>
 
-        </Grid>
-    </Grid>
+            </Border>
+
+            <!-- RELATED CWES -->
+            <Picker
+          Title="Relationship Filter"
+          ItemsSource="{Binding AvailableRelationships}"
+          SelectedItem="{Binding SelectedRelationship}" />
+
+            <Border
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10">
+
+                <VerticalStackLayout>
+
+                    <Label
+                        Text="Related Findings"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <lvc:CartesianChart
+                        Series="{Binding RelatedFindingSeries}"
+                        XAxes="{Binding RelatedFindingXAxes}"
+                        YAxes="{Binding RelatedFindingYAxes}"
+                        ZoomMode="Both"
+                        LegendPosition="Top"
+                        TooltipPosition="Top"
+                        HeightRequest="450" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+            <!-- FALSE NEGATIVE PARETO -->
+
+            <CollectionView
+                ItemsSource="{Binding ParetoCharts}"
+                SelectionMode="None">
+
+                <CollectionView.ItemTemplate>
+
+                    <DataTemplate
+                        x:DataType="pageModels:ParetoChartModel">
+
+                        <Border
+                            Stroke="#D9D9D9"
+                            StrokeThickness="1"
+                            Padding="10">
+
+                            <VerticalStackLayout>
+
+                                <Label
+                                    Text="{Binding Title}"
+                                    FontAttributes="Bold"
+                                    FontSize="18" />
+
+                                <lvc:CartesianChart
+                                    Series="{Binding Series}"
+                                    XAxes="{Binding XAxes}"
+                                    YAxes="{Binding YAxes}"
+                                    ZoomMode="X"
+                                    LegendPosition="Top"
+                                    TooltipPosition="Top"
+                                    HeightRequest="500" />
+
+                            </VerticalStackLayout>
+
+                        </Border>
+
+                    </DataTemplate>
+
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+
+            <!-- RELATIONSHIP MIX -->
+
+            <Border
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10">
+
+                <VerticalStackLayout>
+
+                    <Label
+                        Text="Relationship Mix By Scanner"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <lvc:CartesianChart
+Series="{Binding RelationshipMixChartSeries}"
+XAxes="{Binding RelationshipMixXAxes}"
+YAxes="{Binding RelationshipMixYAxes}"
+ZoomMode="X"
+LegendPosition="Top"
+TooltipPosition="Top"
+HeightRequest="550" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+            <!-- POLAR -->
+
+            <Border
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10">
+
+                <VerticalStackLayout>
+
+                    <Label
+                        Text="Scanner CWE Distribution"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <lvc:PolarChart
+                        Series="{Binding PolarSeries}"
+                        AngleAxes="{Binding PolarAngleAxes}"
+                        RadiusAxes="{Binding PolarRadiusAxes}"
+                        LegendPosition="Top"
+                        TooltipPosition="Top"
+                        HeightRequest="450" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+        </VerticalStackLayout>
+
+    </ScrollView>
 
 </ContentPage>
