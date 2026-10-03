@@ -1019,6 +1019,389 @@ public partial class ReportPageModel : BaseViewModel
             }
         ];
     }
+
+    private static readonly CweTop25Definition[] MitreCweTop25 =
+[
+new(1, 79, "Cross-site Scripting"),
+    new(2, 89, "SQL Injection"),
+    new(3, 352, "Cross-Site Request Forgery"),
+    new(4, 862, "Missing Authorization"),
+    new(5, 787, "Out-of-bounds Write"),
+    new(6, 22, "Path Traversal"),
+    new(7, 416, "Use After Free"),
+    new(8, 125, "Out-of-bounds Read"),
+    new(9, 78, "OS Command Injection"),
+    new(10, 94, "Code Injection"),
+    new(11, 120, "Classic Buffer Overflow"),
+    new(12, 434, "Dangerous File Upload"),
+    new(13, 476, "NULL Pointer Dereference"),
+    new(14, 121, "Stack-based Buffer Overflow"),
+    new(15, 502, "Deserialization of Untrusted Data"),
+    new(16, 122, "Heap-based Buffer Overflow"),
+    new(17, 863, "Incorrect Authorization"),
+    new(18, 20, "Improper Input Validation"),
+    new(19, 284, "Improper Access Control"),
+    new(20, 200, "Exposure of Sensitive Information"),
+    new(21, 306, "Missing Authentication"),
+    new(22, 918, "Server-Side Request Forgery"),
+    new(23, 77, "Command Injection"),
+    new(24, 639, "Authorization Bypass"),
+    new(25, 770, "Uncontrolled Resource Allocation")
+];
+
+    private ISeries[] _mitreTop25Series = [];
+    private Axis[] _mitreTop25XAxes = [];
+    private Axis[] _mitreTop25YAxes = [];
+    private bool _hasMitreTop25Data;
+    public ISeries[] MitreTop25Series
+    {
+        get =>
+            _mitreTop25Series;
+
+        private set =>
+            SetProperty(
+                ref _mitreTop25Series,
+                value);
+    }
+
+    public Axis[] MitreTop25XAxes
+    {
+        get =>
+            _mitreTop25XAxes;
+
+        private set =>
+            SetProperty(
+                ref _mitreTop25XAxes,
+                value);
+    }
+
+    public Axis[] MitreTop25YAxes
+    {
+        get =>
+            _mitreTop25YAxes;
+
+        private set =>
+            SetProperty(
+                ref _mitreTop25YAxes,
+                value);
+    }
+
+    public bool HasMitreTop25Data
+    {
+        get =>
+            _hasMitreTop25Data;
+
+        private set =>
+            SetProperty(
+                ref _hasMitreTop25Data,
+                value);
+    }
+    private void BuildMitreTop25Chart(
+        IEnumerable<ScannerFalseNegativeDto> data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+
+        var source =
+            data.ToList();
+
+        var top25Ids =
+            MitreCweTop25
+                .Select(item =>
+                    item.CweId)
+                .ToHashSet();
+
+        /*
+         * Include only scanners having at least one Juliet C/C++
+         * benchmark opportunity for a CWE in the MITRE Top 25.
+         */
+        var scannerGroups =
+            source
+                .Where(item =>
+                    top25Ids.Contains(
+                        item.CweId))
+                .GroupBy(item =>
+                    item.ScanId)
+                .OrderBy(group =>
+                    GetScanName(group.Key),
+                    StringComparer.OrdinalIgnoreCase)
+                .ThenBy(group =>
+                    group.Key)
+                .ToList();
+
+        var chartSeries =
+            new List<ISeries>();
+
+        var colorIndex = 0;
+
+        foreach (var scannerGroup in scannerGroups)
+        {
+            var scanId =
+                scannerGroup.Key;
+
+            var scanName =
+                GetScanName(scanId);
+
+            /*
+             * Aggregate in case the benchmark service returns more
+             * than one row for the same ScanId and CWE.
+             */
+            var cweResults =
+                scannerGroup
+                    .GroupBy(item =>
+                        item.CweId)
+                    .ToDictionary(
+                        group =>
+                            group.Key,
+                        group => new
+                        {
+                            Opportunities =
+                                group.Sum(item =>
+                                    item.Opportunities),
+
+                            Detected =
+                                group.Sum(item =>
+                                    item.Detected),
+
+                            FalseNegatives =
+                                group.Sum(item =>
+                                    item.FalseNegatives)
+                        });
+
+            var values =
+                new List<ObservablePoint>();
+
+            var tooltipData =
+                new Dictionary<int, MitreTop25ChartPoint>();
+
+            for (var index = 0;
+                 index < MitreCweTop25.Length;
+                 index++)
+            {
+                var definition =
+                    MitreCweTop25[index];
+
+                cweResults.TryGetValue(
+                    definition.CweId,
+                    out var result);
+
+                var opportunities =
+                    result?.Opportunities ?? 0;
+
+                var detected =
+                    result?.Detected ?? 0;
+
+                var falseNegatives =
+                    result?.FalseNegatives ?? 0;
+
+                /*
+                 * Use double.NaN when Juliet has no opportunity for
+                 * this CWE. The line will not imply a zero-percent
+                 * scanner result where no benchmark case exists.
+                 */
+                var detectionRate =
+                    opportunities <= 0
+                        ? double.NaN
+                        : detected * 100.0 /
+                          opportunities;
+
+                values.Add(
+                    new ObservablePoint(
+                        index,
+                        detectionRate));
+
+                tooltipData[index] =
+                    new MitreTop25ChartPoint
+                    {
+                        Rank =
+                            definition.Rank,
+
+                        CweId =
+                            definition.CweId,
+
+                        CweName =
+                            definition.Name,
+
+                        ScanId =
+                            scanId,
+
+                        ScanName =
+                            scanName,
+
+                        Opportunities =
+                            opportunities,
+
+                        Detected =
+                            detected,
+
+                        FalseNegatives =
+                            falseNegatives,
+
+                        DetectionRate =
+                            opportunities <= 0
+                                ? null
+                                : detectionRate
+                    };
+            }
+
+            var color =
+                GetChartColor(
+                    colorIndex++);
+
+            chartSeries.Add(
+                new LineSeries<ObservablePoint>
+                {
+                    Name =
+                        scanName,
+
+                    Values =
+                        values,
+
+                    LineSmoothness = 0,
+
+                    Fill = null,
+
+                    Stroke =
+                        new SolidColorPaint(
+                            color)
+                        {
+                            StrokeThickness = 3
+                        },
+
+                    GeometryFill =
+                        new SolidColorPaint(
+                            color),
+
+                    GeometryStroke =
+                        new SolidColorPaint(
+                            SKColors.White)
+                        {
+                            StrokeThickness = 2
+                        },
+
+                    GeometrySize = 10,
+
+                    /*
+                     * This matches the formatter API already compiling
+                     * for your LineSeries implementation.
+                     */
+                    XToolTipLabelFormatter =
+                        point =>
+                        {
+                            var pointIndex =
+                                Convert.ToInt32(
+                                    Math.Round(
+                                        point.Coordinate
+                                            .SecondaryValue));
+
+                            if (!tooltipData.TryGetValue(
+                                    pointIndex,
+                                    out var item))
+                            {
+                                return
+                                    $"Scanner: {scanName}";
+                            }
+
+                            var coverage =
+                                item.DetectionRate.HasValue
+                                    ? $"{item.DetectionRate.Value:F2}%"
+                                    : "No C/C++ benchmark opportunities";
+
+                            return
+                                $"Scanner: {item.ScanName}" +
+                                $"{Environment.NewLine}" +
+                                $"MITRE rank: {item.Rank}" +
+                                $"{Environment.NewLine}" +
+                                $"CWE: CWE-{item.CweId}" +
+                                $"{Environment.NewLine}" +
+                                $"Name: {item.CweName}" +
+                                $"{Environment.NewLine}" +
+                                $"Opportunities: {item.Opportunities}" +
+                                $"{Environment.NewLine}" +
+                                $"Detected: {item.Detected}" +
+                                $"{Environment.NewLine}" +
+                                $"False negatives: {item.FalseNegatives}" +
+                                $"{Environment.NewLine}" +
+                                $"Detection rate: {coverage}";
+                        }
+                });
+        }
+
+        MitreTop25Series =
+            chartSeries.ToArray();
+
+        var labels =
+            MitreCweTop25
+                .Select(item =>
+                    $"#{item.Rank} CWE-{item.CweId}")
+                .ToArray();
+
+        MitreTop25XAxes =
+        [
+            new Axis
+        {
+            Name =
+                "2025 MITRE CWE Top 25 rank",
+
+            Labels =
+                labels,
+
+            MinLimit = -0.5,
+
+            MaxLimit =
+                labels.Length - 0.5,
+
+            MinStep = 1,
+
+            ForceStepToMin = true,
+
+            LabelsRotation = -45,
+
+            LabelsPaint =
+                CreateTextPaint(),
+
+            NamePaint =
+                CreateTextPaint(),
+
+            SeparatorsPaint = null
+        }
+        ];
+
+        MitreTop25YAxes =
+        [
+            new Axis
+        {
+            Name =
+                "Juliet C/C++ detection rate",
+
+            MinLimit = 0,
+
+            MaxLimit = 100,
+
+            MinStep = 10,
+
+            ForceStepToMin = true,
+
+            LabelsPaint =
+                CreateTextPaint(),
+
+            NamePaint =
+                CreateTextPaint(),
+
+            SeparatorsPaint =
+                CreateSeparatorPaint(),
+
+            Labeler =
+                value =>
+                    $"{value:F0}%"
+        }
+        ];
+
+        HasMitreTop25Data =
+            chartSeries.Count > 0;
+    }
+
+    
+    
     public async Task ForceReloadAsync()
     {
         if (IsLoading)
@@ -1041,6 +1424,12 @@ public partial class ReportPageModel : BaseViewModel
         RelatedFindingSeries = [];
         RelationshipMixChartSeries = [];
         PolarSeries = [];
+
+        MitreTop25Series = [];
+        MitreTop25XAxes = [];
+        MitreTop25YAxes = [];
+        HasMitreTop25Data = false;
+
 
         await ExecuteLoadAsync();
     }
@@ -1090,6 +1479,9 @@ public partial class ReportPageModel : BaseViewModel
                 .GetFalseNegativesByScannerAsync();
 
             BuildFalseNegativePareto(falseNegatives);
+
+            BuildMitreTop25Chart(falseNegatives);
+
             BuildLiveCharts();
 
             _dataLoaded = true;
@@ -1407,11 +1799,12 @@ public partial class ReportPageModel : BaseViewModel
     {
         return $"{x:F4}|{y:F4}";
     }
-
-    private sealed record RelationshipChartDefinition(
-        string Relationship,
-        SKColor Color);
 }
+
+public sealed record RelationshipChartDefinition(
+    string Relationship,
+    SKColor Color);
+
 
 public sealed class ParetoChartModel
 {
@@ -1493,4 +1886,31 @@ public sealed class RelationshipMixChartPoint
     public double Percentage { get; set; }
     public double Low { get; set; }
     public double High { get; set; }
+}
+public sealed record CweTop25Definition(
+    int Rank,
+    int CweId,
+    string Name);
+
+public sealed class MitreTop25ChartPoint
+{
+    public int Rank { get; set; }
+
+    public int CweId { get; set; }
+
+    public string CweName { get; set; } =
+        string.Empty;
+
+    public int ScanId { get; set; }
+
+    public string ScanName { get; set; } =
+        string.Empty;
+
+    public int Opportunities { get; set; }
+
+    public int Detected { get; set; }
+
+    public int FalseNegatives { get; set; }
+
+    public double? DetectionRate { get; set; }
 }
