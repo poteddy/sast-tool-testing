@@ -1,18 +1,14 @@
 ﻿using CommunityToolkit.Maui;
 using LiveChartsCore.SkiaSharpView.Maui;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SkiaSharp.Views.Maui.Controls.Hosting;
-using Syncfusion.Maui.Core.Hosting;
 using Syncfusion.Maui.Toolkit.Hosting;
 using System.Reflection;
 using ToolTester.Application;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
 using ToolTester.Infrastructure;
-using ToolTester.Infrastructure.Extensions;
 using ToolTester.Infrastructure.Persistance;
 
 namespace ToolTester.Presentation
@@ -34,8 +30,7 @@ namespace ToolTester.Presentation
             builder
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
-                .ConfigureSyncfusionToolkit()
-                .ConfigureSyncfusionCore()
+                .ConfigureSyncfusionToolkit()              
                 .UseSkiaSharp()
                 .UseLiveCharts()
                 .ConfigureMauiHandlers(handlers =>
@@ -63,8 +58,7 @@ namespace ToolTester.Presentation
             var app = builder.Build();
             var syncfusionSetting = config.GetRequiredSection("SyncfusionSetting").Get<SyncfusionSetting>();
 
-            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(syncfusionSetting.Registration_Key);
-
+    
             
           
             var context = app.Services.GetRequiredService<ApplicationDbContext>();

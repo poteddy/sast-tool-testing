@@ -26,7 +26,9 @@
                 TextColor="Red"
                 IsVisible="{Binding ErrorMessage}" />
 
-      
+            <Button
+Text="Refresh"
+Command="{Binding RefreshCommand}" />
             <!-- FALSE POSITIVES -->
 
             <Border

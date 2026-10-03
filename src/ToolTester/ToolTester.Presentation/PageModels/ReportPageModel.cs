@@ -1019,7 +1019,36 @@ public partial class ReportPageModel : BaseViewModel
             }
         ];
     }
+    public async Task ForceReloadAsync()
+    {
+        if (IsLoading)
+        {
+            return;
+        }
 
+        _dataLoaded = false;
+
+        Items.Clear();
+        TestSeries.Clear();
+        RelatedSeries.Clear();
+        AggregatedSeries.Clear();
+        FalseNegativeParetoSeries.Clear();
+        RelationshipMixSeries.Clear();
+        RelationshipMixChartData.Clear();
+        ParetoCharts.Clear();
+
+        FalsePositiveSeries = [];
+        RelatedFindingSeries = [];
+        RelationshipMixChartSeries = [];
+        PolarSeries = [];
+
+        await ExecuteLoadAsync();
+    }
+    [RelayCommand]
+    private async Task Refresh()
+    {
+        await ForceReloadAsync();
+    }
     [RelayCommand]
     private void NavigatedTo()
     {

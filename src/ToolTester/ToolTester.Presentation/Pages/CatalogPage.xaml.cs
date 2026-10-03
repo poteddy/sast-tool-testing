@@ -1,4 +1,3 @@
-using Syncfusion.Maui.DataGrid;
 using ToolTester.Presentation.PageModels;
 
 namespace ToolTester.Presentation.Pages;
