@@ -15,6 +15,8 @@ using ToolTester.Application.Reports.Quiries;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.Models;
+using ToolTester.Presentation.Models.Charts;
+using ToolTester.Presentation.Models.Reports;
 using ToolTester.Presentation.Services;
 
 namespace ToolTester.Presentation.PageModels;
@@ -1799,118 +1801,4 @@ new(1, 79, "Cross-site Scripting"),
     {
         return $"{x:F4}|{y:F4}";
     }
-}
-
-public sealed record RelationshipChartDefinition(
-    string Relationship,
-    SKColor Color);
-
-
-public sealed class ParetoChartModel
-{
-    public required string Title { get; init; }
-    public required ISeries[] Series { get; init; }
-    public required Axis[] XAxes { get; init; }
-    public required Axis[] YAxes { get; init; }
-}
-
-public sealed class FalseNegativeParetoSeries
-{
-    public int ScanId { get; set; }
-    public string ScanName { get; set; } = string.Empty;
-    public string ScannerName { get; set; } = string.Empty;
-    public List<FalseNegativeChartPoint> Items { get; set; } = [];
-}
-
-public sealed class FalseNegativeChartPoint
-{
-    public int ScanId { get; set; }
-    public string ScannerName { get; set; } = string.Empty;
-    public int CweId { get; set; }
-    public string CweName { get; set; } = string.Empty;
-    public string CweLabel { get; set; } = string.Empty;
-    public int Opportunities { get; set; }
-    public int Detected { get; set; }
-    public int FalseNegatives { get; set; }
-    public double CumulativePercent { get; set; }
-}
-
-public class TestSeries
-{
-    public int ScanId { get; set; }
-    public string ScanName { get; set; } = string.Empty;
-    public List<CweTestResults> Items { get; set; } = [];
-}
-
-public class RelatedSeries
-{
-    public int ScanId { get; set; }
-    public string ScanName { get; set; } = string.Empty;
-    public List<RelatedItemsInTest> Items { get; set; } = [];
-}
-
-public class AggrigatedSeries
-{
-    public int ScanId { get; set; }
-    public string ScanName { get; set; } = string.Empty;
-    public List<AggrigatedItems> Items { get; set; } = [];
-}
-
-public class AggrigatedItems
-{
-    public int CweId { get; set; }
-    public int Count { get; set; }
-}
-
-public sealed class RelationshipMixSeries
-{
-    public int ScanId { get; set; }
-    public string ScanName { get; set; } = string.Empty;
-    public List<RelationshipMixPoint> Items { get; set; } = [];
-}
-
-public sealed class RelationshipMixPoint
-{
-    public string Relationship { get; set; } = string.Empty;
-    public int Count { get; set; }
-    public double Percentage { get; set; }
-}
-
-public sealed class RelationshipMixChartPoint
-{
-    public int ScanId { get; set; }
-    public string ScanName { get; set; } = string.Empty;
-    public string ScannerName { get; set; } = string.Empty;
-    public string Relationship { get; set; } = string.Empty;
-    public int Count { get; set; }
-    public double Percentage { get; set; }
-    public double Low { get; set; }
-    public double High { get; set; }
-}
-public sealed record CweTop25Definition(
-    int Rank,
-    int CweId,
-    string Name);
-
-public sealed class MitreTop25ChartPoint
-{
-    public int Rank { get; set; }
-
-    public int CweId { get; set; }
-
-    public string CweName { get; set; } =
-        string.Empty;
-
-    public int ScanId { get; set; }
-
-    public string ScanName { get; set; } =
-        string.Empty;
-
-    public int Opportunities { get; set; }
-
-    public int Detected { get; set; }
-
-    public int FalseNegatives { get; set; }
-
-    public double? DetectionRate { get; set; }
 }
