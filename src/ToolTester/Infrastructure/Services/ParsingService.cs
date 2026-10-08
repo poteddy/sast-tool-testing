@@ -75,6 +75,7 @@ public sealed partial class ParsingService : IParsingService
 
             5 => await ParseCheckmarxAsync(stream),
 
+            6 => await ParseCycodeAsync(stream),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(toolId),
                 toolId,
@@ -147,6 +148,17 @@ private static async Task<List<CWEs>>
 
         return await parser.Get_findings(stream);
     }
+
+    private static async Task<List<CWEs>>
+    ParseCycodeAsync(
+        Stream stream)
+    {
+        using var parser =
+            new ToolTester.Parsers.Cycode.Parser();
+
+        return await parser.Get_findings(stream);
+    }
+
 
     private async Task<int> SaveReportAsync(
         IReadOnlyCollection<CWEs> cwes,

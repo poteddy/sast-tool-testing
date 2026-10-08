@@ -853,8 +853,11 @@ public sealed class ApplicationDbContextSeed
                 Format: "Cpp Checker"),
               new ToolSeed(
                 Name: "CheckMarx",
-                Format: "CheckMarx")
+                Format: "CheckMarx"),
 
+                 new ToolSeed(
+                Name: "Cycode",
+                Format: "Cycode")
         };
 
         var existingToolNames =

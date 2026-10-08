@@ -11,39 +11,39 @@
     Title="Reports">
 
     <ScrollView>
-
+ <Grid RowDefinitions="*">
         <VerticalStackLayout
             Padding="10"
             Spacing="12">
-
-            <ActivityIndicator
+           
+                <ActivityIndicator
                 IsRunning="{Binding IsLoading}"
                 IsVisible="{Binding IsLoading}"
                 HorizontalOptions="Center" />
 
-            <Label
+                <Label
                 Text="{Binding ErrorMessage}"
                 TextColor="Red"
                 IsVisible="{Binding ErrorMessage}" />
 
-            <Button
+                <Button
 Text="Refresh"
 Command="{Binding RefreshCommand}" />
-            <!-- FALSE POSITIVES -->
+                <!-- FALSE POSITIVES -->
 
-            <Border
+                <Border
                 Stroke="#D9D9D9"
                 StrokeThickness="1"
                 Padding="10">
 
-                <VerticalStackLayout>
+                    <VerticalStackLayout>
 
-                    <Label
+                        <Label
                         Text="False Positives"
                         FontAttributes="Bold"
                         FontSize="18" />
 
-                    <lvc:CartesianChart
+                        <lvc:CartesianChart
                         Series="{Binding FalsePositiveSeries}"
                         XAxes="{Binding FalsePositiveXAxes}"
                         YAxes="{Binding FalsePositiveYAxes}"
@@ -52,29 +52,29 @@ Command="{Binding RefreshCommand}" />
                         TooltipPosition="Top"
                         HeightRequest="450" />
 
-                </VerticalStackLayout>
+                    </VerticalStackLayout>
 
-            </Border>
+                </Border>
 
-            <!-- RELATED CWES -->
-            <Picker
+                <!-- RELATED CWES -->
+                <Picker
           Title="Relationship Filter"
           ItemsSource="{Binding AvailableRelationships}"
           SelectedItem="{Binding SelectedRelationship}" />
 
-            <Border
+                <Border
                 Stroke="#D9D9D9"
                 StrokeThickness="1"
                 Padding="10">
 
-                <VerticalStackLayout>
+                    <VerticalStackLayout>
 
-                    <Label
+                        <Label
                         Text="Related Findings"
                         FontAttributes="Bold"
                         FontSize="18" />
 
-                    <lvc:CartesianChart
+                        <lvc:CartesianChart
                         Series="{Binding RelatedFindingSeries}"
                         XAxes="{Binding RelatedFindingXAxes}"
                         YAxes="{Binding RelatedFindingYAxes}"
@@ -83,34 +83,34 @@ Command="{Binding RefreshCommand}" />
                         TooltipPosition="Top"
                         HeightRequest="450" />
 
-                </VerticalStackLayout>
+                    </VerticalStackLayout>
 
-            </Border>
+                </Border>
 
-            <!-- FALSE NEGATIVE PARETO -->
+                <!-- FALSE NEGATIVE PARETO -->
 
-            <CollectionView
+                <CollectionView
                 ItemsSource="{Binding ParetoCharts}"
                 SelectionMode="None">
 
-                <CollectionView.ItemTemplate>
+                    <CollectionView.ItemTemplate>
 
-                    <DataTemplate
+                        <DataTemplate
                         x:DataType="pageModels:ParetoChartModel">
 
-                        <Border
+                            <Border
                             Stroke="#D9D9D9"
                             StrokeThickness="1"
                             Padding="10">
 
-                            <VerticalStackLayout>
+                                <VerticalStackLayout>
 
-                                <Label
+                                    <Label
                                     Text="{Binding Title}"
                                     FontAttributes="Bold"
                                     FontSize="18" />
 
-                                <lvc:CartesianChart
+                                    <lvc:CartesianChart
                                     Series="{Binding Series}"
                                     XAxes="{Binding XAxes}"
                                     YAxes="{Binding YAxes}"
@@ -119,31 +119,31 @@ Command="{Binding RefreshCommand}" />
                                     TooltipPosition="Top"
                                     HeightRequest="500" />
 
-                            </VerticalStackLayout>
+                                </VerticalStackLayout>
 
-                        </Border>
+                            </Border>
 
-                    </DataTemplate>
+                        </DataTemplate>
 
-                </CollectionView.ItemTemplate>
+                    </CollectionView.ItemTemplate>
 
-            </CollectionView>
+                </CollectionView>
 
-            <!-- RELATIONSHIP MIX -->
+                <!-- RELATIONSHIP MIX -->
 
-            <Border
+                <Border
                 Stroke="#D9D9D9"
                 StrokeThickness="1"
                 Padding="10">
 
-                <VerticalStackLayout>
+                    <VerticalStackLayout>
 
-                    <Label
+                        <Label
                         Text="Relationship Mix By Scanner"
                         FontAttributes="Bold"
                         FontSize="18" />
 
-                    <lvc:CartesianChart
+                        <lvc:CartesianChart
 Series="{Binding RelationshipMixChartSeries}"
 XAxes="{Binding RelationshipMixXAxes}"
 YAxes="{Binding RelationshipMixYAxes}"
@@ -152,25 +152,25 @@ LegendPosition="Top"
 TooltipPosition="Top"
 HeightRequest="550" />
 
-                </VerticalStackLayout>
+                    </VerticalStackLayout>
 
-            </Border>
+                </Border>
 
-            <!-- POLAR -->
+                <!-- POLAR -->
 
-            <Border
+                <Border
                 Stroke="#D9D9D9"
                 StrokeThickness="1"
                 Padding="10">
 
-                <VerticalStackLayout>
+                    <VerticalStackLayout>
 
-                    <Label
+                        <Label
                         Text="Scanner CWE Distribution"
                         FontAttributes="Bold"
                         FontSize="18" />
 
-                    <lvc:PolarChart
+                        <lvc:PolarChart
                         Series="{Binding PolarSeries}"
                         AngleAxes="{Binding PolarAngleAxes}"
                         RadiusAxes="{Binding PolarRadiusAxes}"
@@ -178,33 +178,33 @@ HeightRequest="550" />
                         TooltipPosition="Top"
                         HeightRequest="450" />
 
-                </VerticalStackLayout>
+                    </VerticalStackLayout>
 
-            </Border>
+                </Border>
 
-            <Border
+                <Border
     IsVisible="{Binding HasMitreTop25Data}"
     Stroke="#D9D9D9"
     StrokeThickness="1"
     Padding="10"
     Margin="8,6">
 
-                <VerticalStackLayout
+                    <VerticalStackLayout
         Spacing="6">
 
-                    <Label
+                        <Label
             Text="2025 MITRE CWE Top 25 - Juliet C/C++ Detection Rate"
             FontSize="18"
             FontAttributes="Bold"
             HorizontalTextAlignment="Center" />
 
-                    <Label
+                        <Label
             Text="Each line represents a scanner. Missing points indicate that the C/C++ benchmark has no opportunity for that CWE."
             FontSize="12"
             TextColor="Gray"
             HorizontalTextAlignment="Center" />
 
-                    <lvc:CartesianChart
+                        <lvc:CartesianChart
             Series="{Binding MitreTop25Series}"
             XAxes="{Binding MitreTop25XAxes}"
             YAxes="{Binding MitreTop25YAxes}"
@@ -213,12 +213,12 @@ HeightRequest="550" />
             TooltipPosition="Top"
             HeightRequest="550" />
 
-                </VerticalStackLayout>
+                    </VerticalStackLayout>
 
-            </Border>
-
+                </Border>
+        
         </VerticalStackLayout>
-
+    </Grid>
     </ScrollView>
 
 </ContentPage>

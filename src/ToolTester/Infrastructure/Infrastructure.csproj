@@ -24,6 +24,7 @@
     <ProjectReference Include="..\Application\Application.csproj" />
     <ProjectReference Include="..\Parsers\CheckMarx\CheckMarx.csproj" />
     <ProjectReference Include="..\Parsers\CPPChecker\CPPChecker.csproj" />
+    <ProjectReference Include="..\Parsers\Cycode\Cycode.csproj" />
     <ProjectReference Include="..\Parsers\Sarif\SarifParser\Sarif.csproj" />
     <ProjectReference Include="..\Parsers\SemGrep\SemGrep.csproj" />
     <ProjectReference Include="..\Parsers\Veracode\Veracode.csproj" />
