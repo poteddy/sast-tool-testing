@@ -222,21 +222,12 @@ private static async Task<List<CWEs>>
                 continue;
             }
 
+            
+
             var scannerCwe =
                 cweResult.Cwe;
-
-            int? rootCauseCwe = null;
-
-            if (scannerCwe > 0)
-            {
-                rootCauseCwe =
-                    await _rootCauseResolver
-                        .ResolveRootCauseAsync(
-                            scannerCwe,
-                            groundTruthCwe.Value,
-                            cancellationToken);
-            }
-
+        
+        
             var result = new CWETestResult
             {
                 TestPathListedCWE =
@@ -244,9 +235,6 @@ private static async Task<List<CWEs>>
 
                 ScannerFoundCWE =
                     scannerCwe,
-
-                RootCauseCWE =
-                    rootCauseCwe,
 
                 Cve =
                     cweResult.Cve ??
@@ -315,11 +303,10 @@ private static async Task<List<CWEs>>
 
             _logger.LogDebug(
                 "Prepared scanner finding for CWE-{ScannerCwe}, " +
-                "ground truth CWE-{GroundTruthCwe}, " +
-                "root cause CWE-{RootCauseCwe}.",
+                "ground truth CWE-{GroundTruthCwe}, ",
                 scannerCwe,
-                groundTruthCwe.Value,
-                rootCauseCwe);
+                groundTruthCwe.Value
+                );
         }
 
         if (scan.TestResults.Count == 0)

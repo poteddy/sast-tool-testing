@@ -103,7 +103,7 @@
                                         <Label
                                             FontAttributes="Bold"
                                             FontSize="16"
-                                            Text="{Binding SourceCweId, StringFormat='CWE-{0}'}" />
+                                            Text="{Binding ScannerFoundCweId, StringFormat='CWE-{0}'}" />
 
                                         <Label
                                             FontSize="16"
@@ -113,7 +113,7 @@
                                         <Label
                                             FontAttributes="Bold"
                                             FontSize="16"
-                                            Text="{Binding TargetCweId, StringFormat='CWE-{0}'}" />
+                                            Text="{Binding TestTargetCwe, StringFormat='CWE-{0}'}" />
 
                                     </HorizontalStackLayout>
 
@@ -250,7 +250,7 @@
                             Spacing="2">
 
                             <Label
-                                Text="Source CWE"
+                                Text="Scanner identified CWE"
                                 FontSize="11"
                                 FontAttributes="Bold"
                                 TextColor="Gray" />
@@ -258,7 +258,7 @@
                             <Entry
                                 Keyboard="Numeric"
                                 Placeholder="79"
-                                Text="{Binding CurrentRule.SourceCweId}" />
+                                Text="{Binding CurrentRule.ScannerFoundCweId}" />
 
                         </VerticalStackLayout>
 
@@ -267,7 +267,7 @@
                             Spacing="2">
 
                             <Label
-                                Text="Target CWE"
+                                Text="Test intended CWE"
                                 FontSize="11"
                                 FontAttributes="Bold"
                                 TextColor="Gray" />
@@ -275,7 +275,7 @@
                             <Entry
                                 Keyboard="Numeric"
                                 Placeholder="20"
-                                Text="{Binding CurrentRule.TargetCweId}" />
+                                Text="{Binding CurrentRule.TestTargetCwe}" />
 
                         </VerticalStackLayout>
 

@@ -106,8 +106,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             entity.HasIndex(rule => new
             {
-                rule.SourceCweId,
-                rule.TargetCweId,
+                rule.ScannerFoundCweId,
+                rule.TestTargetCwe,
                 rule.Relationship,
                 rule.ScannerRuleId,
                 rule.ProgrammingLanguage,

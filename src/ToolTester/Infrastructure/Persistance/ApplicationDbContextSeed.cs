@@ -526,8 +526,8 @@ public sealed class ApplicationDbContextSeed
     {
         return new CweSemanticRule
         {
-            SourceCweId = rule.SourceCweId,
-            TargetCweId = rule.TargetCweId,
+            ScannerFoundCweId = rule.ScannerFoundCweId,
+            TestTargetCwe = rule.TestTargetCwe,
             Relationship = rule.Relationship.ToString(),
             Score = rule.Score,
             ScannerRuleId =
@@ -571,8 +571,8 @@ public sealed class ApplicationDbContextSeed
         CweSemanticRule rule)
     {
         return new SemanticRuleKey(
-            rule.SourceCweId,
-            rule.TargetCweId,
+            rule.ScannerFoundCweId,
+            rule.TestTargetCwe,
             NormalizeRequiredValue(
                 rule.Relationship),
             NormalizeOptionalValue(
@@ -586,8 +586,8 @@ public sealed class ApplicationDbContextSeed
         SemanticRule rule)
     {
         return new SemanticRuleKey(
-            rule.SourceCweId,
-            rule.TargetCweId,
+            rule.ScannerFoundCweId,
+            rule.TestTargetCwe,
             NormalizeRequiredValue(
                 rule.Relationship.ToString()),
             NormalizeOptionalValue(
@@ -601,29 +601,29 @@ public sealed class ApplicationDbContextSeed
         SemanticRule rule,
         IReadOnlySet<int> validCweIds)
     {
-        if (rule.SourceCweId <= 0)
+        if (rule.ScannerFoundCweId <= 0)
         {
             throw new InvalidDataException(
                 "Semantic rule SourceCweId must be greater than zero.");
         }
 
-        if (!validCweIds.Contains(rule.SourceCweId))
+        if (!validCweIds.Contains(rule.ScannerFoundCweId))
         {
             throw new InvalidDataException(
-                $"Semantic rule source CWE-{rule.SourceCweId} " +
+                $"Semantic rule source CWE-{rule.ScannerFoundCweId} " +
                 "does not exist in the imported MITRE catalog.");
         }
 
-        if (rule.TargetCweId <= 0)
+        if (rule.TestTargetCwe <= 0)
         {
             throw new InvalidDataException(
                 "Semantic rule TargetCweId must be greater than zero.");
         }
 
-        if (!validCweIds.Contains(rule.TargetCweId))
+        if (!validCweIds.Contains(rule.TestTargetCwe))
         {
             throw new InvalidDataException(
-                $"Semantic rule target CWE-{rule.TargetCweId} " +
+                $"Semantic rule target CWE-{rule.TestTargetCwe} " +
                 "does not exist in the imported MITRE catalog.");
         }
 
@@ -642,8 +642,8 @@ public sealed class ApplicationDbContextSeed
             throw new InvalidDataException(
                 $"Unknown semantic relationship " +
                 $"'{rule.Relationship}' for " +
-                $"CWE-{rule.SourceCweId} to " +
-                $"CWE-{rule.TargetCweId}.");
+                $"CWE-{rule.ScannerFoundCweId} to " +
+                $"CWE-{rule.TestTargetCwe}.");
         }
 
         if (rule.Score is < 0 or > 1000)
@@ -651,8 +651,8 @@ public sealed class ApplicationDbContextSeed
             throw new InvalidDataException(
                 $"Semantic-rule score must be between " +
                 $"0 and 1000. Received {rule.Score} for " +
-                $"CWE-{rule.SourceCweId} to " +
-                $"CWE-{rule.TargetCweId}.");
+                $"CWE-{rule.ScannerFoundCweId} to " +
+                $"CWE-{rule.TestTargetCwe}.");
         }
 
         if (rule.Version <= 0)
@@ -665,8 +665,8 @@ public sealed class ApplicationDbContextSeed
         {
             throw new InvalidDataException(
                 $"Semantic-rule rationale is required for " +
-                $"CWE-{rule.SourceCweId} to " +
-                $"CWE-{rule.TargetCweId}.");
+                $"CWE-{rule.ScannerFoundCweId} to " +
+                $"CWE-{rule.TestTargetCwe}.");
         }
 
         if (string.IsNullOrWhiteSpace(
@@ -674,8 +674,8 @@ public sealed class ApplicationDbContextSeed
         {
             throw new InvalidDataException(
                 $"Semantic-rule evidence reference is required " +
-                $"for CWE-{rule.SourceCweId} to " +
-                $"CWE-{rule.TargetCweId}.");
+                $"for CWE-{rule.ScannerFoundCweId} to " +
+                $"CWE-{rule.TestTargetCwe}.");
         }
     }
     /// <summary>
@@ -822,8 +822,8 @@ public sealed class ApplicationDbContextSeed
                 x.SecondaryCweId
             })
             .Select(g => new SemanticRule(
-                SourceCweId: g.Key.SecondaryCweId,
-                TargetCweId: g.Key.PrimaryCweId,
+                ScannerFoundCweId: g.Key.SecondaryCweId,
+                TestTargetCwe: g.Key.PrimaryCweId,
                 Relationship: CweRelationshipKind.JulietRootCause,
                 Score: 750,
                 Rationale: "Observed in Juliet naming convention.",

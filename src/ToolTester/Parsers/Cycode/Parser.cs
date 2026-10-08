@@ -112,8 +112,9 @@ public sealed class Parser : IParser
         return Get_findings(stream)
             .GetAwaiter()
             .GetResult()
-            .Where(finding => finding.Cwe > 0)
-            .Select(finding => finding.Cwe)
+            .Select(f => f.Cwe)
+            .Where(cwe => cwe is > 0)
+            .Select(cwe => cwe!.Value)
             .Distinct()
             .ToList();
     }
@@ -229,6 +230,7 @@ public sealed class Parser : IParser
         {
             finding.Cwe = reportedCwe.Value;
         }
+     
 
         finding.Mitigation = BuildMitigation(violation);
 

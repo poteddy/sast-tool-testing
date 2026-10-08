@@ -25,7 +25,7 @@ public sealed class Report : IEntity
      */
     public int GroundTruthCweId { get; set; }
 
-    public int ScannerCweId { get; set; }
+    public int? ScannerCweId { get; set; }
 
     public int? RootCauseCweId { get; set; }
 
@@ -38,7 +38,7 @@ public sealed class Report : IEntity
     public string Relationship { get; set; } =
         string.Empty;
 
-    public int RelationshipScore { get; set; }
+    public int? RelationshipScore { get; set; }
 
     public string TopologyRelationship { get; set; } =
         string.Empty;
@@ -50,4 +50,5 @@ public sealed class Report : IEntity
         string.Empty;
 
     public int? TopologyDistance { get; set; }
+    public bool DetectedWithoutCwe { get; set; }
 }

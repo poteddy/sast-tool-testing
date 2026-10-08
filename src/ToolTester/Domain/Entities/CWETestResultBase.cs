@@ -5,8 +5,7 @@
         public int Id { get; set; }
         public int TestPathListedCWE { get; set; }
         public int ScanId { get; set; }
-        public int ScannerFoundCWE { get; set; }
+        public int? ScannerFoundCWE { get; set; }
 
-        public int? RootCauseCWE { get; set; }
     }
 }

@@ -1,8 +1,11 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Maui.Storage;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Persistance;
 
@@ -62,8 +65,8 @@ public partial class SemanticRulesViewModel : ObservableObject
                 }
 
                 var record = new SemanticRule(
-                    SourceCweId: e.SourceCweId,
-                    TargetCweId: e.TargetCweId,
+                    ScannerFoundCweId: e.ScannerFoundCweId,
+                    TestTargetCwe: e.TestTargetCwe,
                     Relationship: relationship,
                     Score: e.Score,
                     Rationale: e.Rationale,
@@ -124,8 +127,8 @@ public partial class SemanticRulesViewModel : ObservableObject
     {
         _allRules.Add(
             new SemanticRule(
-                SourceCweId: 676,
-                TargetCweId: 121,
+                ScannerFoundCweId: 676,
+                TestTargetCwe: 121,
                 Relationship:
                     CweRelationshipKind.SameRootCauseBroaderCwe,
                 Score: 850,
@@ -157,7 +160,7 @@ public partial class SemanticRulesViewModel : ObservableObject
         foreach (var r in _allRules)
         {
             if (isNumeric &&
-                (r.SourceCweId == qnum || r.TargetCweId == qnum))
+                (r.ScannerFoundCweId == qnum || r.TestTargetCwe == qnum))
             {
                 Rules.Add(r);
                 continue;
@@ -248,8 +251,8 @@ public partial class SemanticRulesViewModel : ObservableObject
             string relationshipStr = rule.Relationship.ToString();
 
             var entity = await context.CweSemanticRules.FirstOrDefaultAsync(e =>
-                e.SourceCweId == rule.SourceCweId &&
-                e.TargetCweId == rule.TargetCweId &&
+                e.ScannerFoundCweId == rule.ScannerFoundCweId &&
+                e.TestTargetCwe == rule.TestTargetCwe &&
                 e.Relationship == relationshipStr &&
                 (e.ScannerRuleId ?? string.Empty) == (rule.ScannerRuleId ?? string.Empty) &&
                 (e.ProgrammingLanguage ?? string.Empty) == (rule.ProgrammingLanguage ?? string.Empty) &&
@@ -333,8 +336,8 @@ public partial class SemanticRulesViewModel : ObservableObject
                 };
 
                 if (!_allRules.Any(existing =>
-                    existing.SourceCweId == customRule.SourceCweId &&
-                    existing.TargetCweId == customRule.TargetCweId &&
+                    existing.ScannerFoundCweId == customRule.ScannerFoundCweId &&
+                    existing.TestTargetCwe == customRule.TestTargetCwe &&
                     existing.Relationship == customRule.Relationship &&
                     (existing.ScannerRuleId ?? string.Empty) == (customRule.ScannerRuleId ?? string.Empty) &&
                     (existing.ProgrammingLanguage ?? string.Empty) == (customRule.ProgrammingLanguage ?? string.Empty) &&
@@ -365,6 +368,57 @@ public partial class SemanticRulesViewModel : ObservableObject
             ValidationMessage = $"Import failed: {ex.Message}";
         }
     }
+    [RelayCommand]
+    private async Task ExportRules()
+    {
+        try
+        {
+            var rulesToExport = _allRules
+                .Where(x => x.IsCustom)
+                .ToList();
+
+            if (rulesToExport.Count == 0)
+            {
+                ValidationMessage = "No custom rules available to export.";
+                return;
+            }
+
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true
+            };
+
+            options.Converters.Add(
+                new JsonStringEnumConverter());
+
+            var json = JsonSerializer.Serialize(
+                rulesToExport,
+                options);
+
+            using var stream = new MemoryStream(
+                Encoding.UTF8.GetBytes(json));
+
+            var result = await FileSaver.Default.SaveAsync(
+                "semantic-rules.json",
+                stream);
+
+            if (result.IsSuccessful)
+            {
+                ValidationMessage =
+                    $"Exported {rulesToExport.Count} rule(s).";
+            }
+            else
+            {
+                ValidationMessage =
+                    $"Export cancelled: {result.Exception?.Message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ValidationMessage =
+                $"Export failed: {ex.Message}";
+        }
+    }
 
     private async Task UpsertSemanticRuleEntityAsync(SemanticRule rule, ApplicationDbContext context)
     {
@@ -373,8 +427,8 @@ public partial class SemanticRulesViewModel : ObservableObject
         string lang = rule.ProgrammingLanguage ?? string.Empty;
 
         var existing = await context.CweSemanticRules.FirstOrDefaultAsync(e =>
-            e.SourceCweId == rule.SourceCweId &&
-            e.TargetCweId == rule.TargetCweId &&
+            e.ScannerFoundCweId == rule.ScannerFoundCweId &&
+            e.TestTargetCwe == rule.TestTargetCwe &&
             e.Relationship == relationshipStr &&
             (e.ScannerRuleId ?? string.Empty) == scannerId &&
             (e.ProgrammingLanguage ?? string.Empty) == lang &&
@@ -384,8 +438,8 @@ public partial class SemanticRulesViewModel : ObservableObject
         {
             var entity = new CweSemanticRule
             {
-                SourceCweId = rule.SourceCweId,
-                TargetCweId = rule.TargetCweId,
+                ScannerFoundCweId = rule.ScannerFoundCweId,
+                TestTargetCwe = rule.TestTargetCwe,
                 Relationship = relationshipStr,
                 Score = rule.Score,
                 Rationale = rule.Rationale.Trim(),
@@ -448,8 +502,8 @@ public partial class SemanticRulesViewModel : ObservableObject
         {
             var r = _allRules[i];
 
-            if (r.SourceCweId == rule.SourceCweId &&
-                r.TargetCweId == rule.TargetCweId &&
+            if (r.ScannerFoundCweId == rule.ScannerFoundCweId &&
+                r.TestTargetCwe == rule.TestTargetCwe &&
                 r.Relationship == rule.Relationship &&
                 (r.ScannerRuleId ?? string.Empty) == (rule.ScannerRuleId ?? string.Empty) &&
                 (r.ProgrammingLanguage ?? string.Empty) == (rule.ProgrammingLanguage ?? string.Empty) &&
@@ -472,8 +526,8 @@ public partial class SemanticRulesViewModel : ObservableObject
 
     private string? ValidateRule()
     {
-        if (CurrentRule.SourceCweId <= 0) return "Source CWE must be greater than zero.";
-        if (CurrentRule.TargetCweId <= 0) return "Target CWE must be greater than zero.";
+        if (CurrentRule.ScannerFoundCweId <= 0) return "Source CWE must be greater than zero.";
+        if (CurrentRule.TestTargetCwe <= 0) return "Target CWE must be greater than zero.";
         if (CurrentRule.Score is < 0 or > 1000) return "Score must be between 0 and 1000.";
         if (string.IsNullOrWhiteSpace(CurrentRule.Rationale)) return "Rationale is required.";
         if (string.IsNullOrWhiteSpace(CurrentRule.EvidenceReference)) return "Evidence reference is required.";

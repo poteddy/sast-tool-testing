@@ -6,9 +6,9 @@ namespace ToolTester.Domain.Entities
     {
         public int Id { get; set; }
 
-        public int SourceCweId { get; set; }
+        public int ScannerFoundCweId { get; set; }
 
-        public int TargetCweId { get; set; }
+        public int TestTargetCwe { get; set; }
 
         public required string Relationship { get; set; }
 

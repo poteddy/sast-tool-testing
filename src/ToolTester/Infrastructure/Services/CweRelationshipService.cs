@@ -354,14 +354,14 @@ namespace ToolTester.Infrastructure.Services
          x.Enabled &&
          (
              (
-                 x.SourceCweId == scannerCweId &&
-                 x.TargetCweId == truthCweId
+                 x.ScannerFoundCweId == scannerCweId &&
+                 x.TestTargetCwe == truthCweId
              )
              ||
              (
                  x.Bidirectional &&
-                 x.SourceCweId == truthCweId &&
-                 x.TargetCweId == scannerCweId
+                 x.ScannerFoundCweId == truthCweId &&
+                 x.TestTargetCwe == scannerCweId
              )
          ))
      .Where(x =>
@@ -478,10 +478,10 @@ namespace ToolTester.Infrastructure.Services
         }
     }
     public sealed record RelationshipResult(
-    int ScannerCweId,
+    int? ScannerCweId,
     int GroundTruthCweId,
     CweRelationshipKind Relationship,
-    int Score,
+    int? Score,
     MatchClassification Classification,
     IReadOnlyList<int> Path,
     string Explanation);

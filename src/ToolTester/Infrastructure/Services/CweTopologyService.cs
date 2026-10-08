@@ -219,11 +219,11 @@ public sealed class CweTopologyService : ICweTopologyService
             .ToArray();
     }
     public static int CalculateConfidence(
-    RelationshipResult relationship,
-    CweTopologyMatch topology)
+      RelationshipResult relationship,
+      CweTopologyMatch topology)
     {
         var semanticScore =
-            relationship.Score;
+            relationship.Score ?? 0.0;
 
         var topologyScore =
             GetTopologyScore(topology);

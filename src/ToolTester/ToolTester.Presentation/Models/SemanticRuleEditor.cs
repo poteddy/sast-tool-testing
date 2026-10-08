@@ -5,10 +5,10 @@ namespace ToolTester.Presentation.PageModels;
 public partial class SemanticRuleEditor : ObservableObject
 {
     [ObservableProperty]
-    private int sourceCweId;
+    private int scannerFoundCweId;
 
     [ObservableProperty]
-    private int targetCweId;
+    private int testTargetCwe;
 
     [ObservableProperty]
     private CweRelationshipKind relationship;
@@ -44,8 +44,8 @@ public partial class SemanticRuleEditor : ObservableObject
     public SemanticRule ToSemanticRule()
     {
         return new SemanticRule(
-            SourceCweId: SourceCweId,
-            TargetCweId: TargetCweId,
+            ScannerFoundCweId: ScannerFoundCweId,
+            TestTargetCwe: TestTargetCwe,
             Relationship: Relationship,
             Score: Score,
             Rationale: Rationale.Trim(),
@@ -64,8 +64,8 @@ public partial class SemanticRuleEditor : ObservableObject
 
         return new SemanticRuleEditor
         {
-            SourceCweId = rule.SourceCweId,
-            TargetCweId = rule.TargetCweId,
+            ScannerFoundCweId = rule.ScannerFoundCweId,
+            TestTargetCwe = rule.TestTargetCwe,
             Relationship = rule.Relationship,
             Score = rule.Score,
             Rationale = rule.Rationale,

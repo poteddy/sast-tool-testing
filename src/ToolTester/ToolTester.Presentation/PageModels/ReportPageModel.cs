@@ -876,16 +876,37 @@ public partial class ReportPageModel : BaseViewModel
         ];
 
         var definitions = new[]
-        {
-            new RelationshipChartDefinition("Exact", SKColors.SteelBlue),
-            new RelationshipChartDefinition("DirectSibling", SKColors.ForestGreen),
-            new RelationshipChartDefinition("SameRootCauseBroaderCwe", SKColors.LightBlue),
-            new RelationshipChartDefinition("DirectParent", SKColors.Gold),
-            new RelationshipChartDefinition("DirectChild", SKColors.DarkOrange),
-            new RelationshipChartDefinition("SharedAncestor", SKColors.Gray),
-            new RelationshipChartDefinition("CanPrecede", SKColors.Purple),
-            new RelationshipChartDefinition("Unrelated", SKColors.Red)
-        };
+   {
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.Exact), SKColors.SteelBlue),
+
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.DirectParent), SKColors.Gold),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.DirectChild), SKColors.DarkOrange),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.Ancestor), SKColors.Goldenrod),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.Descendant), SKColors.OrangeRed),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.GrandParent), SKColors.Khaki),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.GrandChild), SKColors.Coral),
+
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.DirectSibling), SKColors.ForestGreen),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.SharedAncestor), SKColors.Gray),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.PeerOf), SKColors.SeaGreen),
+
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.CanPrecede), SKColors.Purple),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.CanFollow), SKColors.MediumPurple),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.Requires), SKColors.DarkViolet),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.CanAlsoBe), SKColors.Plum),
+
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameRootCauseBroaderCwe), SKColors.LightBlue),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameRootCauseNarrowerCwe), SKColors.DeepSkyBlue),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameConsequence), SKColors.CadetBlue),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameWeaknessFamily), SKColors.LightSeaGreen),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.RelatedAttackPattern), SKColors.MediumTurquoise),
+
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.RelatedWeakness), SKColors.SlateGray),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.JulietRootCause), SKColors.DarkCyan),
+
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.DetectedWithoutCwe), SKColors.Black),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.Unrelated), SKColors.Red)
+};
 
         var chartSeries = new List<ISeries>();
 

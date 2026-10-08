@@ -30,58 +30,44 @@ public sealed class CweRootCauseResolver : ICweRootCauseResolver
                 nameof(contextFactory));
     }
 
-    public async Task<int?> ResolveRootCauseAsync(
-        int scannerCweId,
-        int? groundTruthCweId = null,
-        CancellationToken cancellationToken = default)
+    public async Task<int?> ResolveMatchedTargetCweAsync(
+     int scannerCweId,
+     int? groundTruthCweId = null,
+     CancellationToken cancellationToken = default)
     {
         if (scannerCweId <= 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(scannerCweId),
-                scannerCweId,
-                "The scanner CWE ID must be greater than zero.");
+            //throw new ArgumentOutOfRangeException(
+            //    nameof(scannerCweId),
+            //    scannerCweId,
+            //    "The scanner CWE ID must be greater than zero.");
+            return null;
+        }
+
+        if (!groundTruthCweId.HasValue)
+        {
+            return null;
+        }
+
+        // Exact match
+        if (scannerCweId == groundTruthCweId.Value)
+        {
+            return groundTruthCweId.Value;
         }
 
         await using var context =
-            await _contextFactory.CreateDbContextAsync(
-                cancellationToken);
+            await _contextFactory.CreateDbContextAsync(cancellationToken);
 
-        /*
-         * Keep the entire query translatable by SQLite.
-         *
-         * RootCauseRelationships.Contains(rule.Relationship)
-         * is translated to a SQL IN expression.
-         */
-        var rootCauseCweId =
-            await context.CweSemanticRules
-                .AsNoTracking()
-                .Where(rule =>
-                    rule.Enabled &&
-                    rule.SourceCweId == scannerCweId &&
-                    RootCauseRelationships.Contains(
-                        rule.Relationship))
-                .OrderByDescending(rule => rule.Score)
-                .ThenBy(rule => rule.TargetCweId)
-                .Select(rule => (int?)rule.TargetCweId)
-                .FirstOrDefaultAsync(cancellationToken);
-
-        if (rootCauseCweId.HasValue)
-        {
-            return rootCauseCweId.Value;
-        }
-
-        /*
-         * If no semantic root-cause rule exists, preserve an
-         * exact scanner-to-ground-truth match.
-         */
-        if (groundTruthCweId.HasValue &&
-            scannerCweId == groundTruthCweId.Value)
-        {
-            return scannerCweId;
-        }
-
-        return null;
+        return await context.CweSemanticRules
+            .AsNoTracking()
+            .Where(rule =>
+                rule.Enabled &&
+                rule.ScannerFoundCweId == scannerCweId &&
+                rule.TestTargetCwe == groundTruthCweId.Value &&
+                RootCauseRelationships.Contains(rule.Relationship))
+            .OrderByDescending(rule => rule.Score)
+            .Select(rule => (int?)rule.TestTargetCwe)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public static bool IsRootCauseRelationship(

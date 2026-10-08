@@ -6,7 +6,7 @@ namespace ToolTester.Application.Common.Interfaces;
 
 public interface ICweRootCauseResolver
 {
-    Task<int?> ResolveRootCauseAsync(
+    Task<int?> ResolveMatchedTargetCweAsync(
         int scannerCweId,
         int? groundTruthCweId = null,
         CancellationToken cancellationToken = default);

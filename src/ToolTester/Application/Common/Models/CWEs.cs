@@ -32,7 +32,7 @@ namespace ToolTester.Application.Common.Models
         public string References { get; }
         public string VulnIdFromTool { get;  set; }
         public string Cve { get;  set; }
-        public int Cwe { get;  set; }
+        public int? Cwe { get;  set; }
         public string Mitigation { get;  set; }
         public DateTime? Date { get;  set; }
     }

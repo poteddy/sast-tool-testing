@@ -30,7 +30,8 @@ public enum CweRelationshipKind
     GrandChild,
     GrandParent,
     RelatedWeakness,
-    JulietRootCause
+    JulietRootCause,
+    DetectedWithoutCwe
 }
 
 public enum EvidenceSource
@@ -64,8 +65,8 @@ public sealed record CweEdge(
     string? Ordinal);
 
 public sealed record SemanticRule(
-    int SourceCweId,
-    int TargetCweId,
+    int ScannerFoundCweId,
+    int TestTargetCwe,
     CweRelationshipKind Relationship,
     int Score,
     string Rationale,
@@ -811,7 +812,7 @@ public sealed class CweRelationshipEngine
     {
         ValidateScore(rule.Score);
 
-        _semanticRules[(rule.SourceCweId, rule.TargetCweId)] = rule;
+        _semanticRules[(rule.ScannerFoundCweId, rule.TestTargetCwe)] = rule;
 
         if (!rule.Bidirectional)
         {
@@ -829,11 +830,11 @@ public sealed class CweRelationshipEngine
             _ => rule.Relationship
         };
 
-        _semanticRules[(rule.TargetCweId, rule.SourceCweId)] =
+        _semanticRules[(rule.TestTargetCwe, rule.ScannerFoundCweId)] =
             rule with
             {
-                SourceCweId = rule.TargetCweId,
-                TargetCweId = rule.SourceCweId,
+                ScannerFoundCweId = rule.TestTargetCwe,
+                TestTargetCwe = rule.ScannerFoundCweId,
                 Relationship = reverseRelationship
             };
     }
@@ -947,8 +948,8 @@ public static class Program
             SemanticRule[] semanticRules =
             [
                 new(
-                    SourceCweId: 676,
-                    TargetCweId: 121,
+                    ScannerFoundCweId: 676,
+                    TestTargetCwe: 121,
                     Relationship:
                         CweRelationshipKind.SameRootCauseBroaderCwe,
                     Score: 850,

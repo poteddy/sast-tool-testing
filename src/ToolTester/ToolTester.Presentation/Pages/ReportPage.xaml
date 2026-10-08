@@ -50,7 +50,8 @@ Command="{Binding RefreshCommand}" />
                         ZoomMode="X"
                         LegendPosition="Top"
                         TooltipPosition="Top"
-                        HeightRequest="450" />
+                        HeightRequest="450" 
+                        TooltipTextSize="12"/>
 
                     </VerticalStackLayout>
 
@@ -81,7 +82,8 @@ Command="{Binding RefreshCommand}" />
                         ZoomMode="Both"
                         LegendPosition="Top"
                         TooltipPosition="Top"
-                        HeightRequest="450" />
+                        HeightRequest="450"
+                        TooltipTextSize="12" />
 
                     </VerticalStackLayout>
 
@@ -117,7 +119,8 @@ Command="{Binding RefreshCommand}" />
                                     ZoomMode="X"
                                     LegendPosition="Top"
                                     TooltipPosition="Top"
-                                    HeightRequest="500" />
+                                    HeightRequest="500"
+                                        TooltipTextSize="12"/>
 
                                 </VerticalStackLayout>
 
@@ -150,7 +153,8 @@ YAxes="{Binding RelationshipMixYAxes}"
 ZoomMode="X"
 LegendPosition="Top"
 TooltipPosition="Top"
-HeightRequest="550" />
+HeightRequest="550" 
+TooltipTextSize="12"/>
 
                     </VerticalStackLayout>
 
@@ -211,7 +215,8 @@ HeightRequest="550" />
             ZoomMode="X"
             LegendPosition="Top"
             TooltipPosition="Top"
-            HeightRequest="550" />
+            HeightRequest="550" 
+            TooltipTextSize="12"/>
 
                     </VerticalStackLayout>
 

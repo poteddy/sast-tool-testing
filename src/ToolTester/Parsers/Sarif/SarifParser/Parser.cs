@@ -60,14 +60,14 @@ public sealed class Parser : IParser
     /// Prefer Get_findings(Stream) when complete finding objects are required.
     /// </summary>
     List<int> IParser.Get_findings(Stream stream) =>
-        Get_findings(stream)
-            .GetAwaiter()
-            .GetResult()
-            .Where(x => x.Cwe > 0)
-            .Select(x => x.Cwe)
-            .Distinct()
-            .ToList();
-
+     Get_findings(stream)
+         .GetAwaiter()
+         .GetResult()
+         .Select(x => x.Cwe)
+         .Where(cwe => cwe is > 0)
+         .Select(cwe => cwe!.Value)
+         .Distinct()
+         .ToList();
     private static IEnumerable<CWEs> ParseRun(JObject run)
     {
         var rules = BuildRuleMap(run);

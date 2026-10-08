@@ -45,10 +45,10 @@ namespace ToolTester.Presentation.PageModels
             var filepath = await PickAndShowImage();
             if (!string.IsNullOrEmpty(filepath))
             {
-                var result = await _parsingService.Parse(temptoolid, filepath);
-                Console.WriteLine($"Parsed {result} items");
+                var scanId = await _parsingService.Parse(temptoolid, filepath);
+                Console.WriteLine($"Parsed {scanId} items");
 
-                await _reportingService.GenerateReport(result, temptoolid);
+                await _reportingService.GenerateReport(scanId, temptoolid);
 
             }
         }

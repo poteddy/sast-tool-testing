@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ToolTester.Infrastructure.Persistance;
 
@@ -10,9 +11,11 @@ using ToolTester.Infrastructure.Persistance;
 namespace ToolTester.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261008152059_movedrootcausetoreport")]
+    partial class movedrootcausetoreport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
@@ -95,7 +98,7 @@ namespace ToolTester.Infrastructure.Migrations
                     b.Property<int>("ScanId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("ScannerFoundCWE")
+                    b.Property<int>("ScannerFoundCWE")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Severity")
@@ -256,9 +259,6 @@ namespace ToolTester.Infrastructure.Migrations
                     b.Property<int>("Count")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("DetectedWithoutCwe")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("GroundTruthAbstraction")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -270,7 +270,7 @@ namespace ToolTester.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("RelationshipScore")
+                    b.Property<int>("RelationshipScore")
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("RootCauseCweId")
@@ -289,7 +289,7 @@ namespace ToolTester.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("ScannerCweId")
+                    b.Property<int>("ScannerCweId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("ToolId")
