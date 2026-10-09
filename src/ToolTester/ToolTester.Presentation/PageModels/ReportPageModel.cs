@@ -674,9 +674,19 @@ public partial class ReportPageModel : BaseViewModel
             });
         }
 
-        RelatedFindingSeries = chartSeries.ToArray();
-        RelatedFindingXAxes = [CreateNumericAxis("Ground Truth CWE")];
-        RelatedFindingYAxes = [CreateNumericAxis("Scanner CWE")];
+        RelatedFindingSeries = chartSeries.ToArray(); RelatedFindingXAxes =
+[
+CreateNumericAxis(
+name: "Ground Truth CWE",
+labeler: value => $"CWE-{value:N0}")
+];
+
+        RelatedFindingYAxes =
+        [
+        CreateNumericAxis(
+name: "Scanner CWE",
+labeler: value => $"CWE-{value:N0}")
+        ];
     }
 
     private void BuildParetoCharts()
@@ -1784,30 +1794,41 @@ new(1, 79, "Cross-site Scripting"),
     }
 
     private static Axis CreateNumericAxis(
-        string name,
-        double? minimum = null,
-        double? maximum = null)
+    string name,
+    double? minimum = null,
+    double? maximum = null,
+    Func<double, string>? labeler = null)
     {
         return new Axis
         {
             Name = name,
             MinLimit = minimum,
             MaxLimit = maximum,
+
+            MinStep = 1,
+
             LabelsPaint = CreateTextPaint(),
             NamePaint = CreateTextPaint(),
             SeparatorsPaint = CreateSeparatorPaint(),
-            Labeler = value => value.ToString("N0")
+
+            Labeler = labeler ?? (value => value.ToString("N0")),
+
+            TextSize = 12,
+
+            Padding = new LiveChartsCore.Drawing.Padding(8)
         };
     }
 
     private static SolidColorPaint CreateTextPaint()
     {
-        return new SolidColorPaint(SKColors.Black);
+        return new SolidColorPaint(
+  new SKColor(60, 60, 60));
     }
 
     private static SolidColorPaint CreateSeparatorPaint()
     {
-        return new SolidColorPaint(new SKColor(225, 225, 225))
+        return new SolidColorPaint(
+            new SKColor(210, 210, 210))
         {
             StrokeThickness = 1
         };
