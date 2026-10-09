@@ -1317,7 +1317,7 @@ new(1, 79, "Cross-site Scripting"),
                      * This matches the formatter API already compiling
                      * for your LineSeries implementation.
                      */
-                    XToolTipLabelFormatter =
+                    YToolTipLabelFormatter =
                         point =>
                         {
                             var pointIndex =
