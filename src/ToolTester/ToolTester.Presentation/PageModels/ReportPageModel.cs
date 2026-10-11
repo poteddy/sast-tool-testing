@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.Input;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
+using LiveChartsCore.Drawing;
 using LiveChartsCore.Kernel;
 using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
@@ -105,6 +106,18 @@ public partial class ReportPageModel : BaseViewModel
     private ISeries[] _polarSeries = [];
     private PolarAxis[] _polarAngleAxes = [];
     private PolarAxis[] _polarRadiusAxes = [];
+    private ISeries[] _scannerCweHeatmapSeries = [];
+
+    private Axis[] _scannerCweHeatmapXAxes = [];
+
+    private Axis[] _scannerCweHeatmapYAxes = [];
+
+    private ObservableCollection<CweScannerHeatmapPoint>
+        _scannerCweHeatmapData = [];
+
+    private bool _hasScannerCweHeatmapData;
+
+
 
     private bool _isNavigatedTo;
     private bool _isLoading;
@@ -255,6 +268,51 @@ public partial class ReportPageModel : BaseViewModel
     {
         get => _polarRadiusAxes;
         private set => SetProperty(ref _polarRadiusAxes, value);
+    }
+    public ISeries[] ScannerCweHeatmapSeries
+    {
+        get => _scannerCweHeatmapSeries;
+
+        private set => SetProperty(
+            ref _scannerCweHeatmapSeries,
+            value);
+    }
+
+    public Axis[] ScannerCweHeatmapXAxes
+    {
+        get => _scannerCweHeatmapXAxes;
+
+        private set => SetProperty(
+            ref _scannerCweHeatmapXAxes,
+            value);
+    }
+
+    public Axis[] ScannerCweHeatmapYAxes
+    {
+        get => _scannerCweHeatmapYAxes;
+
+        private set => SetProperty(
+            ref _scannerCweHeatmapYAxes,
+            value);
+    }
+
+    public ObservableCollection<CweScannerHeatmapPoint>
+        ScannerCweHeatmapData
+    {
+        get => _scannerCweHeatmapData;
+
+        private set => SetProperty(
+            ref _scannerCweHeatmapData,
+            value);
+    }
+
+    public bool HasScannerCweHeatmapData
+    {
+        get => _hasScannerCweHeatmapData;
+
+        private set => SetProperty(
+            ref _hasScannerCweHeatmapData,
+            value);
     }
 
     public string SelectedRelationship
@@ -1268,6 +1326,325 @@ public partial class ReportPageModel : BaseViewModel
             }
         ];
     }
+    private void BuildScannerCweHeatmap(
+    IEnumerable<ScannerFalseNegativeDto> data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+
+        var source = data
+            .Where(item => item.Opportunities > 0)
+            .ToList();
+
+        if (source.Count == 0)
+        {
+            ScannerCweHeatmapData = [];
+            ScannerCweHeatmapSeries = [];
+            ScannerCweHeatmapXAxes = [];
+            ScannerCweHeatmapYAxes = [];
+            HasScannerCweHeatmapData = false;
+
+            return;
+        }
+
+        /*
+         * A scan is treated as one scanner result set.
+         *
+         * Sorting by display name keeps the axis stable between
+         * reloads when scan IDs are not sequential.
+         */
+        var scans = source
+            .Select(item => item.ScanId)
+            .Distinct()
+            .Select(scanId => new
+            {
+                ScanId = scanId,
+                ScanName = GetScanDisplayName(scanId)
+            })
+            .OrderBy(
+                item => item.ScanName,
+                StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ScanId)
+            .ToList();
+
+        /*
+         * Order CWEs numerically. This makes it easier to compare
+         * the heatmap with the ground-truth CWE values shown by
+         * the other charts.
+         */
+        var cwes = source
+            .GroupBy(item => item.CweId)
+            .Select(group => new
+            {
+                CweId = group.Key,
+
+                CweName = group
+                    .Select(item => item.CweName)
+                    .FirstOrDefault(name =>
+                        !string.IsNullOrWhiteSpace(name))
+                    ?? $"CWE-{group.Key}"
+            })
+            .OrderBy(item => item.CweId)
+            .ToList();
+
+        var scanIndexById = scans
+            .Select((scan, index) => new
+            {
+                scan.ScanId,
+                Index = index
+            })
+            .ToDictionary(
+                item => item.ScanId,
+                item => item.Index);
+
+        var cweIndexById = cwes
+            .Select((cwe, index) => new
+            {
+                cwe.CweId,
+                Index = index
+            })
+            .ToDictionary(
+                item => item.CweId,
+                item => item.Index);
+
+        /*
+         * Aggregate first because BenchmarkReportService may
+         * return more than one row for a ScanId/CWE combination.
+         */
+        var cells = source
+            .GroupBy(item => new
+            {
+                item.ScanId,
+                item.CweId
+            })
+            .Select(group =>
+            {
+                var opportunities = group.Sum(
+                    item => item.Opportunities);
+
+                var detected = group.Sum(
+                    item => item.Detected);
+
+                var falseNegatives = group.Sum(
+                    item => item.FalseNegatives);
+
+                var detectionRate = opportunities <= 0
+                    ? 0
+                    : detected * 100.0 / opportunities;
+
+                var cweName = group
+                    .Select(item => item.CweName)
+                    .FirstOrDefault(name =>
+                        !string.IsNullOrWhiteSpace(name))
+                    ?? $"CWE-{group.Key.CweId}";
+
+                return new CweScannerHeatmapPoint
+                {
+                    ScanId =
+                        group.Key.ScanId,
+
+                    ScanName =
+                        GetScanDisplayName(
+                            group.Key.ScanId),
+
+                    ScannerIndex =
+                        scanIndexById[
+                            group.Key.ScanId],
+
+                    CweIndex =
+                        cweIndexById[
+                            group.Key.CweId],
+
+                    CweId =
+                        group.Key.CweId,
+
+                    CweName =
+                        cweName,
+
+                    Opportunities =
+                        opportunities,
+
+                    Detected =
+                        detected,
+
+                    FalseNegatives =
+                        falseNegatives,
+
+                    DetectionRate =
+                        Math.Clamp(
+                            detectionRate,
+                            0,
+                            100)
+                };
+            })
+            .OrderBy(item => item.CweIndex)
+            .ThenBy(item => item.ScannerIndex)
+            .ToList();
+
+        ScannerCweHeatmapData =
+            new ObservableCollection<CweScannerHeatmapPoint>(
+                cells);
+
+        var cellLookup = cells.ToDictionary(
+            cell => CoordinateKey(
+                cell.ScannerIndex,
+                cell.CweIndex));
+
+        var heatmapValues = cells
+            .Select(cell => new WeightedPoint(
+                cell.ScannerIndex,
+                cell.CweIndex,
+                cell.DetectionRate))
+            .ToArray();
+
+        ScannerCweHeatmapSeries =
+        [
+            new HeatSeries<WeightedPoint>
+        {
+            Name = "Juliet detection rate",
+
+            Values = heatmapValues,
+
+            /*
+             * Low coverage is red, medium coverage is yellow,
+             * and high coverage is green.
+             */
+           HeatMap =
+[
+    new LvcColor(198, 40, 40),
+    new LvcColor(239, 108, 0),
+    new LvcColor(253, 216, 53),
+    new LvcColor(124, 179, 66),
+    new LvcColor(27, 94, 32)
+],
+
+
+        
+
+            YToolTipLabelFormatter = point =>
+            {
+                var scannerIndex = Convert.ToInt32(
+                    Math.Round(
+                        point.Coordinate.SecondaryValue));
+
+                var cweIndex = Convert.ToInt32(
+                    Math.Round(
+                        point.Coordinate.PrimaryValue));
+
+                var key = CoordinateKey(
+                    scannerIndex,
+                    cweIndex);
+
+                if (!cellLookup.TryGetValue(
+                        key,
+                        out var item))
+                {
+                    return "No benchmark data";
+                }
+
+                return
+                    $"Scanner: {item.ScanName}" +
+                    $"{Environment.NewLine}" +
+                    $"Ground truth: CWE-{item.CweId}" +
+                    $"{Environment.NewLine}" +
+                    $"CWE name: {item.CweName}" +
+                    $"{Environment.NewLine}" +
+                    $"Opportunities: {item.Opportunities:N0}" +
+                    $"{Environment.NewLine}" +
+                    $"Detected: {item.Detected:N0}" +
+                    $"{Environment.NewLine}" +
+                    $"False negatives: " +
+                    $"{item.FalseNegatives:N0}" +
+                    $"{Environment.NewLine}" +
+                    $"Detection rate: " +
+                    $"{item.DetectionRate:F2}%";
+            }
+        }
+        ];
+
+        ScannerCweHeatmapXAxes =
+        [
+            new Axis
+        {
+            Name = "Scanner / Scan",
+
+            Labels = scans
+                .Select(item => item.ScanName)
+                .ToArray(),
+
+            MinLimit = -0.5,
+
+            MaxLimit = scans.Count - 0.5,
+
+            MinStep = 1,
+
+            ForceStepToMin = true,
+
+            LabelsRotation = -45,
+
+            LabelsPaint =
+                CreateTextPaint(),
+
+            NamePaint =
+                CreateTextPaint(),
+
+            SeparatorsPaint =
+                new SolidColorPaint(
+                    new SKColor(
+                        225,
+                        225,
+                        225))
+                {
+                    StrokeThickness = 1
+                },
+
+            Padding =
+                new LiveChartsCore.Drawing.Padding(8)
+        }
+        ];
+
+        ScannerCweHeatmapYAxes =
+        [
+            new Axis
+        {
+            Name = "Juliet Ground-Truth CWE",
+
+            Labels = cwes
+                .Select(item =>
+                    $"CWE-{item.CweId}")
+                .ToArray(),
+
+            MinLimit = -0.5,
+
+            MaxLimit = cwes.Count - 0.5,
+
+            MinStep = 1,
+
+            ForceStepToMin = true,
+
+            LabelsPaint =
+                CreateTextPaint(),
+
+            NamePaint =
+                CreateTextPaint(),
+
+            SeparatorsPaint =
+                new SolidColorPaint(
+                    new SKColor(
+                        225,
+                        225,
+                        225))
+                {
+                    StrokeThickness = 1
+                },
+
+            Padding =
+                new LiveChartsCore.Drawing.Padding(8)
+        }
+        ];
+
+        HasScannerCweHeatmapData =
+            cells.Count > 0;
+    }
 
     private static readonly CweTop25Definition[] MitreCweTop25 =
 [
@@ -1679,6 +2056,15 @@ new(1, 79, "Cross-site Scripting"),
         MitreTop25YAxes = [];
         HasMitreTop25Data = false;
 
+        ScannerCweHeatmapData.Clear();
+
+        ScannerCweHeatmapSeries = [];
+
+        ScannerCweHeatmapXAxes = [];
+
+        ScannerCweHeatmapYAxes = [];
+
+        HasScannerCweHeatmapData = false;
 
         await ExecuteLoadAsync();
     }
@@ -1730,8 +2116,11 @@ new(1, 79, "Cross-site Scripting"),
             BuildFalseNegativePareto(falseNegatives);
 
             BuildMitreTop25Chart(falseNegatives);
+            
+            BuildScannerCweHeatmap(falseNegatives);
 
             BuildLiveCharts();
+
 
             _dataLoaded = true;
             OnPropertyChanged(nameof(HasLoadedData));

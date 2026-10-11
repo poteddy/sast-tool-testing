@@ -111,9 +111,6 @@ namespace ToolTester.Infrastructure.Migrations
                     b.Property<int>("TestId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("TestPathListedCWE")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -275,6 +272,8 @@ namespace ToolTester.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RelatedCweID");
+
                     b.HasIndex("CweId", "RelatedCweID", "Nature", "ViewId", "IsDerived")
                         .IsUnique();
 
@@ -405,6 +404,43 @@ namespace ToolTester.Infrastructure.Migrations
                     b.Navigation("Scan");
 
                     b.Navigation("Test");
+                });
+
+            modelBuilder.Entity("ToolTester.Domain.Entities.JulietCoverage", b =>
+                {
+                    b.HasOne("ToolTester.Domain.Entities.CWECatalog", null)
+                        .WithOne()
+                        .HasForeignKey("ToolTester.Domain.Entities.JulietCoverage", "CweId")
+                        .HasPrincipalKey("ToolTester.Domain.Entities.CWECatalog", "CweId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ToolTester.Domain.Entities.JulietTest", b =>
+                {
+                    b.HasOne("ToolTester.Domain.Entities.CWECatalog", null)
+                        .WithMany()
+                        .HasForeignKey("CweId")
+                        .HasPrincipalKey("CweId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ToolTester.Domain.Entities.Relationship", b =>
+                {
+                    b.HasOne("ToolTester.Domain.Entities.CWECatalog", null)
+                        .WithMany()
+                        .HasForeignKey("CweId")
+                        .HasPrincipalKey("CweId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ToolTester.Domain.Entities.CWECatalog", null)
+                        .WithMany()
+                        .HasForeignKey("RelatedCweID")
+                        .HasPrincipalKey("CweId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ToolTester.Domain.Entities.Report", b =>

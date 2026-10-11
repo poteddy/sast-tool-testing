@@ -89,6 +89,107 @@ Command="{Binding RefreshCommand}" />
 
                 </Border>
 
+                <!-- SCANNER × JULIET CWE HEATMAP -->
+
+                <Border
+    IsVisible="{Binding HasScannerCweHeatmapData}"
+    Stroke="#D9D9D9"
+    StrokeThickness="1"
+    Padding="10"
+    Margin="0,6">
+
+                    <VerticalStackLayout
+        Spacing="6">
+
+                        <Label
+            Text="Juliet CWE Detection Heatmap By Scanner"
+            FontAttributes="Bold"
+            FontSize="18"
+            HorizontalTextAlignment="Center" />
+
+                        <Label
+            Text="Each cell shows the percentage of known Juliet tests detected by a scanner for a ground-truth CWE."
+            FontSize="12"
+            TextColor="Gray"
+            HorizontalTextAlignment="Center" />
+
+                        <Grid
+            ColumnDefinitions="Auto,*,Auto"
+            ColumnSpacing="8"
+            HorizontalOptions="Center">
+
+                            <Label
+                Grid.Column="0"
+                Text="0%"
+                FontSize="11"
+                TextColor="#555555"
+                VerticalTextAlignment="Center" />
+
+                            <Grid
+                Grid.Column="1"
+                WidthRequest="260"
+                HeightRequest="16">
+
+                                <Grid.Background>
+                                    <LinearGradientBrush
+                        StartPoint="0,0.5"
+                        EndPoint="1,0.5">
+
+                                        <GradientStop
+                            Color="#C62828"
+                            Offset="0.0" />
+
+                                        <GradientStop
+                            Color="#EF6C00"
+                            Offset="0.25" />
+
+                                        <GradientStop
+                            Color="#FDD835"
+                            Offset="0.5" />
+
+                                        <GradientStop
+                            Color="#7CB342"
+                            Offset="0.75" />
+
+                                        <GradientStop
+                            Color="#1B5E20"
+                            Offset="1.0" />
+
+                                    </LinearGradientBrush>
+                                </Grid.Background>
+
+                            </Grid>
+
+                            <Label
+                Grid.Column="2"
+                Text="100%"
+                FontSize="11"
+                TextColor="#555555"
+                VerticalTextAlignment="Center" />
+
+                        </Grid>
+
+                        <Label
+            Text="Low detection                             High detection"
+            FontSize="11"
+            TextColor="Gray"
+            HorizontalTextAlignment="Center" />
+
+                        <lvc:CartesianChart
+            Series="{Binding ScannerCweHeatmapSeries}"
+            XAxes="{Binding ScannerCweHeatmapXAxes}"
+            YAxes="{Binding ScannerCweHeatmapYAxes}"
+            ZoomMode="Both"
+            LegendPosition="Hidden"
+            TooltipPosition="Top"
+            TooltipTextSize="12"
+            HeightRequest="750"
+            HorizontalOptions="Fill" />
+
+                    </VerticalStackLayout>
+
+                </Border>
+
                 <!-- FALSE NEGATIVE PARETO -->
 
                 <CollectionView
