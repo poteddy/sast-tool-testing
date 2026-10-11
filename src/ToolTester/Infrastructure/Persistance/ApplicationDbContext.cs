@@ -1,11 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml;
 
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Domain;
@@ -15,32 +11,43 @@ namespace ToolTester.Infrastructure.Persistance;
 
 public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+    public ApplicationDbContext(
+        DbContextOptions<ApplicationDbContext> options)
+        : base(options)
+    {
+    }
 
     public DbSet<CWECatalog> CWECatalogs { get; set; }
 
     public DbSet<Relationship> Relationships { get; set; }
+
     public DbSet<CWETestResult> CWETestResults { get; set; }
+
     public DbSet<JulietCoverage> JulietCoverages { get; set; }
 
+    public DbSet<JulietTest> JulietTests { get; set; }
+
     public DbSet<Report> Reports { get; set; }
+
     public DbSet<Scan> Scans { get; set; }
+
     public DbSet<Tool> Tools { get; set; }
 
     public DbSet<CweSemanticRule> CweSemanticRules { get; set; }
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+
+    protected override void OnConfiguring(
+        DbContextOptionsBuilder optionsBuilder)
     {
-       
     }
 
-
     protected override void OnModelCreating(
-      ModelBuilder modelBuilder)
+        ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         ConfigureCweCatalog(modelBuilder);
         ConfigureJulietCoverage(modelBuilder);
+        ConfigureJulietTest(modelBuilder);
         ConfigureRelationship(modelBuilder);
         ConfigureCweSemanticRule(modelBuilder);
         ConfigureTool(modelBuilder);
@@ -77,6 +84,33 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         });
     }
 
+    private static void ConfigureJulietTest(
+        ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<JulietTest>(entity =>
+        {
+            entity.HasKey(test => test.Id);
+
+            entity.Property(test => test.NormalizedPath)
+                .IsRequired();
+
+            entity.Property(test => test.FileName)
+                .IsRequired();
+
+            /*
+             * A normalized path represents exactly one known
+             * Juliet test/file.
+             */
+            entity.HasIndex(test => test.NormalizedPath)
+                .IsUnique();
+
+            /*
+             * Useful for querying all tests belonging to a CWE.
+             */
+            entity.HasIndex(test => test.CweId);
+        });
+    }
+
     private static void ConfigureRelationship(
         ModelBuilder modelBuilder)
     {
@@ -93,7 +127,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 relationship.ViewId,
                 relationship.IsDerived
             })
-                .IsUnique();
+            .IsUnique();
         });
     }
 
@@ -113,7 +147,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 rule.ProgrammingLanguage,
                 rule.Version
             })
-                .IsUnique();
+            .IsUnique();
         });
     }
 
@@ -133,18 +167,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             /*
              * Tool.Scans <-> Scan.Tool
              *
-             * Scan.ToolId is the only FK for this relationship.
+             * Scan.ToolId is the FK.
              */
             entity.HasMany(tool => tool.Scans)
                 .WithOne(scan => scan.Tool)
                 .HasForeignKey(scan => scan.ToolId)
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Restrict);
-
-            /*
-             * Do not configure Tool.Reports here.
-             * It is configured once from the Report side below.
-             */
         });
     }
 
@@ -158,9 +187,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.HasIndex(scan => scan.ToolId);
 
             /*
-             * Do not configure Scan.TestResults or Scan.Reports here.
-             * Those relationships are configured once from their
-             * dependent entity configurations below.
+             * Scan.TestResults and Scan.Reports are configured
+             * from their dependent entities.
              */
         });
     }
@@ -174,8 +202,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             /*
              * CWETestResult.Scan <-> Scan.TestResults
-             *
-             * CWETestResult.ScanId is the only FK.
              */
             entity.HasOne(result => result.Scan)
                 .WithMany(scan => scan.TestResults)
@@ -183,12 +209,46 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
 
+            /*
+             * CWETestResult.Test <-> JulietTest.Results
+             *
+             * TestId identifies the canonical Juliet test.
+             *
+             * CWETestResult.FilePath remains the original path
+             * reported by the scanner.
+             */
+            entity.HasOne(result => result.Test)
+                .WithMany(test => test.Results)
+                .HasForeignKey(result => result.TestId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasIndex(result => result.ScanId);
 
+            entity.HasIndex(result => result.TestId);
+
+            /*
+             * Important for finding all scanner findings
+             * associated with a specific test in a scan.
+             *
+             * This is intentionally NOT unique because one
+             * scanner could report multiple findings for the
+             * same file/test.
+             */
             entity.HasIndex(result => new
             {
                 result.ScanId,
-                result.Test
+                result.TestId
+            });
+
+            /*
+             * Useful for analyzing what CWE scanners reported
+             * for a particular Juliet test.
+             */
+            entity.HasIndex(result => new
+            {
+                result.TestId,
+                result.ScannerFoundCWE
             });
         });
     }
@@ -202,10 +262,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             /*
              * Report.Scan <-> Scan.Reports
-             *
-             * Explicitly specifying both navigation properties prevents
-             * EF Core from inferring a separate relationship using
-             * a shadow ScanId1 property.
              */
             entity.HasOne(report => report.Scan)
                 .WithMany(scan => scan.Reports)
@@ -215,10 +271,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             /*
              * Report.Tool <-> Tool.Reports
-             *
-             * Explicitly specifying both navigation properties prevents
-             * EF Core from inferring a separate relationship using
-             * a shadow ToolId1 property.
              */
             entity.HasOne(report => report.Tool)
                 .WithMany(tool => tool.Reports)
@@ -291,16 +343,20 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             "Unexpected EF Core shadow foreign-key properties: " +
             string.Join(", ", shadowForeignKeys));
     }
-
 }
 
-public class BloggingContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
+public class BloggingContextFactory :
+    IDesignTimeDbContextFactory<ApplicationDbContext>
 {
-    public ApplicationDbContext CreateDbContext(string[] args)
+    public ApplicationDbContext CreateDbContext(
+        string[] args)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+        var optionsBuilder =
+            new DbContextOptionsBuilder<ApplicationDbContext>();
+
         optionsBuilder.UseInMemoryDatabase("ToolTester");
 
-        return new ApplicationDbContext(optionsBuilder.Options);
+        return new ApplicationDbContext(
+            optionsBuilder.Options);
     }
 }

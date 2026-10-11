@@ -1,32 +1,53 @@
 ﻿using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
-using ToolTester.Application.CWECatalogs.DTO;
 using ToolTester.Domain.Entities;
 
-namespace ToolTester.Application.CWETestResultBases.DTO
+namespace ToolTester.Application.CWETestResultBases.DTO;
+
+public class CweTestResultBaseDTO :
+    IMapFrom<CWETestResult>
 {
-    public class CweTestResultBaseDTO : IMapFrom<CWETestResultBase>
+    public int Id { get; set; }
+
+    public int ScanId { get; set; }
+
+    public int? ScannerFoundCWE { get; set; }
+
+    public int TestId { get; set; }
+
+    public int GroundTruthCwe { get; set; }
+
+    public string TestFileName { get; set; } =
+        string.Empty;
+
+    public string TestPath { get; set; } =
+        string.Empty;
+
+    public void Mapping(Profile profile)
     {
-        public void Mapping(Profile profile)
-        {
-            profile.CreateMap<CWECatalogDTO, CWETestResultBase>()
-                 .ForAllMembers(opt => opt.IgnoreSourceWhenDefault());
-
-
-
-            profile.CreateMap<CWETestResultBase, CweTestResultBaseDTO>()
-                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
-
-        }
-
-        public int Id { get; set; }
-        public int TestPathListedCWE { get; set; }
-        public int ScanId { get; set; } = 0;
-        public int ScannerFoundCWE { get; set; }
+        profile.CreateMap<
+                CWETestResult,
+                CweTestResultBaseDTO>()
+            .ForMember(
+                destination =>
+                    destination.GroundTruthCwe,
+                options =>
+                    options.MapFrom(
+                        source =>
+                            source.Test.CweId))
+            .ForMember(
+                destination =>
+                    destination.TestFileName,
+                options =>
+                    options.MapFrom(
+                        source =>
+                            source.Test.FileName))
+            .ForMember(
+                destination =>
+                    destination.TestPath,
+                options =>
+                    options.MapFrom(
+                        source =>
+                            source.Test.NormalizedPath));
     }
 }

@@ -24,7 +24,7 @@ namespace ToolTester.Parsers.Veracode
                     {
                         foreach(var staticflaws in cwe.staticflaws)
                         {
-                            var finding = new CWEs(title: cwe.cwename, test: 3614, numericalSeverity: "100", foundBy: new List<int?>() { 1 }, severity: item.level.ToString(), description: cwe.description.text.ToString(), staticFinding: true, dynamicFinding: false, filePath: staticflaws.sourcefilepath, line: staticflaws.line, references: "");
+                            var finding = new CWEs(title: cwe.cwename, test: 3614, numericalSeverity: "100", foundBy: new List<int?>() { 1 }, severity: item.level.ToString(), description: cwe.description.text.ToString(), staticFinding: true, dynamicFinding: false, filePath: staticflaws.sourcefilepath + staticflaws.sourcefile, line: staticflaws.line, references: "");
 
                             finding.Cwe = cwe.cweid;
 

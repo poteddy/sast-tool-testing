@@ -92,6 +92,9 @@ namespace ToolTester.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("RootCauseCweId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ScanId")
                         .HasColumnType("INTEGER");
 
@@ -105,7 +108,7 @@ namespace ToolTester.Infrastructure.Migrations
                     b.Property<bool>("StaticFinding")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("Test")
+                    b.Property<int>("TestId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("TestPathListedCWE")
@@ -123,7 +126,11 @@ namespace ToolTester.Infrastructure.Migrations
 
                     b.HasIndex("ScanId");
 
-                    b.HasIndex("ScanId", "Test");
+                    b.HasIndex("TestId");
+
+                    b.HasIndex("ScanId", "TestId");
+
+                    b.HasIndex("TestId", "ScannerFoundCWE");
 
                     b.ToTable("CWETestResults");
                 });
@@ -199,6 +206,33 @@ namespace ToolTester.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("JulietCoverages");
+                });
+
+            modelBuilder.Entity("ToolTester.Domain.Entities.JulietTest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CweId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedPath")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CweId");
+
+                    b.HasIndex("NormalizedPath")
+                        .IsUnique();
+
+                    b.ToTable("JulietTests");
                 });
 
             modelBuilder.Entity("ToolTester.Domain.Entities.Relationship", b =>
@@ -362,7 +396,15 @@ namespace ToolTester.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ToolTester.Domain.Entities.JulietTest", "Test")
+                        .WithMany("Results")
+                        .HasForeignKey("TestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Scan");
+
+                    b.Navigation("Test");
                 });
 
             modelBuilder.Entity("ToolTester.Domain.Entities.Report", b =>
@@ -393,6 +435,11 @@ namespace ToolTester.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Tool");
+                });
+
+            modelBuilder.Entity("ToolTester.Domain.Entities.JulietTest", b =>
+                {
+                    b.Navigation("Results");
                 });
 
             modelBuilder.Entity("ToolTester.Domain.Entities.Scan", b =>

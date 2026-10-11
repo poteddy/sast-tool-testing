@@ -25,7 +25,7 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(
         provider => provider.GetRequiredService<ApplicationDbContext>());
 
-
+        services.AddSingleton<IJulietPathNormalizer,JulietPathNormalizer>();
         services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>());
         services.AddScoped<IApplicationDbContextSeed, ApplicationDbContextSeed>();
         services.AddTransient<IDateTime, DateTimeService>();

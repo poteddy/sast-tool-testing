@@ -14,7 +14,10 @@ public sealed class ReportingService :
     IDisposable
 {
     private readonly ILogger<ReportingService> _logger;
-    private readonly ICweRootCauseResolver _rootCauseResolver;
+
+    private readonly ICweRootCauseResolver
+        _rootCauseResolver;
+
     private readonly IDbContextFactory<ApplicationDbContext>
         _contextFactory;
 
@@ -48,7 +51,10 @@ public sealed class ReportingService :
         _cweTopologyService = cweTopologyService
             ?? throw new ArgumentNullException(
                 nameof(cweTopologyService));
-        _rootCauseResolver = rootCauseResolver;
+
+        _rootCauseResolver = rootCauseResolver
+            ?? throw new ArgumentNullException(
+                nameof(rootCauseResolver));
     }
 
     public Task<StringBuilder> GenerateReport(
@@ -80,13 +86,10 @@ public sealed class ReportingService :
 
         try
         {
-            /*
-             * Verify that the requested scan exists and belongs
-             * to the requested tool.
-             */
             var scan = await context.Scans
                 .AsNoTracking()
-                .Where(item => item.Id == scanId)
+                .Where(item =>
+                    item.Id == scanId)
                 .SingleOrDefaultAsync(
                     cancellationToken);
 
@@ -104,46 +107,32 @@ public sealed class ReportingService :
             }
 
             /*
-             * Apply SQLite-compatible filtering before projecting
-             * into the TestResultInput record.
+             * Ground truth now comes from JulietTest.CweId.
              *
-             * Preserve all three different CWE values:
+             * CWETestResult.TestId references JulietTest.Id.
              *
-             * ScannerCweId:
-             *     CWE reported by the scanner.
-             *
-             * GroundTruthCweId:
-             *     CWE identified by the Juliet test path.
-             *
-             * RootCauseCweId:
-             *     Root cause selected by the semantic resolver.
+             * TestPathListedCWE no longer exists and is no longer
+             * stored redundantly on CWETestResult.
              */
-            /*
-     * Load only the values produced by the parsing service.
-     *
-     * ScannerFoundCWE:
-     *     CWE reported by the scanner.
-     *
-     * TestPathListedCWE:
-     *     Ground-truth CWE identified from the Juliet test path.
-     *
-     * RootCauseCweId is derived by the reporting service and is
-     * therefore not stored on CWETestResult.
-     */
-            var parsedResults = await context.CWETestResults
-       .AsNoTracking()
-       .Where(result =>
-           result.ScanId == scanId &&
-           result.TestPathListedCWE > 0)
-       .Select(result => new ParsedTestResultInput(
-           result.ScannerFoundCWE,
-           result.TestPathListedCWE))
-       .ToListAsync(cancellationToken);
+            var parsedResults =
+                await context.CWETestResults
+                    .AsNoTracking()
+                    .Where(result =>
+                        result.ScanId == scanId &&
+                        result.Test.CweId > 0)
+                    .Select(result =>
+                        new ParsedTestResultInput(
+                            result.TestId,
+                            result.ScannerFoundCWE,
+                            result.Test.CweId))
+                    .ToListAsync(
+                        cancellationToken);
 
             if (parsedResults.Count == 0)
             {
                 _logger.LogInformation(
-                    "No CWE test results were found for scan {ScanId}.",
+                    "No CWE test results were found for " +
+                    "scan {ScanId}.",
                     scanId);
 
                 await ReplaceReportsAsync(
@@ -157,67 +146,89 @@ public sealed class ReportingService :
             }
 
             /*
-             * Resolve root cause in the reporting layer.
+             * Resolve root cause after parsing.
              *
-             * The parsing entity remains an immutable representation of
-             * what the scanner reported and what was identified from the
-             * test path.
+             * Parsing preserves:
+             *
+             * - scanner-reported CWE
+             * - JulietTest reference
+             *
+             * Reporting derives root cause and relationships.
              */
-            var testResults = new List<TestResultInput>(
-         parsedResults.Count);
-            
+            var testResults =
+                new List<TestResultInput>(
+                    parsedResults.Count);
+
             foreach (var parsedResult in parsedResults)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                cancellationToken
+                    .ThrowIfCancellationRequested();
 
                 int? rootCauseCweId = null;
 
                 if (parsedResult.ScannerCweId.HasValue)
                 {
                     rootCauseCweId =
-                        await _rootCauseResolver.ResolveMatchedTargetCweAsync(
-                            parsedResult.ScannerCweId.Value,
-                            parsedResult.GroundTruthCweId,
-                            cancellationToken);
+                        await _rootCauseResolver
+                            .ResolveMatchedTargetCweAsync(
+                                parsedResult.ScannerCweId.Value,
+                                parsedResult.GroundTruthCweId,
+                                cancellationToken);
                 }
 
                 testResults.Add(
                     new TestResultInput(
+                        parsedResult.TestId,
                         parsedResult.ScannerCweId,
                         parsedResult.GroundTruthCweId,
                         rootCauseCweId));
             }
 
             /*
-             * IMPORTANT:
-             * Group AFTER every parsed result has been processed.
+             * Reports currently aggregate by CWE relationship.
+             *
+             * TestId remains available in TestResultInput for
+             * future per-test reporting, but it is intentionally
+             * not part of this grouping key.
              */
-            var groupedResults = testResults
-                .GroupBy(result => new CweReportKey(
-                    result.ScannerCweId,
-                    result.GroundTruthCweId,
-                    result.RootCauseCweId))
-                .Select(group => new GroupedCweResult(
-                    group.Key,
-                    group.Count()))
-                .ToList();
+            var groupedResults =
+                testResults
+                    .GroupBy(result =>
+                        new CweReportKey(
+                            result.ScannerCweId,
+                            result.GroundTruthCweId,
+                            result.RootCauseCweId))
+                    .Select(group =>
+                        new GroupedCweResult(
+                            group.Key,
+                            group.Count(),
+                            group
+                                .Select(result => result.TestId)
+                                .Distinct()
+                                .Count()))
+                    .ToList();
 
-            var reports = new List<Report>(
-                groupedResults.Count);
+            var reports =
+                new List<Report>(
+                    groupedResults.Count);
 
-            var reportSummary = CreateReportHeader(
-                scanId,
-                toolId,
-                testResults,
-                groupedResults.Count);
+            var reportSummary =
+                CreateReportHeader(
+                    scanId,
+                    toolId,
+                    testResults,
+                    groupedResults.Count);
 
-            foreach (var groupedResult in groupedResults)//.Where(d=>d.Count == 1974))
+            foreach (var groupedResult in groupedResults)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                cancellationToken
+                    .ThrowIfCancellationRequested();
 
-                var key = groupedResult.Key;
+                var key =
+                    groupedResult.Key;
 
                 RelationshipResult relationship;
+
                 CweTopologyMatch? topology;
 
                 if (key.ScannerCweId.HasValue)
@@ -226,43 +237,43 @@ public sealed class ReportingService :
                         await _relationshipService.EvaluateAsync(
                             scannerCweId:
                                 key.ScannerCweId.Value,
-
                             groundTruthCweId:
                                 key.GroundTruthCweId,
-
                             scannerRuleId:
                                 null,
-
                             programmingLanguage:
                                 null,
-
                             cancellationToken);
 
-                    topology = await TryGetTopologyAsync(
-                        key.GroundTruthCweId,
-                        key.ScannerCweId.Value,
-                        cancellationToken);
+                    topology =
+                        await TryGetTopologyAsync(
+                            key.GroundTruthCweId,
+                            key.ScannerCweId.Value,
+                            cancellationToken);
                 }
                 else
                 {
-                    /*
-                     * Scanner detected the finding but did not provide
-                     * a CWE. Therefore relationship/topology analysis
-                     * cannot be performed.
-                     */
-                    var blankrel = new RelationshipResult(key.ScannerCweId, key.GroundTruthCweId, CweRelationshipKind.DetectedWithoutCwe, 0,MatchClassification.NeedsReview, [], "");
+                    relationship =
+                        new RelationshipResult(
+                            key.ScannerCweId,
+                            key.GroundTruthCweId,
+                            CweRelationshipKind.DetectedWithoutCwe,
+                            0,
+                            MatchClassification.NeedsReview,
+                            [],
+                            string.Empty);
 
-                    relationship = blankrel;
                     topology = null;
                 }
 
-                var report = CreateReportEntity(
-                    scanId,
-                    toolId,
-                    key,
-                    groupedResult.Count,
-                    relationship,
-                    topology);
+                var report =
+                    CreateReportEntity(
+                        scanId,
+                        toolId,
+                        key,
+                        groupedResult.Count,
+                        relationship,
+                        topology);
 
                 reports.Add(report);
 
@@ -270,6 +281,7 @@ public sealed class ReportingService :
                     reportSummary,
                     key,
                     groupedResult.Count,
+                    groupedResult.DistinctTestCount,
                     relationship,
                     topology);
             }
@@ -282,7 +294,6 @@ public sealed class ReportingService :
                 cancellationToken);
 
             return reportSummary;
-
         }
         catch (Exception exception)
         {
@@ -305,7 +316,7 @@ public sealed class ReportingService :
         try
         {
             /*
-             * Source is the ground-truth CWE.
+             * Source is the Juliet ground-truth CWE.
              * Target is the scanner-reported CWE.
              */
             return await _cweTopologyService
@@ -346,6 +357,12 @@ public sealed class ReportingService :
         IReadOnlyCollection<TestResultInput> testResults,
         int distinctCombinationCount)
     {
+        var distinctTestCount =
+            testResults
+                .Select(result => result.TestId)
+                .Distinct()
+                .Count();
+
         var rootCauseIdentifiedCount =
             testResults.Count(
                 result =>
@@ -366,10 +383,17 @@ public sealed class ReportingService :
             testResults.Count(
                 result =>
                     result.RootCauseCweId.HasValue &&
+                    result.ScannerCweId.HasValue &&
                     result.RootCauseCweId.Value ==
-                    result.ScannerCweId);
+                    result.ScannerCweId.Value);
 
-        var summary = new StringBuilder();
+        var findingsWithoutCweCount =
+            testResults.Count(
+                result =>
+                    !result.ScannerCweId.HasValue);
+
+        var summary =
+            new StringBuilder();
 
         summary.AppendLine(
             $"CWE report for scan {scanId}, tool {toolId}");
@@ -378,8 +402,16 @@ public sealed class ReportingService :
             $"Total findings: {testResults.Count}");
 
         summary.AppendLine(
+            $"Distinct Juliet tests referenced: " +
+            $"{distinctTestCount}");
+
+        summary.AppendLine(
             $"Distinct CWE combinations: " +
             $"{distinctCombinationCount}");
+
+        summary.AppendLine(
+            $"Findings without scanner CWE: " +
+            $"{findingsWithoutCweCount}");
 
         summary.AppendLine(
             $"Findings with identified root cause: " +
@@ -403,68 +435,68 @@ public sealed class ReportingService :
     }
 
     private static Report CreateReportEntity(
- int scanId,
- int toolId,
- CweReportKey key,
- int count,
- RelationshipResult? relationship,
- CweTopologyMatch? topology)
+        int scanId,
+        int toolId,
+        CweReportKey key,
+        int count,
+        RelationshipResult relationship,
+        CweTopologyMatch? topology)
     {
         return new Report
         {
-            ScanId = scanId,
+            ScanId =
+                scanId,
 
-            ToolId = toolId,
+            ToolId =
+                toolId,
 
             GroundTruthCweId =
-          key.GroundTruthCweId,
+                key.GroundTruthCweId,
 
             ScannerCweId =
-          key.ScannerCweId,
+                key.ScannerCweId,
 
             RootCauseCweId =
-          key.RootCauseCweId,
+                key.RootCauseCweId,
 
             DetectedWithoutCwe =
-          !key.ScannerCweId.HasValue,
+                !key.ScannerCweId.HasValue,
 
             RootCauseMatchesGroundTruth =
-          key.RootCauseCweId.HasValue &&
-          key.RootCauseCweId.Value ==
-          key.GroundTruthCweId,
+                key.RootCauseCweId.HasValue &&
+                key.RootCauseCweId.Value ==
+                key.GroundTruthCweId,
 
             RootCauseMatchesScanner =
-          key.RootCauseCweId.HasValue &&
-          key.ScannerCweId.HasValue &&
-          key.RootCauseCweId.Value ==
-          key.ScannerCweId.Value,
+                key.RootCauseCweId.HasValue &&
+                key.ScannerCweId.HasValue &&
+                key.RootCauseCweId.Value ==
+                key.ScannerCweId.Value,
 
             Count =
-          count,
+                count,
 
             Relationship =
-          relationship?.Relationship.ToString()
-          ?? "NotApplicable",
+                relationship.Relationship.ToString(),
 
             RelationshipScore =
-          relationship?.Score,
+                relationship.Score,
 
             TopologyRelationship =
-          topology?.Relationship.ToString()
-          ?? "NotApplicable",
+                topology?.Relationship.ToString()
+                ?? "NotApplicable",
 
             GroundTruthAbstraction =
-          topology?.SourceAbstraction.ToString()
-          ?? "Unknown",
+                topology?.SourceAbstraction.ToString()
+                ?? "Unknown",
 
             ScannerAbstraction =
-          topology?.TargetAbstraction.ToString()
-          ?? "Unknown",
+                topology?.TargetAbstraction.ToString()
+                ?? "Unknown",
 
             TopologyDistance =
-          topology?.Distance
+                topology?.Distance
         };
-
     }
 
     private async Task ReplaceReportsAsync(
@@ -474,17 +506,14 @@ public sealed class ReportingService :
         IReadOnlyCollection<Report> reports,
         CancellationToken cancellationToken)
     {
-        /*
-         * Validate the actual foreign-key parents before attempting
-         * to replace the report rows.
-         */
-        var scanExists = await context.Scans
-            .AsNoTracking()
-            .AnyAsync(
-                scan =>
-                    scan.Id == scanId &&
-                    scan.ToolId == toolId,
-                cancellationToken);
+        var scanExists =
+            await context.Scans
+                .AsNoTracking()
+                .AnyAsync(
+                    scan =>
+                        scan.Id == scanId &&
+                        scan.ToolId == toolId,
+                    cancellationToken);
 
         if (!scanExists)
         {
@@ -493,11 +522,13 @@ public sealed class ReportingService :
                 "does not exist.");
         }
 
-        var toolExists = await context.Tools
-            .AsNoTracking()
-            .AnyAsync(
-                tool => tool.Id == toolId,
-                cancellationToken);
+        var toolExists =
+            await context.Tools
+                .AsNoTracking()
+                .AnyAsync(
+                    tool =>
+                        tool.Id == toolId,
+                    cancellationToken);
 
         if (!toolExists)
         {
@@ -517,10 +548,6 @@ public sealed class ReportingService :
                             cancellationToken);
             }
 
-            /*
-             * Delete previously generated reports for this scan
-             * and tool so report generation remains idempotent.
-             */
             if (context.Database.IsInMemory())
             {
                 var existingReports =
@@ -534,10 +561,6 @@ public sealed class ReportingService :
                 context.Reports.RemoveRange(
                     existingReports);
 
-                /*
-                 * Save the tracked deletions before adding the
-                 * replacement records.
-                 */
                 if (existingReports.Count > 0)
                 {
                     await context.SaveChangesAsync(
@@ -556,15 +579,7 @@ public sealed class ReportingService :
 
             foreach (var report in reports)
             {
-                /*
-                 * Ensure EF treats every replacement as a new row.
-                 */
                 report.Id = 0;
-
-                /*
-                 * Ensure all reports reference the validated
-                 * parent records.
-                 */
                 report.ScanId = scanId;
                 report.ToolId = toolId;
             }
@@ -628,15 +643,16 @@ public sealed class ReportingService :
         ApplicationDbContext context,
         DbUpdateException exception)
     {
-        var entries = exception.Entries.Count > 0
-            ? exception.Entries
-            : context.ChangeTracker
-                .Entries()
-                .Where(entry =>
-                    entry.State == EntityState.Added ||
-                    entry.State == EntityState.Modified ||
-                    entry.State == EntityState.Deleted)
-                .ToList();
+        var entries =
+            exception.Entries.Count > 0
+                ? exception.Entries
+                : context.ChangeTracker
+                    .Entries()
+                    .Where(entry =>
+                        entry.State == EntityState.Added ||
+                        entry.State == EntityState.Modified ||
+                        entry.State == EntityState.Deleted)
+                    .ToList();
 
         foreach (var entry in entries)
         {
@@ -657,51 +673,69 @@ public sealed class ReportingService :
             foreach (var foreignKey in
                      entry.Metadata.GetForeignKeys())
             {
-                var values = foreignKey.Properties
-                    .Select(property =>
-                    {
-                        var value = entry
-                            .Property(property.Name)
-                            .CurrentValue;
+                var values =
+                    foreignKey.Properties
+                        .Select(property =>
+                        {
+                            var value =
+                                entry
+                                    .Property(property.Name)
+                                    .CurrentValue;
 
-                        return
-                            $"{property.Name}=" +
-                            $"{value ?? "<null>"}";
-                    });
+                            return
+                                $"{property.Name}=" +
+                                $"{value ?? "<null>"}";
+                        });
 
                 _logger.LogError(
                     "Foreign key from {DependentEntity} to " +
                     "{PrincipalEntity}: {Values}.",
                     entry.Metadata.DisplayName(),
                     foreignKey.PrincipalEntityType.DisplayName(),
-                    string.Join(", ", values));
+                    string.Join(
+                        ", ",
+                        values));
             }
         }
 
         _logger.LogError(
             exception,
-            "SQLite rejected one or more report changes " +
-            "because of a foreign-key constraint.");
+            "The database rejected one or more report changes.");
     }
 
     private static void AppendSummaryLine(
         StringBuilder summary,
         CweReportKey key,
         int count,
+        int distinctTestCount,
         RelationshipResult relationship,
         CweTopologyMatch? topology)
     {
-        summary.Append("Scanner CWE-");
-        summary.Append(key.ScannerCweId);
+        if (key.ScannerCweId.HasValue)
+        {
+            summary.Append("Scanner CWE-");
+            summary.Append(
+                key.ScannerCweId.Value);
+        }
+        else
+        {
+            summary.Append(
+                "Scanner CWE not provided");
+        }
 
-        summary.Append(" -> Ground truth CWE-");
-        summary.Append(key.GroundTruthCweId);
+        summary.Append(
+            " -> Ground truth CWE-");
 
-        summary.Append(" -> Root cause ");
+        summary.Append(
+            key.GroundTruthCweId);
+
+        summary.Append(
+            " -> Root cause ");
 
         if (key.RootCauseCweId.HasValue)
         {
             summary.Append("CWE-");
+
             summary.Append(
                 key.RootCauseCweId.Value);
         }
@@ -711,24 +745,33 @@ public sealed class ReportingService :
                 "not identified");
         }
 
-        summary.Append(": relationship ");
+        summary.Append(
+            ": relationship ");
+
         summary.Append(
             relationship.Relationship);
 
-        summary.Append(", score ");
+        summary.Append(
+            ", score ");
+
         summary.Append(
             relationship.Score);
 
-        summary.Append(", classification ");
+        summary.Append(
+            ", classification ");
+
         summary.Append(
             relationship.Classification);
 
-        summary.Append(", topology ");
+        summary.Append(
+            ", topology ");
+
         summary.Append(
             topology?.Relationship.ToString()
             ?? "not available");
 
-        summary.Append(", topology distance ");
+        summary.Append(
+            ", topology distance ");
 
         if (topology is not null)
         {
@@ -741,17 +784,28 @@ public sealed class ReportingService :
                 "not available");
         }
 
-        summary.Append(", findings ");
+        summary.Append(
+            ", distinct tests ");
+
+        summary.Append(
+            distinctTestCount);
+
+        summary.Append(
+            ", findings ");
+
         summary.AppendLine(
             count.ToString());
     }
 
-    private static StringBuilder CreateEmptyReport(Scan scan)
+    private static StringBuilder CreateEmptyReport(
+        Scan scan)
     {
-        var report = new StringBuilder();
+        var report =
+            new StringBuilder();
 
         report.AppendLine(
-            $"CWE report for scan {scan.Id}, tool {scan.ToolId}");
+            $"CWE report for scan {scan.Id}, " +
+            $"tool {scan.ToolId}");
 
         report.AppendLine(
             "No CWE test results were found.");
@@ -781,10 +835,12 @@ public sealed class ReportingService :
     }
 
     private readonly record struct ParsedTestResultInput(
-      int? ScannerCweId,
-      int GroundTruthCweId);
+        int TestId,
+        int? ScannerCweId,
+        int GroundTruthCweId);
 
     private readonly record struct TestResultInput(
+        int TestId,
         int? ScannerCweId,
         int GroundTruthCweId,
         int? RootCauseCweId);
@@ -796,7 +852,8 @@ public sealed class ReportingService :
 
     private readonly record struct GroupedCweResult(
         CweReportKey Key,
-        int Count);
+        int Count,
+        int DistinctTestCount);
 
     private void Dispose(
         bool disposing)
@@ -812,6 +869,7 @@ public sealed class ReportingService :
     public void Dispose()
     {
         Dispose(disposing: true);
+
         GC.SuppressFinalize(this);
     }
 }

@@ -29,18 +29,40 @@ public partial class ReportPageModel : BaseViewModel
     private const int UnrelatedErrorValue = 5;
     private const int ParetoCweLimit = 25;
     private const string AllRelationships = "All";
-
+     private const int DetectedWithoutCweErrorValue = 2;
     private static readonly string[] RelationshipDisplayOrder =
-    [
-        "Exact",
-        "DirectSibling",
-        "SameRootCauseBroaderCwe",
-        "DirectParent",
-        "DirectChild",
-        "SharedAncestor",
-        "CanPrecede",
-        "Unrelated"
-    ];
+[
+    nameof(CweRelationshipKind.Exact),
+
+    nameof(CweRelationshipKind.DirectParent),
+    nameof(CweRelationshipKind.DirectChild),
+    nameof(CweRelationshipKind.Ancestor),
+    nameof(CweRelationshipKind.Descendant),
+    nameof(CweRelationshipKind.GrandParent),
+    nameof(CweRelationshipKind.GrandChild),
+
+    nameof(CweRelationshipKind.DirectSibling),
+    nameof(CweRelationshipKind.SharedAncestor),
+    nameof(CweRelationshipKind.PeerOf),
+
+    nameof(CweRelationshipKind.CanPrecede),
+    nameof(CweRelationshipKind.CanFollow),
+    nameof(CweRelationshipKind.Requires),
+    nameof(CweRelationshipKind.CanAlsoBe),
+
+    nameof(CweRelationshipKind.SameRootCauseBroaderCwe),
+    nameof(CweRelationshipKind.SameRootCauseNarrowerCwe),
+    nameof(CweRelationshipKind.SameConsequence),
+    nameof(CweRelationshipKind.SameWeaknessFamily),
+    nameof(CweRelationshipKind.RelatedAttackPattern),
+
+    nameof(CweRelationshipKind.RelatedWeakness),
+    nameof(CweRelationshipKind.JulietRootCause),
+
+    nameof(CweRelationshipKind.DetectedWithoutCwe),
+
+    nameof(CweRelationshipKind.Unrelated)
+];
 
     private static readonly SKColor[] ChartColors =
     [
@@ -278,7 +300,7 @@ public partial class ReportPageModel : BaseViewModel
     }
 
     public async Task LoadItemsAsync(
-        CancellationToken cancellationToken = default)
+       CancellationToken cancellationToken = default)
     {
         await LoadScanNamesAsync(cancellationToken);
 
@@ -307,91 +329,170 @@ public partial class ReportPageModel : BaseViewModel
                 group => group.Key,
                 group => group.First());
 
-        RelatedSeries = new ObservableCollection<RelatedSeries>(
-            reportResult.Items
-                .GroupBy(report => report.ScanId)
-                .OrderBy(group => group.Key)
-                .Select(group => new RelatedSeries
-                {
-                    ScanId = group.Key,
-                    ScanName = GetScanName(group.Key),
-                    Items = group
-                        .OrderBy(report => report.GroundTruthCweId)
-                        .ThenBy(report => report.ScannerCweId)
-                        .Select(report => new RelatedItemsInTest
-                        {
-                            Id = report.Id,
-                            GroundTruthCweId = report.GroundTruthCweId,
-                            ScannerCweId = report.ScannerCweId,
-                            ScanId = report.ScanId,
-                            ToolId = report.ToolId,
-                            Count = report.Count,
-                            Relationship = report.Relationship,
-                            RelationshipScore = report.RelationshipScore
-                        })
-                        .ToList()
-                }));
+        RelatedSeries =
+            new ObservableCollection<RelatedSeries>(
+                reportResult.Items
+                    .GroupBy(report => report.ScanId)
+                    .OrderBy(group => group.Key)
+                    .Select(group => new RelatedSeries
+                    {
+                        ScanId = group.Key,
 
-        OnPropertyChanged(nameof(AvailableRelationships));
+                        ScanName =
+                            GetScanName(group.Key),
+
+                        Items = group
+                            .OrderBy(report =>
+                                report.GroundTruthCweId)
+                            .ThenBy(report =>
+                                report.ScannerCweId)
+                            .Select(report =>
+                                new RelatedItemsInTest
+                                {
+                                    Id =
+                                        report.Id,
+
+                                    GroundTruthCweId =
+                                        report.GroundTruthCweId,
+
+                                    ScannerCweId =
+                                        report.ScannerCweId,
+
+                                    ScanId =
+                                        report.ScanId,
+
+                                    ToolId =
+                                        report.ToolId,
+
+                                    Count =
+                                        report.Count,
+
+                                    Relationship =
+                                        report.Relationship,
+
+                                    RelationshipScore =
+                                        report.RelationshipScore
+                                })
+                            .ToList()
+                    }));
+
+        OnPropertyChanged(
+            nameof(AvailableRelationships));
+
         BuildRelationshipMix();
 
         var mappedItems = testResult.Items
-            .Select(item =>
-            {
-                var reportKey = (
-                    item.ScanId,
-                    ScannerCweId: item.ScannerFoundCWE,
-                    GroundTruthCweId: item.TestPathListedCWE);
+        .Select(item =>
+        {
+            var reportKey = (
+                ScanId: item.ScanId,
+                ScannerCweId: item.ScannerFoundCWE,
+                GroundTruthCweId: item.GroundTruthCwe);
 
-                var hasSavedReport = reportLookup.TryGetValue(
+            var hasSavedReport =
+                reportLookup.TryGetValue(
                     reportKey,
                     out var savedReport);
 
-                return new CweTestResults
-                {
-                    Id = item.Id,
-                    ScannerFoundCWE = item.ScannerFoundCWE,
-                    ScanId = item.ScanId,
-                    TestPathListedCWE = item.TestPathListedCWE,
-                    ErrorValue = hasSavedReport &&
-                                 savedReport!.RelationshipScore > 0
+            var detectedWithoutCwe =
+                !item.ScannerFoundCWE.HasValue ||
+                (
+                    hasSavedReport &&
+                    string.Equals(
+                        savedReport!.Relationship,
+                        nameof(CweRelationshipKind.DetectedWithoutCwe),
+                        StringComparison.OrdinalIgnoreCase)
+                );
+
+            var errorValue =
+                detectedWithoutCwe
+                    ? DetectedWithoutCweErrorValue
+                    : hasSavedReport &&
+                      savedReport!.RelationshipScore > 0
                         ? RelatedErrorValue
-                        : UnrelatedErrorValue
-                };
-            })
-            .ToList();
+                        : UnrelatedErrorValue;
 
-        Items = new ObservableCollection<CweTestResults>(mappedItems);
+            return new CweTestResults
+            {
+                Id =
+                    item.Id,
 
-        TestSeries = new ObservableCollection<TestSeries>(
-            mappedItems
-                .GroupBy(item => item.ScanId)
-                .OrderBy(group => group.Key)
-                .Select(group => new TestSeries
-                {
-                    ScanId = group.Key,
-                    ScanName = GetScanName(group.Key),
-                    Items = group.ToList()
-                }));
+                ScanId =
+                    item.ScanId,
 
-        AggregatedSeries = new ObservableCollection<AggrigatedSeries>(
-            testResult.Items
-                .GroupBy(item => item.ScanId)
-                .OrderBy(group => group.Key)
-                .Select(group => new AggrigatedSeries
-                {
-                    ScanId = group.Key,
-                    ScanName = GetScanName(group.Key),
-                    Items = group
-                        .GroupBy(item => item.ScannerFoundCWE)
-                        .OrderBy(cweGroup => cweGroup.Key)
-                        .Select(cweGroup => new AggrigatedItems
-                        {
-                            CweId = cweGroup.Key,
-                            Count = cweGroup.Count()
-                        })
-                        .ToList()
-                }));
+                TestId =
+                    item.TestId,
+
+                ScannerFoundCWE =
+                    item.ScannerFoundCWE,
+
+                GroundTruthCwe =
+                    item.GroundTruthCwe,
+
+                TestFileName =
+                    item.TestFileName,
+
+                TestPath =
+                    item.TestPath,
+
+                ErrorValue =
+                    errorValue
+            };
+        })
+        .ToList();
+
+        Items =
+            new ObservableCollection<CweTestResults>(
+                mappedItems);
+
+        TestSeries =
+            new ObservableCollection<TestSeries>(
+                mappedItems
+                    .GroupBy(item => item.ScanId)
+                    .OrderBy(group => group.Key)
+                    .Select(group => new TestSeries
+                    {
+                        ScanId =
+                            group.Key,
+
+                        ScanName =
+                            GetScanName(group.Key),
+
+                        Items =
+                            group.ToList()
+                    }));
+
+        AggregatedSeries =
+     new ObservableCollection<AggrigatedSeries>(
+         testResult.Items
+             .GroupBy(item => item.ScanId)
+             .OrderBy(group => group.Key)
+             .Select(group => new AggrigatedSeries
+             {
+                 ScanId =
+                     group.Key,
+
+                 ScanName =
+                     GetScanName(group.Key),
+
+                 Items = group
+                     .Where(item =>
+                         item.ScannerFoundCWE.HasValue)
+                     .GroupBy(item =>
+                         item.ScannerFoundCWE!.Value)
+                     .OrderBy(cweGroup =>
+                         cweGroup.Key)
+                     .Select(cweGroup =>
+                         new AggrigatedItems
+                         {
+                             CweId =
+                                 cweGroup.Key,
+
+                             Count =
+                                 cweGroup.Count()
+                         })
+                     .ToList()
+             }));
     }
 
     private void BuildFalseNegativePareto(
@@ -476,79 +577,163 @@ public partial class ReportPageModel : BaseViewModel
 
     private void BuildRelationshipMix()
     {
-        var chartPoints = new List<RelationshipMixChartPoint>();
-        var mixSeries = new List<RelationshipMixSeries>();
+        var chartPoints =
+            new List<RelationshipMixChartPoint>();
+
+        var mixSeries =
+            new List<RelationshipMixSeries>();
 
         foreach (var relatedSeries in
-                 RelatedSeries.OrderBy(series => series.ScanId))
+                 RelatedSeries.OrderBy(
+                     series => series.ScanId))
         {
-            var scanId = relatedSeries.ScanId;
-            var scanName = GetScanName(scanId);
-            var scanDisplayName = GetScanDisplayName(scanId);
+            var scanId =
+                relatedSeries.ScanId;
 
-            var relationshipCounts = relatedSeries.Items
-                .Where(item => !string.IsNullOrWhiteSpace(item.Relationship))
-                .GroupBy(
-                    item => item.Relationship,
-                    StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group.Sum(item => item.Count),
-                    StringComparer.OrdinalIgnoreCase);
+            var scanName =
+                GetScanName(scanId);
 
-            var totalCount = relationshipCounts.Values.Sum();
+            var scanDisplayName =
+                GetScanDisplayName(scanId);
+
+            var relationshipCounts =
+                relatedSeries.Items
+                    .Where(item =>
+                        !string.IsNullOrWhiteSpace(
+                            item.Relationship))
+                    .GroupBy(
+                        item => item.Relationship,
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.Sum(
+                            item => item.Count),
+                        StringComparer.OrdinalIgnoreCase);
+
+            var totalCount =
+                relationshipCounts.Values.Sum();
 
             if (totalCount <= 0)
             {
                 continue;
             }
 
+            /*
+             * Start with the preferred display order, then append any
+             * relationship returned by reporting that is not already
+             * represented.
+             */
+            var orderedRelationships =
+                RelationshipDisplayOrder
+                    .Concat(
+                        relationshipCounts.Keys
+                            .Where(relationship =>
+                                !RelationshipDisplayOrder.Contains(
+                                    relationship,
+                                    StringComparer.OrdinalIgnoreCase))
+                            .OrderBy(
+                                relationship => relationship,
+                                StringComparer.OrdinalIgnoreCase))
+                    .Distinct(
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
             var runningPercent = 0.0;
-            var seriesPoints = new List<RelationshipMixPoint>();
 
-            foreach (var relationship in RelationshipDisplayOrder)
+            var seriesPoints =
+                new List<RelationshipMixPoint>();
+
+            foreach (var relationship in
+                     orderedRelationships)
             {
-                relationshipCounts.TryGetValue(relationship, out var count);
+                relationshipCounts.TryGetValue(
+                    relationship,
+                    out var count);
 
-                var percentage = count * 100.0 / totalCount;
-                var low = runningPercent;
-                var high = runningPercent + percentage;
-
-                seriesPoints.Add(new RelationshipMixPoint
+                /*
+                 * Do not add empty categories that were not actually
+                 * reported for this scan.
+                 */
+                if (count <= 0)
                 {
-                    Relationship = relationship,
-                    Count = count,
-                    Percentage = percentage
-                });
+                    continue;
+                }
 
-                chartPoints.Add(new RelationshipMixChartPoint
-                {
-                    ScanId = scanId,
-                    ScanName = scanName,
-                    ScannerName = scanDisplayName,
-                    Relationship = relationship,
-                    Count = count,
-                    Percentage = percentage,
-                    Low = low,
-                    High = high
-                });
+                var percentage =
+                    count * 100.0 / totalCount;
 
-                runningPercent = high;
+                var low =
+                    runningPercent;
+
+                var high =
+                    runningPercent + percentage;
+
+                seriesPoints.Add(
+                    new RelationshipMixPoint
+                    {
+                        Relationship =
+                            relationship,
+
+                        Count =
+                            count,
+
+                        Percentage =
+                            percentage
+                    });
+
+                chartPoints.Add(
+                    new RelationshipMixChartPoint
+                    {
+                        ScanId =
+                            scanId,
+
+                        ScanName =
+                            scanName,
+
+                        ScannerName =
+                            scanDisplayName,
+
+                        Relationship =
+                            relationship,
+
+                        Count =
+                            count,
+
+                        Percentage =
+                            percentage,
+
+                        Low =
+                            low,
+
+                        High =
+                            high
+                    });
+
+                runningPercent =
+                    high;
             }
 
-            mixSeries.Add(new RelationshipMixSeries
-            {
-                ScanId = scanId,
-                ScanName = scanName,
-                Items = seriesPoints
-            });
+            mixSeries.Add(
+                new RelationshipMixSeries
+                {
+                    ScanId =
+                        scanId,
+
+                    ScanName =
+                        scanName,
+
+                    Items =
+                        seriesPoints
+                });
         }
 
         RelationshipMixSeries =
-            new ObservableCollection<RelationshipMixSeries>(mixSeries);
+            new ObservableCollection<RelationshipMixSeries>(
+                mixSeries);
 
         RelationshipMixChartData =
-            new ObservableCollection<RelationshipMixChartPoint>(chartPoints);
+            new ObservableCollection<RelationshipMixChartPoint>(
+                chartPoints);
     }
 
     private void BuildLiveCharts()
@@ -611,81 +796,112 @@ public partial class ReportPageModel : BaseViewModel
                 SelectedRelationship,
                 AllRelationships,
                 StringComparison.OrdinalIgnoreCase)
-                ? dataSeries.Items
-                : dataSeries.Items
-                    .Where(item => string.Equals(
-                        item.Relationship,
-                        SelectedRelationship,
-                        StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                    ? dataSeries.Items
+                    : dataSeries.Items
+                        .Where(item => string.Equals(
+                            item.Relationship,
+                            SelectedRelationship,
+                            StringComparison.OrdinalIgnoreCase))
+                        .ToList();
 
-            if (filteredItems.Count == 0)
+            /*
+             * A scatter coordinate requires a scanner CWE.
+             *
+             * DetectedWithoutCwe findings have ScannerCweId = null
+             * and therefore cannot be plotted on the Scanner CWE axis.
+             */
+            var plottableItems = filteredItems
+                .Where(item => item.ScannerCweId.HasValue)
+                .ToList();
+
+            if (plottableItems.Count == 0)
             {
                 continue;
             }
 
-            var lookup = filteredItems
+            var lookup = plottableItems
                 .GroupBy(item => CoordinateKey(
                     item.GroundTruthCweId,
-                    item.ScannerCweId))
-                .ToDictionary(group => group.Key, group => group.First());
+                    item.ScannerCweId.Value))
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.First());
 
             var color = GetChartColor(index++);
 
-            chartSeries.Add(new ScatterSeries<WeightedPoint>
-            {
-                Name = $"Scan {dataSeries.ScanName}",
-                Values = filteredItems
-                    .Select(item => new WeightedPoint(
-                        item.GroundTruthCweId,
-                        item.ScannerCweId,
-                        Math.Max(item.Count, 1)))
-                    .ToArray(),
-                MinGeometrySize = 8,
-                GeometrySize = 30,
-                Fill = new SolidColorPaint(color.WithAlpha(150)),
-                Stroke = new SolidColorPaint(color)
+            chartSeries.Add(
+                new ScatterSeries<WeightedPoint>
                 {
-                    StrokeThickness = 1
-                },
-                YToolTipLabelFormatter = point =>
-                {
-                    var key = CoordinateKey(
-                        point.Coordinate.SecondaryValue,
-                        point.Coordinate.PrimaryValue);
+                    Name = $"Scan {dataSeries.ScanName}",
 
-                    if (!lookup.TryGetValue(key, out var item))
+                    Values = plottableItems
+                        .Select(item => new WeightedPoint(
+                            item.GroundTruthCweId,
+                            item.ScannerCweId.Value,
+                            Math.Max(item.Count, 1)))
+                        .ToArray(),
+
+                    MinGeometrySize = 8,
+
+                    GeometrySize = 30,
+
+                    Fill =
+                        new SolidColorPaint(
+                            color.WithAlpha(150)),
+
+                    Stroke =
+                        new SolidColorPaint(color)
+                        {
+                            StrokeThickness = 1
+                        },
+
+                    YToolTipLabelFormatter = point =>
                     {
-                        return $"Scan: {dataSeries.ScanName}";
-                    }
+                        var key = CoordinateKey(
+                            point.Coordinate.SecondaryValue,
+                            point.Coordinate.PrimaryValue);
 
-                    return
-                        $"Scan: {dataSeries.ScanName}" +
-                        $"{Environment.NewLine}Ground Truth CWE: " +
-                        $"{item.GroundTruthCweId}" +
-                        $"{Environment.NewLine}Scanner CWE: " +
-                        $"{item.ScannerCweId}" +
-                        $"{Environment.NewLine}Relationship: " +
-                        $"{item.Relationship}" +
-                        $"{Environment.NewLine}Confidence: " +
-                        $"{item.RelationshipScore}" +
-                        $"{Environment.NewLine}Count: {item.Count}";
-                }
-            });
+                        if (!lookup.TryGetValue(
+                                key,
+                                out var item))
+                        {
+                            return
+                                $"Scan: {dataSeries.ScanName}";
+                        }
+
+                        return
+                            $"Scan: {dataSeries.ScanName}" +
+                            $"{Environment.NewLine}" +
+                            $"Ground Truth CWE: {item.GroundTruthCweId}" +
+                            $"{Environment.NewLine}" +
+                            $"Scanner CWE: {item.ScannerCweId.Value}" +
+                            $"{Environment.NewLine}" +
+                            $"Relationship: {item.Relationship}" +
+                            $"{Environment.NewLine}" +
+                            $"Confidence: {item.RelationshipScore}" +
+                            $"{Environment.NewLine}" +
+                            $"Count: {item.Count}";
+                    }
+                });
         }
 
-        RelatedFindingSeries = chartSeries.ToArray(); RelatedFindingXAxes =
-[
-CreateNumericAxis(
-name: "Ground Truth CWE",
-labeler: value => $"CWE-{value:N0}")
-];
+        RelatedFindingSeries =
+            chartSeries.ToArray();
+
+        RelatedFindingXAxes =
+        [
+            CreateNumericAxis(
+            name: "Ground Truth CWE",
+            labeler: value =>
+                $"CWE-{value:N0}")
+        ];
 
         RelatedFindingYAxes =
         [
-        CreateNumericAxis(
-name: "Scanner CWE",
-labeler: value => $"CWE-{value:N0}")
+            CreateNumericAxis(
+            name: "Scanner CWE",
+            labeler: value =>
+                $"CWE-{value:N0}")
         ];
     }
 
@@ -914,7 +1130,7 @@ labeler: value => $"CWE-{value:N0}")
     new RelationshipChartDefinition(nameof(CweRelationshipKind.RelatedWeakness), SKColors.SlateGray),
     new RelationshipChartDefinition(nameof(CweRelationshipKind.JulietRootCause), SKColors.DarkCyan),
 
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.DetectedWithoutCwe), SKColors.Black),
+    new RelationshipChartDefinition(nameof(CweRelationshipKind.DetectedWithoutCwe), SKColors.DimGray),
     new RelationshipChartDefinition(nameof(CweRelationshipKind.Unrelated), SKColors.Red)
 };
 
@@ -1591,7 +1807,7 @@ new(1, 79, "Cross-site Scripting"),
 
         foreach (var item in Items)
         {
-            worksheet.Cell(row, 1).Value = item.TestPathListedCWE;
+            worksheet.Cell(row, 1).Value = item.GroundTruthCwe;
             worksheet.Cell(row, 2).Value = item.ScannerFoundCWE;
             worksheet.Cell(row, 3).Value = GetScanName(item.ScanId);
             worksheet.Cell(row, 4).Value = item.ScanId;

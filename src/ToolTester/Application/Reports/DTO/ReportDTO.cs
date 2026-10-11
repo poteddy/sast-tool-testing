@@ -17,14 +17,21 @@ public sealed class ReportDto : IMapFrom<Report>
     public Tool Tool { get; set; } = null!;
 
     /*
-     * These are actual CWE numbers, not foreign keys to
-     * CWECatalog.Id.
+     * These are actual CWE numbers.
+     *
+     * They are not foreign keys to CWECatalog.Id.
      */
     public int GroundTruthCweId { get; set; }
 
-    public int ScannerCweId { get; set; }
+    /*
+     * Nullable because a scanner may detect a finding
+     * without reporting a CWE.
+     */
+    public int? ScannerCweId { get; set; }
 
     public int? RootCauseCweId { get; set; }
+
+    public bool DetectedWithoutCwe { get; set; }
 
     public bool RootCauseMatchesGroundTruth { get; set; }
 

@@ -23,7 +23,7 @@ namespace ToolTester.Presentation.Models
 
         public int GroundTruthCweId { get; set; }
 
-        public int ScannerCweId { get; set; }
+        public int? ScannerCweId { get; set; }
 
         public int? RootCauseCweId { get; set; }
 

@@ -1,23 +1,29 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
 using ToolTester.Application.CweRelationshipEngine;
+using ToolTester.Domain;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Extensions;
-using ToolTester.Infrastructure.Services;
+using ToolTester.Infrastructure.Persistance;
 
-namespace ToolTester.Infrastructure.Persistance;
+namespace ToolTester.Infrastructure.Services;
 
 public sealed class ApplicationDbContextSeed
     : IApplicationDbContextSeed
 {
     private const string MitreSource = "MITRE";
+    private const string MitreCategorySource = "MITRE Category";
     private const string DerivedInverseSource = "DerivedInverse";
     private const string UnspecifiedOrdinal = "Unspecified";
+    private const string CategoryAbstraction = "Category";
+
+    private static readonly SemaphoreSlim SeedLock =
+        new(initialCount: 1, maxCount: 1);
+
+    private static bool _seedCompleted;
 
     private readonly IConfiguration _configuration;
 
@@ -26,34 +32,68 @@ public sealed class ApplicationDbContextSeed
 
     private readonly IZipfileService _zipfileService;
 
+    private readonly IJulietPathNormalizer
+        _julietPathNormalizer;
+
     public ApplicationDbContextSeed(
         IConfiguration configuration,
         IDbContextFactory<ApplicationDbContext> contextFactory,
-        IZipfileService zipfileService)
+        IZipfileService zipfileService,
+        IJulietPathNormalizer julietPathNormalizer)
     {
         _configuration = configuration
-            ?? throw new ArgumentNullException(nameof(configuration));
+            ?? throw new ArgumentNullException(
+                nameof(configuration));
 
         _contextFactory = contextFactory
-            ?? throw new ArgumentNullException(nameof(contextFactory));
+            ?? throw new ArgumentNullException(
+                nameof(contextFactory));
 
         _zipfileService = zipfileService
-            ?? throw new ArgumentNullException(nameof(zipfileService));
+            ?? throw new ArgumentNullException(
+                nameof(zipfileService));
+
+        _julietPathNormalizer = julietPathNormalizer
+            ?? throw new ArgumentNullException(
+                nameof(julietPathNormalizer));
     }
 
     public async Task SeedCWECatalog()
     {
-        await SeedCweCatalogAsync(CancellationToken.None);
+        if (_seedCompleted)
+        {
+            return;
+        }
+
+        await SeedLock.WaitAsync();
+
+        try
+        {
+            if (_seedCompleted)
+            {
+                return;
+            }
+
+            await SeedCweCatalogAsync(
+                CancellationToken.None);
+
+            _seedCompleted = true;
+        }
+        finally
+        {
+            SeedLock.Release();
+        }
     }
 
     private async Task SeedCweCatalogAsync(
         CancellationToken cancellationToken)
     {
-        var semanticRules = CreateJulietSemanticRules();
+        var semanticRules =
+            CreateJulietSemanticRules();
 
         await ImportMitreCatalogAsync(
-        semanticRules,
-        cancellationToken);
+            semanticRules,
+            cancellationToken);
 
         await using var context =
             await _contextFactory.CreateDbContextAsync(
@@ -66,20 +106,6 @@ public sealed class ApplicationDbContextSeed
         await SeedToolsAsync(
             context,
             cancellationToken);
-    }
-
-    private static string GetRulesFilePath()
-    {
-        var folder = Path.Combine(
-            Environment.GetFolderPath(
-                Environment.SpecialFolder.MyDocuments),
-            "ToolTester");
-
-        Directory.CreateDirectory(folder);
-
-        return Path.Combine(
-            folder,
-            "semantic-rules.json");
     }
 
     private async Task ImportMitreCatalogAsync(
@@ -144,17 +170,19 @@ public sealed class ApplicationDbContextSeed
         IReadOnlyCollection<SemanticRule> semanticRules,
         CancellationToken cancellationToken)
     {
-        // Only create CWECatalog rows if none exist yet.
-        if (!await context.CWECatalogs.AnyAsync(cancellationToken))
-        {
-            await UpsertCweNodesAsync(
-                context,
-                weaknessCatalog,
-                cancellationToken);
-        }
+        /*
+         * Always run this upsert.
+         *
+         * It imports both MITRE weakness entries and category
+         * entries such as CWE-398.
+         */
+        await UpsertCweNodesAsync(
+            context,
+            weaknessCatalog,
+            cancellationToken);
 
-        // Only create direct relationships if none exist yet.
-        if (!await context.Relationships.AnyAsync(cancellationToken))
+        if (!await context.Relationships
+                .AnyAsync(cancellationToken))
         {
             await UpsertDirectRelationshipsAsync(
                 context,
@@ -162,16 +190,17 @@ public sealed class ApplicationDbContextSeed
                 cancellationToken);
         }
 
-        // Only add derived/inverse relationships if there are no derived relationships yet.
-        if (!await context.Relationships.AnyAsync(r => r.IsDerived, cancellationToken))
+        if (!await context.Relationships.AnyAsync(
+                relationship => relationship.IsDerived,
+                cancellationToken))
         {
             await AddInverseRelationshipsAsync(
                 context,
                 cancellationToken);
         }
 
-        // Only import semantic rules if none exist yet.
-        if (!await context.CweSemanticRules.AnyAsync(cancellationToken))
+        if (!await context.CweSemanticRules
+                .AnyAsync(cancellationToken))
         {
             await UpsertSemanticRulesAsync(
                 context,
@@ -185,13 +214,19 @@ public sealed class ApplicationDbContextSeed
         Weakness_Catalog catalog,
         CancellationToken cancellationToken)
     {
-        var existingByCweId = await context.CWECatalogs
-            .ToDictionaryAsync(
-                x => x.CweId,
-                cancellationToken);
+        var existingByCweId =
+            await context.CWECatalogs
+                .ToDictionaryAsync(
+                    catalogEntry => catalogEntry.CweId,
+                    cancellationToken);
 
+        /*
+         * Import standard MITRE weakness entries.
+         */
         foreach (var weakness in catalog.Weaknesses)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (!int.TryParse(
                     weakness.ID,
                     out var cweId))
@@ -199,19 +234,36 @@ public sealed class ApplicationDbContextSeed
                 continue;
             }
 
-            var abstraction = CweAbstractionParser.Parse(weakness.Abstraction.ToString()).ToString();
+            var abstraction =
+                CweAbstractionParser
+                    .Parse(
+                        weakness.Abstraction.ToString())
+                    .ToString();
 
             var status =
                 weakness.Status.ToString();
+
+            var name =
+                weakness.Name ?? string.Empty;
+
+            var description =
+                weakness.Description ?? string.Empty;
 
             if (existingByCweId.TryGetValue(
                     cweId,
                     out var existing))
             {
-                existing.Name = weakness.Name;
-                existing.Description = weakness.Description;
-                existing.Abstraction = abstraction;
-                existing.Status = status;
+                existing.Name =
+                    name;
+
+                existing.Description =
+                    description;
+
+                existing.Abstraction =
+                    abstraction;
+
+                existing.Status =
+                    status;
 
                 continue;
             }
@@ -219,14 +271,101 @@ public sealed class ApplicationDbContextSeed
             var cwe = new CWECatalog
             {
                 CweId = cweId,
-                Name = weakness.Name,
-                Description = weakness.Description,
+                Name = name,
+                Description = description,
                 Abstraction = abstraction,
                 Status = status
             };
 
             context.CWECatalogs.Add(cwe);
-            existingByCweId.Add(cweId, cwe);
+
+            existingByCweId.Add(
+                cweId,
+                cwe);
+        }
+
+        /*
+         * Import MITRE category entries.
+         *
+         * Juliet contains tests whose folder CWE is a category,
+         * such as CWE-398. Categories are retained as valid
+         * benchmark ground-truth values.
+         */
+        if (catalog.Categories is not null)
+        {
+            foreach (var category in catalog.Categories)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!int.TryParse(
+                        category.ID,
+                        out var cweId))
+                {
+                    continue;
+                }
+
+                var name =
+                    category.Name ?? string.Empty;
+
+                var description =
+                    category.Summary?.ToString()
+                    ?? string.Empty;
+
+                var status =
+                    category.Status.ToString();
+
+                if (existingByCweId.TryGetValue(
+                        cweId,
+                        out var existing))
+                {
+                    /*
+                     * Do not overwrite a normal weakness with
+                     * category metadata if the same ID somehow
+                     * appears in both collections.
+                     */
+                    if (!string.Equals(
+                            existing.Abstraction,
+                            CategoryAbstraction,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    existing.Name =
+                        name;
+
+                    existing.Description =
+                        description;
+
+                    existing.Abstraction =
+                        CategoryAbstraction;
+
+                    existing.Status =
+                        status;
+
+                    continue;
+                }
+
+                var cweCategory = new CWECatalog
+                {
+                    CweId = cweId,
+                    Name = name,
+                    Description = description,
+                    Abstraction = CategoryAbstraction,
+                    Status = status
+                };
+
+                context.CWECatalogs.Add(
+                    cweCategory);
+
+                existingByCweId.Add(
+                    cweId,
+                    cweCategory);
+
+                Debug.WriteLine(
+                    $"Prepared MITRE category CWE-{cweId}: " +
+                    $"{name} ({MitreCategorySource})");
+            }
         }
 
         if (context.ChangeTracker.HasChanges())
@@ -241,36 +380,45 @@ public sealed class ApplicationDbContextSeed
         Weakness_Catalog catalog,
         CancellationToken cancellationToken)
     {
-        var validCweIds = await context.CWECatalogs
-            .AsNoTracking()
-            .Select(x => x.CweId)
-            .ToHashSetAsync(cancellationToken);
+        var validCweIds =
+            await context.CWECatalogs
+                .AsNoTracking()
+                .Select(catalogEntry =>
+                    catalogEntry.CweId)
+                .ToHashSetAsync(
+                    cancellationToken);
 
         var existingRelationshipData =
             await context.Relationships
                 .AsNoTracking()
-                .Where(x => !x.IsDerived)
-                .Select(x => new
+                .Where(relationship =>
+                    !relationship.IsDerived)
+                .Select(relationship => new
                 {
-                    x.CweId,
-                    x.RelatedCweID,
-                    x.Nature,
-                    x.ViewId,
-                    x.IsDerived
+                    relationship.CweId,
+                    relationship.RelatedCweID,
+                    relationship.Nature,
+                    relationship.ViewId,
+                    relationship.IsDerived
                 })
-                .ToListAsync(cancellationToken);
+                .ToListAsync(
+                    cancellationToken);
 
-        var existingKeys = existingRelationshipData
-            .Select(x => new RelationshipKey(
-                x.CweId,
-                x.RelatedCweID,
-                x.Nature,
-                x.ViewId,
-                x.IsDerived))
-            .ToHashSet();
+        var existingKeys =
+            existingRelationshipData
+                .Select(relationship =>
+                    new RelationshipKey(
+                        relationship.CweId,
+                        relationship.RelatedCweID,
+                        relationship.Nature,
+                        relationship.ViewId,
+                        relationship.IsDerived))
+                .ToHashSet();
 
         foreach (var weakness in catalog.Weaknesses)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (!int.TryParse(
                     weakness.ID,
                     out var sourceCweId))
@@ -288,7 +436,8 @@ public sealed class ApplicationDbContextSeed
                 continue;
             }
 
-            foreach (var related in weakness.Related_Weaknesses)
+            foreach (var related in
+                     weakness.Related_Weaknesses)
             {
                 if (!int.TryParse(
                         related.CWE_ID,
@@ -309,12 +458,13 @@ public sealed class ApplicationDbContextSeed
                     ParseNullableInt(
                         related.View_ID?.ToString());
 
-                var key = new RelationshipKey(
-                    sourceCweId,
-                    targetCweId,
-                    nature,
-                    viewId,
-                    IsDerived: false);
+                var key =
+                    new RelationshipKey(
+                        sourceCweId,
+                        targetCweId,
+                        nature,
+                        viewId,
+                        IsDerived: false);
 
                 if (!existingKeys.Add(key))
                 {
@@ -331,9 +481,10 @@ public sealed class ApplicationDbContextSeed
                         ViewId = viewId,
                         OrderSpecified =
                             related.OrdinalSpecified,
-                        Ordinal = GetOrdinal(
-                            related.OrdinalSpecified,
-                            related.Ordinal.ToString()),
+                        Ordinal =
+                            GetOrdinal(
+                                related.OrdinalSpecified,
+                                related.Ordinal.ToString()),
                         IsDerived = false,
                         Distance = 1,
                         Source = MitreSource
@@ -355,33 +506,40 @@ public sealed class ApplicationDbContextSeed
         var directRelationships =
             await context.Relationships
                 .AsNoTracking()
-                .Where(x => !x.IsDerived)
-                .ToListAsync(cancellationToken);
+                .Where(relationship =>
+                    !relationship.IsDerived)
+                .ToListAsync(
+                    cancellationToken);
 
         var existingRelationshipData =
             await context.Relationships
                 .AsNoTracking()
-                .Select(x => new
+                .Select(relationship => new
                 {
-                    x.CweId,
-                    x.RelatedCweID,
-                    x.Nature,
-                    x.ViewId,
-                    x.IsDerived
+                    relationship.CweId,
+                    relationship.RelatedCweID,
+                    relationship.Nature,
+                    relationship.ViewId,
+                    relationship.IsDerived
                 })
-                .ToListAsync(cancellationToken);
+                .ToListAsync(
+                    cancellationToken);
 
-        var existingKeys = existingRelationshipData
-            .Select(x => new RelationshipKey(
-                x.CweId,
-                x.RelatedCweID,
-                x.Nature,
-                x.ViewId,
-                x.IsDerived))
-            .ToHashSet();
+        var existingKeys =
+            existingRelationshipData
+                .Select(relationship =>
+                    new RelationshipKey(
+                        relationship.CweId,
+                        relationship.RelatedCweID,
+                        relationship.Nature,
+                        relationship.ViewId,
+                        relationship.IsDerived))
+                .ToHashSet();
 
         foreach (var relationship in directRelationships)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var inverseNature =
                 GetInverseNature(
                     relationship.Nature);
@@ -391,12 +549,13 @@ public sealed class ApplicationDbContextSeed
                 continue;
             }
 
-            var key = new RelationshipKey(
-                relationship.RelatedCweID,
-                relationship.CweId,
-                inverseNature,
-                relationship.ViewId,
-                IsDerived: true);
+            var key =
+                new RelationshipKey(
+                    relationship.RelatedCweID,
+                    relationship.CweId,
+                    inverseNature,
+                    relationship.ViewId,
+                    IsDerived: true);
 
             if (!existingKeys.Add(key))
             {
@@ -406,19 +565,36 @@ public sealed class ApplicationDbContextSeed
             context.Relationships.Add(
                 new Relationship
                 {
-                    CweId = relationship.RelatedCweID,
-                    RelatedCweID = relationship.CweId,
-                    Nature = inverseNature,
-                    ViewId = relationship.ViewId,
-                    ChainId = relationship.ChainId,
+                    CweId =
+                        relationship.RelatedCweID,
+
+                    RelatedCweID =
+                        relationship.CweId,
+
+                    Nature =
+                        inverseNature,
+
+                    ViewId =
+                        relationship.ViewId,
+
+                    ChainId =
+                        relationship.ChainId,
+
                     OrderSpecified =
                         relationship.OrderSpecified,
+
                     Ordinal =
-                        relationship.Ordinal ??
-                        UnspecifiedOrdinal,
-                    IsDerived = true,
-                    Distance = 1,
-                    Source = DerivedInverseSource
+                        relationship.Ordinal
+                        ?? UnspecifiedOrdinal,
+
+                    IsDerived =
+                        true,
+
+                    Distance =
+                        1,
+
+                    Source =
+                        DerivedInverseSource
                 });
         }
 
@@ -463,39 +639,36 @@ public sealed class ApplicationDbContextSeed
             return;
         }
 
-        var validCweIds = await context.CWECatalogs
-            .AsNoTracking()
-            .Select(x => x.CweId)
-            .ToHashSetAsync(cancellationToken);
+        var validCweIds =
+            await context.CWECatalogs
+                .AsNoTracking()
+                .Select(catalog =>
+                    catalog.CweId)
+                .ToHashSetAsync(
+                    cancellationToken);
 
-        var existingRules = await context.CweSemanticRules
-            .ToListAsync(cancellationToken);
+        var existingRules =
+            await context.CweSemanticRules
+                .ToListAsync(
+                    cancellationToken);
 
-        var existingByKey = existingRules
-            .GroupBy(CreateSemanticRuleKey)
-            .ToDictionary(
-                group => group.Key,
-                group => group.First());
-
-        var importedKeys =
-            new HashSet<SemanticRuleKey>();
+        var existingByKey =
+            existingRules
+                .GroupBy(CreateSemanticRuleKey)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.First());
 
         foreach (var rule in rules)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             ValidateSemanticRule(
                 rule,
                 validCweIds);
 
-            var key = CreateSemanticRuleKey(rule);
-
-            //if (!importedKeys.Add(key))
-            //{
-            //    throw new InvalidDataException(
-            //        $"The semantic-rule JSON contains a duplicate " +
-            //        $"mapping for CWE-{rule.SourceCweId} to " +
-            //        $"CWE-{rule.TargetCweId}, relationship " +
-            //        $"'{rule.Relationship}', version {rule.Version}.");
-            //}
+            var key =
+                CreateSemanticRuleKey(rule);
 
             if (existingByKey.TryGetValue(
                     key,
@@ -508,10 +681,16 @@ public sealed class ApplicationDbContextSeed
                 continue;
             }
 
-            var entity = CreateSemanticRuleEntity(rule);
+            var entity =
+                CreateSemanticRuleEntity(
+                    rule);
 
-            context.CweSemanticRules.Add(entity);
-            existingByKey.Add(key, entity);
+            context.CweSemanticRules.Add(
+                entity);
+
+            existingByKey.Add(
+                key,
+                entity);
         }
 
         if (context.ChangeTracker.HasChanges())
@@ -521,29 +700,49 @@ public sealed class ApplicationDbContextSeed
         }
     }
 
-    private static CweSemanticRule CreateSemanticRuleEntity(
-        SemanticRule rule)
+    private static CweSemanticRule
+        CreateSemanticRuleEntity(
+            SemanticRule rule)
     {
         return new CweSemanticRule
         {
-            ScannerFoundCweId = rule.ScannerFoundCweId,
-            TestTargetCwe = rule.TestTargetCwe,
-            Relationship = rule.Relationship.ToString(),
-            Score = rule.Score,
+            ScannerFoundCweId =
+                rule.ScannerFoundCweId,
+
+            TestTargetCwe =
+                rule.TestTargetCwe,
+
+            Relationship =
+                rule.Relationship.ToString(),
+
+            Score =
+                rule.Score,
+
             ScannerRuleId =
                 NormalizeOptionalValue(
                     rule.ScannerRuleId),
+
             ProgrammingLanguage =
                 NormalizeOptionalValue(
                     rule.ProgrammingLanguage),
-            Rationale = rule.Rationale.Trim(),
+
+            Rationale =
+                rule.Rationale.Trim(),
+
             EvidenceReference =
                 rule.EvidenceReference.Trim(),
-            Bidirectional = rule.Bidirectional,
-            Enabled = rule.Enabled,
-            Version = rule.Version,
-            IsCustom = false
-            
+
+            Bidirectional =
+                rule.Bidirectional,
+
+            Enabled =
+                rule.Enabled,
+
+            Version =
+                rule.Version,
+
+            IsCustom =
+                false
         };
     }
 
@@ -551,12 +750,20 @@ public sealed class ApplicationDbContextSeed
         CweSemanticRule entity,
         SemanticRule import)
     {
-        entity.Score = import.Score;
-        entity.Rationale = import.Rationale.Trim();
+        entity.Score =
+            import.Score;
+
+        entity.Rationale =
+            import.Rationale.Trim();
+
         entity.EvidenceReference =
             import.EvidenceReference.Trim();
-        entity.Bidirectional = import.Bidirectional;
-        entity.Enabled = import.Enabled;
+
+        entity.Bidirectional =
+            import.Bidirectional;
+
+        entity.Enabled =
+            import.Enabled;
 
         entity.ScannerRuleId =
             NormalizeOptionalValue(
@@ -604,135 +811,109 @@ public sealed class ApplicationDbContextSeed
         if (rule.ScannerFoundCweId <= 0)
         {
             throw new InvalidDataException(
-                "Semantic rule SourceCweId must be greater than zero.");
+                "Semantic rule ScannerFoundCweId must be " +
+                "greater than zero.");
         }
 
-        if (!validCweIds.Contains(rule.ScannerFoundCweId))
+        if (!validCweIds.Contains(
+                rule.ScannerFoundCweId))
         {
             throw new InvalidDataException(
-                $"Semantic rule source CWE-{rule.ScannerFoundCweId} " +
-                "does not exist in the imported MITRE catalog.");
+                $"Semantic rule scanner CWE-" +
+                $"{rule.ScannerFoundCweId} does not exist " +
+                "in the imported MITRE catalog.");
         }
 
         if (rule.TestTargetCwe <= 0)
         {
             throw new InvalidDataException(
-                "Semantic rule TargetCweId must be greater than zero.");
+                "Semantic rule TestTargetCwe must be " +
+                "greater than zero.");
         }
 
-        if (!validCweIds.Contains(rule.TestTargetCwe))
+        if (!validCweIds.Contains(
+                rule.TestTargetCwe))
         {
             throw new InvalidDataException(
-                $"Semantic rule target CWE-{rule.TestTargetCwe} " +
-                "does not exist in the imported MITRE catalog.");
+                $"Semantic rule target CWE-" +
+                $"{rule.TestTargetCwe} does not exist " +
+                "in the imported MITRE catalog.");
         }
 
-        if (string.IsNullOrWhiteSpace(
-                rule.Relationship.ToString()))
-        {
-            throw new InvalidDataException(
-                "Semantic rule Relationship is required.");
-        }
-
-        if (!Enum.TryParse<CweRelationshipKind>(
-                rule.Relationship.ToString(),
-                ignoreCase: false,
-                out _))
+        if (!Enum.IsDefined(rule.Relationship))
         {
             throw new InvalidDataException(
                 $"Unknown semantic relationship " +
-                $"'{rule.Relationship}' for " +
-                $"CWE-{rule.ScannerFoundCweId} to " +
-                $"CWE-{rule.TestTargetCwe}.");
+                $"'{rule.Relationship}' for CWE-" +
+                $"{rule.ScannerFoundCweId} to CWE-" +
+                $"{rule.TestTargetCwe}.");
         }
 
         if (rule.Score is < 0 or > 1000)
         {
             throw new InvalidDataException(
-                $"Semantic-rule score must be between " +
-                $"0 and 1000. Received {rule.Score} for " +
-                $"CWE-{rule.ScannerFoundCweId} to " +
-                $"CWE-{rule.TestTargetCwe}.");
+                "Semantic-rule score must be between 0 and " +
+                $"1000. Received {rule.Score} for CWE-" +
+                $"{rule.ScannerFoundCweId} to CWE-" +
+                $"{rule.TestTargetCwe}.");
         }
 
         if (rule.Version <= 0)
         {
             throw new InvalidDataException(
-                "Semantic rule Version must be greater than zero.");
+                "Semantic rule Version must be greater " +
+                "than zero.");
         }
 
-        if (string.IsNullOrWhiteSpace(rule.Rationale))
+        if (string.IsNullOrWhiteSpace(
+                rule.Rationale))
         {
             throw new InvalidDataException(
-                $"Semantic-rule rationale is required for " +
-                $"CWE-{rule.ScannerFoundCweId} to " +
-                $"CWE-{rule.TestTargetCwe}.");
+                "Semantic-rule rationale is required for " +
+                $"CWE-{rule.ScannerFoundCweId} to CWE-" +
+                $"{rule.TestTargetCwe}.");
         }
 
         if (string.IsNullOrWhiteSpace(
                 rule.EvidenceReference))
         {
             throw new InvalidDataException(
-                $"Semantic-rule evidence reference is required " +
-                $"for CWE-{rule.ScannerFoundCweId} to " +
-                $"CWE-{rule.TestTargetCwe}.");
+                "Semantic-rule evidence reference is required " +
+                $"for CWE-{rule.ScannerFoundCweId} to CWE-" +
+                $"{rule.TestTargetCwe}.");
         }
     }
-    /// <summary>
-    /// moved to import
-    /// </summary>
-    /// <param name="context"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
-    /// <exception cref="InvalidDataException"></exception>
-    //private static async Task<
-    //    IReadOnlyCollection<SemanticRule>>
-    //    LoadSemanticRulesAsync(
-    //        string filePath,
-    //        CancellationToken cancellationToken)
-    //{
-    //    if (!File.Exists(filePath))
-    //    {
-    //        return [];
-    //    }
-
-    //    await using var stream =
-    //        File.OpenRead(filePath);
-
-    //    var options = new JsonSerializerOptions
-    //    {
-    //        PropertyNameCaseInsensitive = true,
-    //        ReadCommentHandling =
-    //            JsonCommentHandling.Skip,
-    //        AllowTrailingCommas = true
-    //    };
-    //    options.Converters.Add(new JsonStringEnumConverter());
-    //    try
-    //    {
-    //        var rules =
-    //            await JsonSerializer.DeserializeAsync<
-    //            List<SemanticRule>>(stream, options,cancellationToken);
-
-    //        return rules ?? [];
-    //    }
-    //    catch (JsonException exception)
-    //    {
-    //        throw new InvalidDataException(
-    //            $"The semantic-rule file '{filePath}' " +
-    //            "contains invalid JSON.",
-    //            exception);
-    //    }
-    //}
 
     private async Task SeedJulietCoverageAsync(
-      ApplicationDbContext context,
-      CancellationToken cancellationToken)
+        ApplicationDbContext context,
+        CancellationToken cancellationToken)
     {
-        if (await context.JulietCoverages
-                .AnyAsync(cancellationToken))
+        var hasJulietTests =
+            await context.JulietTests
+                .AsNoTracking()
+                .AnyAsync(
+                    cancellationToken);
+
+        var hasJulietCoverage =
+            await context.JulietCoverages
+                .AsNoTracking()
+                .AnyAsync(
+                    cancellationToken);
+
+        if (hasJulietTests &&
+            hasJulietCoverage)
         {
             return;
+        }
+
+        if (hasJulietTests ||
+            hasJulietCoverage)
+        {
+            throw new InvalidOperationException(
+                "The Juliet seed is incomplete. JulietTests and " +
+                "JulietCoverages must either both be empty or both " +
+                "contain data. Delete the partial Juliet data " +
+                "before running the seed again.");
         }
 
         var settings = _configuration
@@ -741,93 +922,227 @@ public sealed class ApplicationDbContextSeed
             ?? throw new InvalidOperationException(
                 "JulietProjectSetting is missing.");
 
-        if (string.IsNullOrWhiteSpace(settings.Path))
+        if (string.IsNullOrWhiteSpace(
+                settings.Path))
         {
             throw new InvalidOperationException(
                 "The Juliet project path is empty.");
         }
 
-        var fileCounts =
-            _zipfileService.FileCount(settings.Path);
+        var julietFilePaths =
+            _zipfileService.GetFilePaths(
+                settings.Path);
 
-        var validCweIds = await context.CWECatalogs
-            .AsNoTracking()
-            .Select(x => x.CweId)
-            .ToHashSetAsync(cancellationToken);
-
-        var missingCweIds = new List<int>();
-        var cweLookup = await context.CWECatalogs
-    .ToDictionaryAsync(
-        x => x.CweId,
-        x => x.Id,
-        cancellationToken);
-        foreach (var fileCount in fileCounts)
+        if (julietFilePaths.Count == 0)
         {
-            if (!cweLookup.TryGetValue(
-                    fileCount.Key,
-                    out var catalogId))
+            throw new InvalidDataException(
+                "No Juliet source files were found at the " +
+                "configured project path.");
+        }
+
+        var validCweIds =
+            await context.CWECatalogs
+                .AsNoTracking()
+                .Select(catalog =>
+                    catalog.CweId)
+                .ToHashSetAsync(
+                    cancellationToken);
+
+        if (validCweIds.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "The MITRE CWE catalog must be seeded before " +
+                "the Juliet tests.");
+        }
+
+        var missingCweIds =
+            new HashSet<int>();
+
+        var normalizedPaths =
+            new HashSet<string>(
+                StringComparer.Ordinal);
+
+        var julietTests =
+            new List<JulietTest>();
+
+        foreach (var filePath in julietFilePaths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!_julietPathNormalizer
+                    .IsSupportedSourceFile(filePath))
+            {
+                continue;
+            }
+
+            var normalizedPath =
+                _julietPathNormalizer.Normalize(
+                    filePath);
+
+            if (string.IsNullOrWhiteSpace(
+                    normalizedPath))
             {
                 Debug.WriteLine(
-                    $"Missing CWE {fileCount.Key}");
+                    "Skipping Juliet file with an empty " +
+                    $"normalized path: {filePath}");
 
                 continue;
             }
 
-            var coverage = new JulietCoverage
+            if (!normalizedPaths.Add(
+                    normalizedPath))
             {
-                CweId = fileCount.Key,
-                Covered = fileCount.Value
-            };
+                Debug.WriteLine(
+                    "Duplicate normalized Juliet path skipped: " +
+                    normalizedPath);
+
+                continue;
+            }
+
+            var cweId =
+                _julietPathNormalizer.ExtractCweId(
+                    normalizedPath);
+
+            if (!cweId.HasValue)
+            {
+                Debug.WriteLine(
+                    "No CWE could be extracted from Juliet path: " +
+                    filePath);
+
+                continue;
+            }
+
+            if (!validCweIds.Contains(
+                    cweId.Value))
+            {
+                missingCweIds.Add(
+                    cweId.Value);
+
+                Debug.WriteLine(
+                    $"MITRE CWE-{cweId.Value} was not found " +
+                    $"for Juliet path: {filePath}");
+
+                continue;
+            }
+
+            var julietTest =
+                new JulietTest
+                {
+                    NormalizedPath =
+                        normalizedPath,
+
+                    FileName =
+                        _julietPathNormalizer.GetFileName(
+                            normalizedPath),
+
+                    CweId =
+                        cweId.Value,
+
+                    Results =
+                        []
+                };
+
+            julietTests.Add(
+                julietTest);
 
             Debug.WriteLine(
-                $"Adding CWE={fileCount.Key} CatalogId={coverage.CweId}");
-
-            context.JulietCoverages.Add(coverage);
+                $"Prepared Juliet test: " +
+                $"CWE={julietTest.CweId}, " +
+                $"Path={julietTest.NormalizedPath}");
         }
 
         if (missingCweIds.Count > 0)
         {
             throw new InvalidDataException(
-                "The following Juliet CWE IDs do not exist in the " +
-                $"MITRE catalog: {string.Join(", ", missingCweIds.Order())}");
-        }
-        foreach (var entry in context.ChangeTracker
-.Entries<JulietCoverage>())
-        {
-            Debug.WriteLine(
-            $"Coverage FK={entry.Entity.CweId}");
+                "The following Juliet CWE IDs do not exist in " +
+                "the MITRE catalog: " +
+                string.Join(
+                    ", ",
+                    missingCweIds.Order()));
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        if (julietTests.Count == 0)
+        {
+            throw new InvalidDataException(
+                "No valid Juliet source tests were found. " +
+                "Verify the configured project path, source-file " +
+                "extensions, and path normalization rules.");
+        }
+
+        var coverageRows =
+            julietTests
+                .GroupBy(test =>
+                    test.CweId)
+                .Select(group =>
+                    new JulietCoverage
+                    {
+                        CweId =
+                            group.Key,
+
+                        Covered =
+                            group.Count()
+                    })
+                .OrderBy(coverage =>
+                    coverage.CweId)
+                .ToList();
+
+        context.JulietTests.AddRange(
+            julietTests);
+
+        context.JulietCoverages.AddRange(
+            coverageRows);
+
+        await context.SaveChangesAsync(
+            cancellationToken);
+
+        Debug.WriteLine(
+            $"Seeded {julietTests.Count} Juliet tests and " +
+            $"{coverageRows.Count} Juliet coverage rows.");
     }
+
     private IReadOnlyCollection<SemanticRule>
-    CreateJulietSemanticRules()
+        CreateJulietSemanticRules()
     {
         var settings = _configuration
-          .GetRequiredSection("JulietProjectSetting")
-          .Get<JulietProjectSetting>()
-          ?? throw new InvalidOperationException(
-              "JulietProjectSetting is missing.");
+            .GetRequiredSection("JulietProjectSetting")
+            .Get<JulietProjectSetting>()
+            ?? throw new InvalidOperationException(
+                "JulietProjectSetting is missing.");
 
-        if (string.IsNullOrWhiteSpace(settings.Path))
+        if (string.IsNullOrWhiteSpace(
+                settings.Path))
         {
             throw new InvalidOperationException(
                 "The Juliet project path is empty.");
         }
+
         return _zipfileService
-            .GetJulietMappings(settings.Path)
-            .GroupBy(x => new
+            .GetJulietMappings(
+                settings.Path)
+            .GroupBy(mapping => new
             {
-                x.PrimaryCweId,
-                x.SecondaryCweId
+                mapping.PrimaryCweId,
+                mapping.SecondaryCweId
             })
-            .Select(g => new SemanticRule(
-                ScannerFoundCweId: g.Key.SecondaryCweId,
-                TestTargetCwe: g.Key.PrimaryCweId,
-                Relationship: CweRelationshipKind.JulietRootCause,
-                Score: 750,
-                Rationale: "Observed in Juliet naming convention.",
-                EvidenceReference: g.First().FileName))
+            .Select(group =>
+                new SemanticRule(
+                    ScannerFoundCweId:
+                        group.Key.SecondaryCweId,
+
+                    TestTargetCwe:
+                        group.Key.PrimaryCweId,
+
+                    Relationship:
+                        CweRelationshipKind.JulietRootCause,
+
+                    Score:
+                        750,
+
+                    Rationale:
+                        "Observed in Juliet naming convention.",
+
+                    EvidenceReference:
+                        group.First().FileName))
             .ToList();
     }
 
@@ -848,14 +1163,16 @@ public sealed class ApplicationDbContextSeed
             new ToolSeed(
                 Name: "Veracode",
                 Format: "Veracode"),
+
             new ToolSeed(
                 Name: "CPP Checker",
                 Format: "Cpp Checker"),
-              new ToolSeed(
+
+            new ToolSeed(
                 Name: "CheckMarx",
                 Format: "CheckMarx"),
 
-                 new ToolSeed(
+            new ToolSeed(
                 Name: "Cycode",
                 Format: "Cycode")
         };
@@ -863,7 +1180,8 @@ public sealed class ApplicationDbContextSeed
         var existingToolNames =
             await context.Tools
                 .AsNoTracking()
-                .Select(x => x.Name)
+                .Select(tool =>
+                    tool.Name)
                 .ToHashSetAsync(
                     StringComparer.OrdinalIgnoreCase,
                     cancellationToken);
@@ -879,8 +1197,11 @@ public sealed class ApplicationDbContextSeed
             context.Tools.Add(
                 new Tool
                 {
-                    Name = desiredTool.Name,
-                    Format = desiredTool.Format
+                    Name =
+                        desiredTool.Name,
+
+                    Format =
+                        desiredTool.Format
                 });
         }
 
@@ -895,7 +1216,8 @@ public sealed class ApplicationDbContextSeed
         string? filePath,
         string description)
     {
-        if (string.IsNullOrWhiteSpace(filePath))
+        if (string.IsNullOrWhiteSpace(
+                filePath))
         {
             throw new InvalidOperationException(
                 $"The {description} path is empty.");
@@ -924,7 +1246,8 @@ public sealed class ApplicationDbContextSeed
         string? ordinal)
     {
         if (!ordinalSpecified ||
-            string.IsNullOrWhiteSpace(ordinal))
+            string.IsNullOrWhiteSpace(
+                ordinal))
         {
             return UnspecifiedOrdinal;
         }
@@ -941,9 +1264,10 @@ public sealed class ApplicationDbContextSeed
     private static string? NormalizeOptionalValue(
         string? value)
     {
-        return string.IsNullOrWhiteSpace(value)
-            ? null
-            : value.Trim();
+        return string.IsNullOrWhiteSpace(
+            value)
+                ? null
+                : value.Trim();
     }
 
     private readonly record struct RelationshipKey(
