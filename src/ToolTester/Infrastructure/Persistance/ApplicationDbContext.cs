@@ -2,14 +2,15 @@
 using Microsoft.EntityFrameworkCore.Design;
 using System;
 using System.Linq;
-
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Domain;
 using ToolTester.Domain.Entities;
 
 namespace ToolTester.Infrastructure.Persistance;
 
-public class ApplicationDbContext : DbContext, IApplicationDbContext
+public class ApplicationDbContext :
+    DbContext,
+    IApplicationDbContext
 {
     public ApplicationDbContext(
         DbContextOptions<ApplicationDbContext> options)
@@ -67,6 +68,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         {
             entity.HasKey(catalog => catalog.Id);
 
+            /*
+             * CweId is used as the principal key for the
+             * screenshot relationships.
+             */
             entity.HasIndex(catalog => catalog.CweId)
                 .IsUnique();
         });
@@ -81,6 +86,23 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             entity.HasIndex(coverage => coverage.CweId)
                 .IsUnique();
+
+            /*
+             * Screenshot relationship:
+             *
+             * CWECatalog.CweId 1 <-> 1 JulietCoverage.CweId
+             *
+             * Navigation-free configuration keeps the entity
+             * classes unchanged.
+             */
+            entity.HasOne<CWECatalog>()
+                .WithOne()
+                .HasForeignKey<JulietCoverage>(
+                    coverage => coverage.CweId)
+                .HasPrincipalKey<CWECatalog>(
+                    catalog => catalog.CweId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 
@@ -108,6 +130,18 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
              * Useful for querying all tests belonging to a CWE.
              */
             entity.HasIndex(test => test.CweId);
+
+            /*
+             * Screenshot relationship:
+             *
+             * CWECatalog.CweId 1 <-> * JulietTest.CweId
+             */
+            entity.HasOne<CWECatalog>()
+                .WithMany()
+                .HasForeignKey(test => test.CweId)
+                .HasPrincipalKey(catalog => catalog.CweId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 
@@ -128,6 +162,39 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 relationship.IsDerived
             })
             .IsUnique();
+
+            /*
+             * Screenshot relationship:
+             *
+             * CWECatalog.CweId 1 <-> * Relationship.CweId
+             *
+             * Represents the source CWE.
+             */
+            entity.HasOne<CWECatalog>()
+                .WithMany()
+                .HasForeignKey(relationship =>
+                    relationship.CweId)
+                .HasPrincipalKey(catalog =>
+                    catalog.CweId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            /*
+             * Screenshot relationship:
+             *
+             * CWECatalog.CweId 1 <-> *
+             * Relationship.RelatedCweID
+             *
+             * Represents the target/related CWE.
+             */
+            entity.HasOne<CWECatalog>()
+                .WithMany()
+                .HasForeignKey(relationship =>
+                    relationship.RelatedCweID)
+                .HasPrincipalKey(catalog =>
+                    catalog.CweId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 
@@ -254,7 +321,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     }
 
     private static void ConfigureReport(
-        ModelBuilder modelBuilder)
+       ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Report>(entity =>
         {
@@ -277,6 +344,26 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 .HasForeignKey(report => report.ToolId)
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Restrict);
+
+            /*
+             * IMPORTANT:
+             *
+             * GroundTruthCweId is intentionally NOT configured
+             * as a foreign key to JulietCoverage.CweId.
+             *
+             * A Report may legitimately reference a CWE that
+             * exists in CWECatalog but is not represented in the
+             * Juliet test suite / JulietCoverage table.
+             *
+             * Power BI may create:
+             *
+             * JulietCoverage.CweId
+             *      1 -> *
+             * Report.GroundTruthCweId
+             *
+             * as an analytical model relationship without making
+             * it a relational database constraint.
+             */
 
             entity.Property(report => report.Relationship)
                 .IsRequired();
