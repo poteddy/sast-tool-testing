@@ -73,6 +73,7 @@ public sealed class ParsingService : IParsingService
 
             6 => await ParseCycodeAsync(stream),
 
+            7 => await ParseOpenVINOAsync(stream),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(toolId),
                 toolId,
@@ -159,6 +160,15 @@ public sealed class ParsingService : IParsingService
     {
         using var parser =
             new ToolTester.Parsers.Cycode.Parser();
+
+        return await parser.Get_findings(stream);
+    }
+    private static async Task<List<CWEs>>
+        ParseOpenVINOAsync(
+            Stream stream)
+    {
+        using var parser =
+            new ToolTester.Parsers.OpenVINO.Parser();
 
         return await parser.Get_findings(stream);
     }

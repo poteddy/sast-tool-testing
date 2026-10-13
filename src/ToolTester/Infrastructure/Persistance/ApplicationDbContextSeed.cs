@@ -1174,7 +1174,11 @@ public sealed class ApplicationDbContextSeed
 
             new ToolSeed(
                 Name: "Cycode",
-                Format: "Cycode")
+                Format: "Cycode"),
+
+            new ToolSeed(
+                Name: "OpenVINO",
+                Format: "OpenVINO")
         };
 
         var existingToolNames =

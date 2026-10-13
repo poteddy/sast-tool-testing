@@ -42,7 +42,10 @@ namespace ToolTester.Infrastructure.Services
     r.ScanId == scan.ScanId &&
     r.GroundTruthCweId == cwe.CweId &&
     r.Relationship !=
-    CweRelationshipKind.Unrelated.ToString())
+    CweRelationshipKind.Unrelated.ToString()
+    && 
+    r.Relationship != 
+    CweRelationshipKind.DetectedWithoutCwe.ToString())    
     .Sum(r => r.Count);
                     results.Add(
                         new ScannerFalseNegativeDto

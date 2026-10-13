@@ -7,9 +7,9 @@
     xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:pageModels="clr-namespace:ToolTester.Presentation.PageModels"
+    xmlns:charts="clr-namespace:ToolTester.Presentation.Models.Charts"
     x:DataType="pageModels:ReportPageModel"
     Title="Reports">
-
     <ScrollView>
  <Grid RowDefinitions="*">
         <VerticalStackLayout
@@ -32,63 +32,326 @@ Command="{Binding RefreshCommand}" />
                 <!-- FALSE POSITIVES -->
 
                 <Border
-                Stroke="#D9D9D9"
-                StrokeThickness="1"
-                Padding="10">
+    Stroke="#D9D9D9"
+    StrokeThickness="1"
+    Padding="10">
 
-                    <VerticalStackLayout>
+                    <VerticalStackLayout Spacing="10">
 
                         <Label
-                        Text="False Positives"
-                        FontAttributes="Bold"
-                        FontSize="18" />
+            Text="False Positives"
+            FontAttributes="Bold"
+            FontSize="18" />
+
+                        <!-- LEGEND CONTROLS -->
+
+                        <Grid
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="10">
+
+                            <Label
+                Grid.Column="0"
+                Text="Select the scanners to display"
+                FontSize="12"
+                TextColor="{AppThemeBinding Light=#606060, Dark=#D0D0D0}"
+                VerticalOptions="Center" />
+
+                            <HorizontalStackLayout
+                Grid.Column="1"
+                Spacing="8">
+
+                                <Button
+                    Text="Show All"
+                    Command="{Binding ShowAllFalsePositiveSeriesCommand}"
+                    Padding="12,6" />
+
+                                <Button
+                    Text="Hide All"
+                    Command="{Binding HideAllFalsePositiveSeriesCommand}"
+                    Padding="12,6" />
+
+                            </HorizontalStackLayout>
+
+                        </Grid>
+
+                        <!-- CLICKABLE SCANNER LEGEND -->
+
+                        <FlexLayout
+            BindableLayout.ItemsSource="{Binding FalsePositiveLegendItems}"
+            Direction="Row"
+            Wrap="Wrap"
+            JustifyContent="Start"
+            AlignItems="Center">
+
+                            <BindableLayout.ItemTemplate>
+
+                                <DataTemplate
+                    x:DataType="charts:ChartLegendItem">
+
+                                    <Border
+                        Margin="4"
+                        Padding="10,6"
+                        Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light=White, Dark=#2B2B2B}">
+
+                                        <Border.StrokeShape>
+                                            <RoundRectangle
+                                CornerRadius="6" />
+                                        </Border.StrokeShape>
+
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                Command="{Binding ToggleCommand}" />
+                                        </Border.GestureRecognizers>
+
+                                        <HorizontalStackLayout
+                            Spacing="7">
+
+                                            <!-- SERIES COLOR -->
+
+                                            <BoxView
+                                WidthRequest="12"
+                                HeightRequest="12"
+                                CornerRadius="6"
+                                Color="{Binding Color}"
+                                VerticalOptions="Center" />
+
+                                            <!-- SCANNER NAME -->
+
+                                            <Label
+                                Text="{Binding Name}"
+                                TextColor="{AppThemeBinding Light=#404040, Dark=#F0F0F0}"
+                                VerticalOptions="Center" />
+
+                                            <!-- ON/OFF CHECKBOX -->
+
+                                            <CheckBox
+                                IsChecked="{Binding IsVisible}"
+                                InputTransparent="True"
+                                VerticalOptions="Center" />
+
+                                        </HorizontalStackLayout>
+
+                                        <!-- VISUALLY DIM DISABLED SERIES -->
+
+                                        <Border.Triggers>
+
+                                            <DataTrigger
+                                TargetType="Border"
+                                Binding="{Binding IsVisible}"
+                                Value="False">
+
+                                                <Setter
+                                    Property="Opacity"
+                                    Value="0.4" />
+
+                                            </DataTrigger>
+
+                                        </Border.Triggers>
+
+                                    </Border>
+
+                                </DataTemplate>
+
+                            </BindableLayout.ItemTemplate>
+
+                        </FlexLayout>
+
+                        <!-- CHART -->
 
                         <lvc:CartesianChart
-                        Series="{Binding FalsePositiveSeries}"
-                        XAxes="{Binding FalsePositiveXAxes}"
-                        YAxes="{Binding FalsePositiveYAxes}"
-                        ZoomMode="X"
-                        LegendPosition="Top"
-                        TooltipPosition="Top"
-                        HeightRequest="450" 
-                        TooltipTextSize="12"/>
+            Series="{Binding FalsePositiveSeries}"
+            XAxes="{Binding FalsePositiveXAxes}"
+            YAxes="{Binding FalsePositiveYAxes}"
+            ZoomMode="X"
+            LegendPosition="Hidden"
+            TooltipPosition="Top"
+            HeightRequest="450"
+            TooltipTextSize="12" />
 
                     </VerticalStackLayout>
 
                 </Border>
 
-                <!-- RELATED CWES -->
-                <Picker
-          Title="Relationship Filter"
-          ItemsSource="{Binding AvailableRelationships}"
-          SelectedItem="{Binding SelectedRelationship}" />
+                <!-- RELATED FINDINGS -->
 
                 <Border
-                Stroke="#D9D9D9"
-                StrokeThickness="1"
-                Padding="10">
+    Stroke="#D9D9D9"
+    StrokeThickness="1"
+    Padding="10">
 
-                    <VerticalStackLayout>
+                    <VerticalStackLayout Spacing="10">
+
+                        <!-- TITLE -->
 
                         <Label
-                        Text="Related Findings"
-                        FontAttributes="Bold"
-                        FontSize="18" />
+            Text="Related Findings"
+            FontAttributes="Bold"
+            FontSize="18" />
+
+                        <!-- FILTER AND LEGEND CONTROLS -->
+
+                        <Grid
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="10">
+
+                            <!-- RELATIONSHIP FILTER -->
+
+                            <VerticalStackLayout
+                Grid.Column="0"
+                Spacing="4">
+
+                                <Label
+                    Text="Relationship Filter"
+                    FontSize="12"
+                    TextColor="Gray" />
+
+                                <Picker
+                    Title="Select a relationship"
+                    ItemsSource="{Binding AvailableRelationships}"
+                    SelectedItem="{Binding SelectedRelationship}"
+                    HorizontalOptions="Fill" />
+
+                            </VerticalStackLayout>
+
+                            <!-- SHOW/HIDE BUTTONS -->
+
+                            <HorizontalStackLayout
+                Grid.Column="1"
+                Spacing="8"
+                VerticalOptions="End">
+
+                                <Button
+                    Text="Show All"
+                    Command="{Binding ShowAllRelatedFindingSeriesCommand}"
+                    Padding="12,6" />
+
+                                <Button
+                    Text="Hide All"
+                    Command="{Binding HideAllRelatedFindingSeriesCommand}"
+                    Padding="12,6" />
+
+                            </HorizontalStackLayout>
+
+                        </Grid>
+
+                        <!-- INSTRUCTIONS -->
+
+                        <Label
+            Text="Click a scanner to show or hide its findings."
+            FontSize="12"
+            TextColor="Gray" />
+
+                        <!-- CLICKABLE SCANNER LEGEND -->
+
+                        <FlexLayout
+            BindableLayout.ItemsSource="{Binding RelatedFindingLegendItems}"
+            Direction="Row"
+            Wrap="Wrap"
+            JustifyContent="Start"
+            AlignItems="Center">
+
+                            <BindableLayout.ItemTemplate>
+
+                                <DataTemplate
+                    x:DataType="charts:ChartLegendItem">
+
+                                    <Border
+                        Margin="4"
+                        Padding="10,6"
+                        Stroke="#D9D9D9"
+                        StrokeThickness="1"
+                        BackgroundColor="White">
+
+                                        <Border.StrokeShape>
+
+                                            <RoundRectangle
+                                CornerRadius="6" />
+
+                                        </Border.StrokeShape>
+
+                                        <!-- MAKE ENTIRE ITEM CLICKABLE -->
+
+                                        <Border.GestureRecognizers>
+
+                                            <TapGestureRecognizer
+                                Command="{Binding ToggleCommand}" />
+
+                                        </Border.GestureRecognizers>
+
+                                        <HorizontalStackLayout
+                            Spacing="7">
+
+                                            <!-- SERIES COLOR -->
+
+                                            <BoxView
+                                WidthRequest="12"
+                                HeightRequest="12"
+                                CornerRadius="6"
+                                Color="{Binding Color}"
+                                VerticalOptions="Center" />
+
+                                            <!-- SCANNER NAME -->
+
+                                            <Label
+                                Text="{Binding Name}"
+                              TextColor="#707070"
+                                VerticalOptions="Center" />
+
+                                            <!-- VISIBILITY STATE -->
+
+                                            <CheckBox
+                                IsChecked="{Binding IsVisible}"
+                                InputTransparent="True"
+                                VerticalOptions="Center" />
+
+                                        </HorizontalStackLayout>
+
+                                        <!-- FADE HIDDEN SERIES -->
+
+                                        <Border.Triggers>
+
+                                            <DataTrigger
+                                TargetType="Border"
+                                Binding="{Binding IsVisible}"
+                                Value="False">
+
+                                                <Setter
+                                    Property="Opacity"
+                                    Value="0.4" />
+
+                                                <Setter
+                                    Property="BackgroundColor"
+                                    Value="#EEEEEE" />
+
+                                            </DataTrigger>
+
+                                        </Border.Triggers>
+
+                                    </Border>
+
+                                </DataTemplate>
+
+                            </BindableLayout.ItemTemplate>
+
+                        </FlexLayout>
+
+                        <!-- RELATED FINDINGS CHART -->
 
                         <lvc:CartesianChart
-                        Series="{Binding RelatedFindingSeries}"
-                        XAxes="{Binding RelatedFindingXAxes}"
-                        YAxes="{Binding RelatedFindingYAxes}"
-                        ZoomMode="Both"
-                        LegendPosition="Top"
-                        TooltipPosition="Top"
-                        HeightRequest="450"
-                        TooltipTextSize="12" />
+            Series="{Binding RelatedFindingSeries}"
+            XAxes="{Binding RelatedFindingXAxes}"
+            YAxes="{Binding RelatedFindingYAxes}"
+            ZoomMode="Both"
+            LegendPosition="Hidden"
+            TooltipPosition="Top"
+            HeightRequest="450"
+            TooltipTextSize="12" />
 
                     </VerticalStackLayout>
 
                 </Border>
-
                 <!-- SCANNER × JULIET CWE HEATMAP -->
 
                 <Border
@@ -236,26 +499,140 @@ Command="{Binding RefreshCommand}" />
                 <!-- RELATIONSHIP MIX -->
 
                 <Border
-                Stroke="#D9D9D9"
-                StrokeThickness="1"
-                Padding="10">
+    Stroke="#D9D9D9"
+    StrokeThickness="1"
+    Padding="10">
 
-                    <VerticalStackLayout>
+                    <VerticalStackLayout
+        Spacing="10">
 
                         <Label
-                        Text="Relationship Mix By Scanner"
-                        FontAttributes="Bold"
-                        FontSize="18" />
+            Text="Relationship Mix By Scanner"
+            FontAttributes="Bold"
+            FontSize="18" />
+
+                        <!-- Custom clickable legend controls -->
+
+                        <Grid
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="10">
+
+                            <Label
+                Grid.Column="0"
+                Text="Click a relationship to show or hide it"
+                FontSize="12"
+                TextColor="Gray"
+                VerticalOptions="Center" />
+
+                            <HorizontalStackLayout
+                Grid.Column="1"
+                Spacing="8">
+
+                                <Button
+                    Text="Show All"
+                    Command="{Binding ShowAllRelationshipMixSeriesCommand}"
+                    Padding="12,6" />
+
+                                <Button
+                    Text="Hide All"
+                    Command="{Binding HideAllRelationshipMixSeriesCommand}"
+                    Padding="12,6" />
+
+                            </HorizontalStackLayout>
+
+                        </Grid>
+
+                        <!-- Clickable relationship legend -->
+
+                        <FlexLayout
+            BindableLayout.ItemsSource="{Binding RelationshipMixLegendItems}"
+            Direction="Row"
+            Wrap="Wrap"
+            JustifyContent="Start"
+            AlignItems="Center">
+
+                            <BindableLayout.ItemTemplate>
+
+                                <DataTemplate
+                    x:DataType="charts:ChartLegendItem">
+
+                                    <Border
+                        Margin="4"
+                        Padding="10,6"
+                        Stroke="#D9D9D9"
+                        StrokeThickness="1"
+                        BackgroundColor="White">
+
+                                        <Border.StrokeShape>
+                                            <RoundRectangle
+                                CornerRadius="6" />
+                                        </Border.StrokeShape>
+
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                Command="{Binding ToggleCommand}" />
+                                        </Border.GestureRecognizers>
+
+                                        <HorizontalStackLayout
+                            Spacing="7">
+
+                                            <BoxView
+                                WidthRequest="12"
+                                HeightRequest="12"
+                                CornerRadius="2"
+                                Color="{Binding Color}"
+                                VerticalOptions="Center" />
+
+                                            <Label
+                                Text="{Binding Name}"
+                              TextColor="#707070"
+                                VerticalOptions="Center" />
+
+                                            <CheckBox
+                                IsChecked="{Binding IsVisible}"
+                                InputTransparent="True"
+                                VerticalOptions="Center" />
+
+                                        </HorizontalStackLayout>
+
+                                        <Border.Triggers>
+
+                                            <DataTrigger
+                                TargetType="Border"
+                                Binding="{Binding IsVisible}"
+                                Value="False">
+
+                                                <Setter
+                                    Property="Opacity"
+                                    Value="0.4" />
+
+                                                <Setter
+                                    Property="BackgroundColor"
+                                    Value="#EEEEEE" />
+
+                                            </DataTrigger>
+
+                                        </Border.Triggers>
+
+                                    </Border>
+
+                                </DataTemplate>
+
+                            </BindableLayout.ItemTemplate>
+
+                        </FlexLayout>
+
+                        <!-- Actual chart -->
 
                         <lvc:CartesianChart
-Series="{Binding RelationshipMixChartSeries}"
-XAxes="{Binding RelationshipMixXAxes}"
-YAxes="{Binding RelationshipMixYAxes}"
-ZoomMode="X"
-LegendPosition="Top"
-TooltipPosition="Top"
-HeightRequest="550" 
-TooltipTextSize="12"/>
+            Series="{Binding RelationshipMixChartSeries}"
+            XAxes="{Binding RelationshipMixXAxes}"
+            YAxes="{Binding RelationshipMixYAxes}"
+            ZoomMode="X"
+            LegendPosition="Hidden"
+            TooltipPosition="Top"
+            HeightRequest="550"
+            TooltipTextSize="12" />
 
                     </VerticalStackLayout>
 

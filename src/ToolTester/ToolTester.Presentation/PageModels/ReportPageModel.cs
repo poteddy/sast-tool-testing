@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.Input;
+
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
@@ -10,6 +11,7 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SkiaSharp;
+using Syncfusion.Maui.Toolkit.Charts;
 using System.Collections.ObjectModel;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Reports.Quiries;
@@ -93,7 +95,9 @@ public partial class ReportPageModel : BaseViewModel
     private ObservableCollection<RelationshipMixSeries> _relationshipMixSeries = [];
     private ObservableCollection<RelationshipMixChartPoint> _relationshipMixChartData = [];
     private ObservableCollection<ParetoChartModel> _paretoCharts = [];
+    private ObservableCollection<ChartLegendItem>  _relationshipMixLegendItems = [];
 
+    private ObservableCollection<ChartLegendItem>  _falsePositiveLegendItems = [];
     private ISeries[] _falsePositiveSeries = [];
     private Axis[] _falsePositiveXAxes = [];
     private Axis[] _falsePositiveYAxes = [];
@@ -114,6 +118,9 @@ public partial class ReportPageModel : BaseViewModel
 
     private ObservableCollection<CweScannerHeatmapPoint>
         _scannerCweHeatmapData = [];
+
+    private ObservableCollection<ChartLegendItem>
+    _relatedFindingLegendItems = [];
 
     private bool _hasScannerCweHeatmapData;
 
@@ -198,6 +205,33 @@ public partial class ReportPageModel : BaseViewModel
         private set => SetProperty(ref _paretoCharts, value);
     }
 
+    public ObservableCollection<ChartLegendItem>
+    RelationshipMixLegendItems
+    {
+        get => _relationshipMixLegendItems;
+
+        private set => SetProperty(
+            ref _relationshipMixLegendItems,
+            value);
+    }
+    public ObservableCollection<ChartLegendItem>
+    RelatedFindingLegendItems
+    {
+        get => _relatedFindingLegendItems;
+
+        private set => SetProperty(
+            ref _relatedFindingLegendItems,
+            value);
+    }
+    public ObservableCollection<ChartLegendItem>
+    FalsePositiveLegendItems
+    {
+        get => _falsePositiveLegendItems;
+
+        private set => SetProperty(
+            ref _falsePositiveLegendItems,
+            value);
+    }
     public ISeries[] FalsePositiveSeries
     {
         get => _falsePositiveSeries;
@@ -805,50 +839,131 @@ public partial class ReportPageModel : BaseViewModel
 
     private void BuildFalsePositiveChart()
     {
-        var chartSeries = new List<ISeries>();
-        var index = 0;
+        // Preserve scanner visibility if the chart gets rebuilt.
+        var previousVisibility = FalsePositiveLegendItems
+            .GroupBy(
+                item => item.Name,
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First().IsVisible,
+                StringComparer.OrdinalIgnoreCase);
 
-        foreach (var dataSeries in AggregatedSeries)
+        var chartSeries = new List<ISeries>();
+
+        var legendItems =
+            new ObservableCollection<ChartLegendItem>();
+
+        var colorIndex = 0;
+
+        foreach (var dataSeries in AggregatedSeries
+                     .OrderBy(series => series.ScanId))
         {
             if (dataSeries.Items.Count == 0)
             {
                 continue;
             }
 
-            var color = GetChartColor(index++);
+            var color =
+                GetChartColor(colorIndex++);
 
-            chartSeries.Add(new ScatterSeries<ObservablePoint>
-            {
-                Name = $"Scan {dataSeries.ScanName}",
-                Values = dataSeries.Items
-                    .Select(item => new ObservablePoint(item.CweId, item.Count))
-                    .ToArray(),
-                GeometrySize = 12,
-                Fill = new SolidColorPaint(color),
-                Stroke = new SolidColorPaint(color)
+            var seriesName =
+                GetScanDisplayName(dataSeries.ScanId);
+
+            var isVisible =
+                !previousVisibility.TryGetValue(
+                    seriesName,
+                    out var previousValue) ||
+                previousValue;
+
+            var series =
+                new ScatterSeries<ObservablePoint>
                 {
-                    StrokeThickness = 1
-                },
-                YToolTipLabelFormatter = point =>
-                    $"Scan: {dataSeries.ScanName}" +
-                    $"{Environment.NewLine}CWE: " +
-                    $"{point.Coordinate.SecondaryValue:F0}" +
-                    $"{Environment.NewLine}Count: " +
-                    $"{point.Coordinate.PrimaryValue:F0}"
-            });
+                    Name = seriesName,
+
+                    Values = dataSeries.Items
+                        .Select(item =>
+                            new ObservablePoint(
+                                item.CweId,
+                                item.Count))
+                        .ToArray(),
+
+                    IsVisible = isVisible,
+
+                    IsVisibleAtLegend = true,
+
+                    GeometrySize = 12,
+
+                    Fill =
+                        new SolidColorPaint(color),
+
+                    Stroke =
+                        new SolidColorPaint(color)
+                        {
+                            StrokeThickness = 1
+                        },
+
+                    YToolTipLabelFormatter =
+                        point =>
+                            $"Scan: {seriesName}" +
+                            $"{Environment.NewLine}" +
+                            $"CWE: " +
+                            $"{point.Coordinate.SecondaryValue:F0}" +
+                            $"{Environment.NewLine}" +
+                            $"Count: " +
+                            $"{point.Coordinate.PrimaryValue:F0}"
+                };
+
+            chartSeries.Add(series);
+
+            legendItems.Add(
+                new ChartLegendItem(
+                    series,
+                    ToMauiColor(color),
+                    isVisible));
         }
 
-        FalsePositiveSeries = chartSeries.ToArray();
-        FalsePositiveXAxes = [CreateNumericAxis("Scanner CWE")];
-        FalsePositiveYAxes = [CreateNumericAxis("Finding Count", 0)];
+        FalsePositiveSeries =
+            chartSeries.ToArray();
+
+        FalsePositiveLegendItems =
+            legendItems;
+
+        FalsePositiveXAxes =
+        [
+            CreateNumericAxis(
+            "Scanner CWE")
+        ];
+
+        FalsePositiveYAxes =
+        [
+            CreateNumericAxis(
+            "Finding Count",
+            0)
+        ];
     }
 
     private void BuildRelatedFindingChart()
     {
-        var chartSeries = new List<ISeries>();
-        var index = 0;
+        // Preserve scanner visibility when the relationship filter changes.
+        var previousVisibility = RelatedFindingLegendItems
+            .GroupBy(
+                item => item.Name,
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First().IsVisible,
+                StringComparer.OrdinalIgnoreCase);
 
-        foreach (var dataSeries in RelatedSeries)
+        var chartSeries = new List<ISeries>();
+
+        var legendItems =
+            new ObservableCollection<ChartLegendItem>();
+
+        var colorIndex = 0;
+
+        foreach (var dataSeries in RelatedSeries
+                     .OrderBy(series => series.ScanId))
         {
             var filteredItems = string.Equals(
                 SelectedRelationship,
@@ -865,8 +980,8 @@ public partial class ReportPageModel : BaseViewModel
             /*
              * A scatter coordinate requires a scanner CWE.
              *
-             * DetectedWithoutCwe findings have ScannerCweId = null
-             * and therefore cannot be plotted on the Scanner CWE axis.
+             * DetectedWithoutCwe rows have ScannerCweId = null,
+             * so they cannot be plotted on the Scanner CWE axis.
              */
             var plottableItems = filteredItems
                 .Where(item => item.ScannerCweId.HasValue)
@@ -880,89 +995,104 @@ public partial class ReportPageModel : BaseViewModel
             var lookup = plottableItems
                 .GroupBy(item => CoordinateKey(
                     item.GroundTruthCweId,
-                    item.ScannerCweId.Value))
+                    item.ScannerCweId!.Value))
                 .ToDictionary(
                     group => group.Key,
                     group => group.First());
 
-            var color = GetChartColor(index++);
+            var color = GetChartColor(colorIndex++);
 
-            chartSeries.Add(
-                new ScatterSeries<WeightedPoint>
+            var seriesName = GetScanDisplayName(
+                dataSeries.ScanId);
+
+            var isVisible =
+                !previousVisibility.TryGetValue(
+                    seriesName,
+                    out var previousValue) ||
+                previousValue;
+
+            var series = new ScatterSeries<WeightedPoint>
+            {
+                Name = seriesName,
+
+                Values = plottableItems
+                    .Select(item => new WeightedPoint(
+                        item.GroundTruthCweId,
+                        item.ScannerCweId!.Value,
+                        Math.Max(item.Count, 1)))
+                    .ToArray(),
+
+                IsVisible = isVisible,
+
+                IsVisibleAtLegend = true,
+
+                MinGeometrySize = 8,
+
+                GeometrySize = 30,
+
+                Fill = new SolidColorPaint(
+                    color.WithAlpha(150)),
+
+                Stroke = new SolidColorPaint(color)
                 {
-                    Name = $"Scan {dataSeries.ScanName}",
+                    StrokeThickness = 1
+                },
 
-                    Values = plottableItems
-                        .Select(item => new WeightedPoint(
-                            item.GroundTruthCweId,
-                            item.ScannerCweId.Value,
-                            Math.Max(item.Count, 1)))
-                        .ToArray(),
+                YToolTipLabelFormatter = point =>
+                {
+                    var key = CoordinateKey(
+                        point.Coordinate.SecondaryValue,
+                        point.Coordinate.PrimaryValue);
 
-                    MinGeometrySize = 8,
-
-                    GeometrySize = 30,
-
-                    Fill =
-                        new SolidColorPaint(
-                            color.WithAlpha(150)),
-
-                    Stroke =
-                        new SolidColorPaint(color)
-                        {
-                            StrokeThickness = 1
-                        },
-
-                    YToolTipLabelFormatter = point =>
+                    if (!lookup.TryGetValue(key, out var item))
                     {
-                        var key = CoordinateKey(
-                            point.Coordinate.SecondaryValue,
-                            point.Coordinate.PrimaryValue);
-
-                        if (!lookup.TryGetValue(
-                                key,
-                                out var item))
-                        {
-                            return
-                                $"Scan: {dataSeries.ScanName}";
-                        }
-
-                        return
-                            $"Scan: {dataSeries.ScanName}" +
-                            $"{Environment.NewLine}" +
-                            $"Ground Truth CWE: {item.GroundTruthCweId}" +
-                            $"{Environment.NewLine}" +
-                            $"Scanner CWE: {item.ScannerCweId.Value}" +
-                            $"{Environment.NewLine}" +
-                            $"Relationship: {item.Relationship}" +
-                            $"{Environment.NewLine}" +
-                            $"Confidence: {item.RelationshipScore}" +
-                            $"{Environment.NewLine}" +
-                            $"Count: {item.Count}";
+                        return $"Scan: {seriesName}";
                     }
-                });
+
+                    return
+                        $"Scan: {seriesName}" +
+                        $"{Environment.NewLine}" +
+                        $"Ground Truth CWE: {item.GroundTruthCweId}" +
+                        $"{Environment.NewLine}" +
+                        $"Scanner CWE: {item.ScannerCweId!.Value}" +
+                        $"{Environment.NewLine}" +
+                        $"Relationship: {item.Relationship}" +
+                        $"{Environment.NewLine}" +
+                        $"Confidence: {item.RelationshipScore}" +
+                        $"{Environment.NewLine}" +
+                        $"Count: {item.Count:N0}";
+                }
+            };
+
+            chartSeries.Add(series);
+
+            legendItems.Add(
+                new ChartLegendItem(
+                    series,
+                    ToMauiColor(color),
+                    isVisible));
         }
 
         RelatedFindingSeries =
             chartSeries.ToArray();
 
+        RelatedFindingLegendItems =
+            legendItems;
+
         RelatedFindingXAxes =
         [
             CreateNumericAxis(
             name: "Ground Truth CWE",
-            labeler: value =>
-                $"CWE-{value:N0}")
+            labeler: value => $"CWE-{value:N0}")
         ];
 
         RelatedFindingYAxes =
         [
             CreateNumericAxis(
             name: "Scanner CWE",
-            labeler: value =>
-                $"CWE-{value:N0}")
+            labeler: value => $"CWE-{value:N0}")
         ];
     }
-
     private void BuildParetoCharts()
     {
         var charts = new ObservableCollection<ParetoChartModel>();
@@ -1113,154 +1243,345 @@ public partial class ReportPageModel : BaseViewModel
 
     private void BuildRelationshipMixLiveChart()
     {
-        var scannerNames = RelationshipMixChartData
-            .Select(item => item.ScanName)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var previousVisibility =
+            RelationshipMixLegendItems
+                .GroupBy(
+                    item => item.Name,
+                    StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.First().IsVisible,
+                    StringComparer.OrdinalIgnoreCase);
+
+        /*
+         * IMPORTANT:
+         * scannerNames defines the X-axis and also determines the order of
+         * every value in every stacked series.
+         */
+        var scannerNames =
+            RelationshipMixChartData
+                .Select(item => item.ScanName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(
+                    name => name,
+                    StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
         RelationshipMixXAxes =
- [
-     new Axis
-    {
-        Name = "Scanner",
+        [
+            new Axis
+        {
+            Name = "Scanner",
 
-        Labels = scannerNames,
+            Labels = scannerNames,
 
-        MinLimit = -0.5,
-        MaxLimit = scannerNames.Length - 0.5,
+            MinLimit = -0.5,
 
-        MinStep = 1,
-        ForceStepToMin = true,
+            MaxLimit = scannerNames.Length == 0
+                ? 0.5
+                : scannerNames.Length - 0.5,
 
-        LabelsRotation = -45,
+            MinStep = 1,
 
-        LabelsPaint = CreateTextPaint(),
-        NamePaint = CreateTextPaint(),
+            ForceStepToMin = true,
 
-        SeparatorsPaint = null
-    }
- ];
+            LabelsRotation = -45,
+
+            LabelsPaint = CreateTextPaint(),
+
+            NamePaint = CreateTextPaint(),
+
+            SeparatorsPaint = null
+        }
+        ];
 
         RelationshipMixYAxes =
         [
             new Axis
-            {
-                Name = "Cumulative Relationship Mix",
-                MinLimit = 0,
-                MaxLimit = 100,
-                MinStep = 10,
-                ForceStepToMin = true,
-                LabelsPaint = CreateTextPaint(),
-                NamePaint = CreateTextPaint(),
-                SeparatorsPaint = CreateSeparatorPaint(),
-                Labeler = value => $"{value:F0}%"
-            }
+        {
+            Name = "Relationship Mix",
+
+            MinLimit = 0,
+
+            MaxLimit = 100,
+
+            MinStep = 10,
+
+            ForceStepToMin = true,
+
+            LabelsPaint = CreateTextPaint(),
+
+            NamePaint = CreateTextPaint(),
+
+            SeparatorsPaint = CreateSeparatorPaint(),
+
+            Labeler = value => $"{value:F0}%"
+        }
         ];
 
         var definitions = new[]
-   {
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.Exact), SKColors.SteelBlue),
+        {
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Exact),
+            SKColors.SteelBlue),
 
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.DirectParent), SKColors.Gold),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.DirectChild), SKColors.DarkOrange),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.Ancestor), SKColors.Goldenrod),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.Descendant), SKColors.OrangeRed),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.GrandParent), SKColors.Khaki),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.GrandChild), SKColors.Coral),
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DirectParent),
+            SKColors.Gold),
 
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.DirectSibling), SKColors.ForestGreen),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.SharedAncestor), SKColors.Gray),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.PeerOf), SKColors.SeaGreen),
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DirectChild),
+            SKColors.DarkOrange),
 
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.CanPrecede), SKColors.Purple),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.CanFollow), SKColors.MediumPurple),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.Requires), SKColors.DarkViolet),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.CanAlsoBe), SKColors.Plum),
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Ancestor),
+            SKColors.Goldenrod),
 
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameRootCauseBroaderCwe), SKColors.LightBlue),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameRootCauseNarrowerCwe), SKColors.DeepSkyBlue),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameConsequence), SKColors.CadetBlue),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.SameWeaknessFamily), SKColors.LightSeaGreen),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.RelatedAttackPattern), SKColors.MediumTurquoise),
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Descendant),
+            SKColors.OrangeRed),
 
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.RelatedWeakness), SKColors.SlateGray),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.JulietRootCause), SKColors.DarkCyan),
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.GrandParent),
+            SKColors.Khaki),
 
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.DetectedWithoutCwe), SKColors.DimGray),
-    new RelationshipChartDefinition(nameof(CweRelationshipKind.Unrelated), SKColors.Red)
-};
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.GrandChild),
+            SKColors.Coral),
 
-        var chartSeries = new List<ISeries>();
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DirectSibling),
+            SKColors.ForestGreen),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SharedAncestor),
+            SKColors.Gray),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.PeerOf),
+            SKColors.SeaGreen),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.CanPrecede),
+            SKColors.Purple),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.CanFollow),
+            SKColors.MediumPurple),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Requires),
+            SKColors.DarkViolet),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.CanAlsoBe),
+            SKColors.Plum),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameRootCauseBroaderCwe),
+            SKColors.LightBlue),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameRootCauseNarrowerCwe),
+            SKColors.DeepSkyBlue),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameConsequence),
+            SKColors.CadetBlue),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameWeaknessFamily),
+            SKColors.LightSeaGreen),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.RelatedAttackPattern),
+            SKColors.MediumTurquoise),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.RelatedWeakness),
+            SKColors.SlateGray),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.JulietRootCause),
+            SKColors.DarkCyan),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DetectedWithoutCwe),
+            SKColors.DimGray),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Unrelated),
+            SKColors.Red)
+    };
+
+        var chartSeries =
+            new List<ISeries>();
+
+        var legendItems =
+            new ObservableCollection<ChartLegendItem>();
 
         foreach (var definition in definitions)
         {
-            var values = scannerNames
-                .Select(scannerName =>
-                    RelationshipMixChartData
-                        .FirstOrDefault(point =>
-                            string.Equals(
-                                point.ScanName,
-                                scannerName,
-                                StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(
-                                point.Relationship,
-                                definition.Relationship,
-                                StringComparison.OrdinalIgnoreCase))
-                        ?.Percentage ?? 0)
-                .ToArray();
+            /*
+             * Build one value for every scanner.
+             *
+             * The index in this array corresponds exactly to the index in
+             * scannerNames and therefore to the X-axis position.
+             */
+            var values =
+                scannerNames
+                    .Select(scannerName =>
+                        RelationshipMixChartData
+                            .FirstOrDefault(point =>
+                                string.Equals(
+                                    point.ScanName,
+                                    scannerName,
+                                    StringComparison.OrdinalIgnoreCase) &&
+                                string.Equals(
+                                    point.Relationship,
+                                    definition.Relationship,
+                                    StringComparison.OrdinalIgnoreCase))
+                            ?.Percentage ?? 0)
+                    .ToArray();
 
+            /*
+             * Don't create a series if this relationship does not exist
+             * for any scanner.
+             */
             if (values.All(value => value <= 0))
             {
                 continue;
             }
 
-            chartSeries.Add(new StackedColumnSeries<double>
-            {
-                Name = definition.Relationship,
-                Values = values,
-                Fill = new SolidColorPaint(definition.Color),
-                Stroke = null,
-                MaxBarWidth = 65,
-                YToolTipLabelFormatter = point =>
+            var isVisible =
+                !previousVisibility.TryGetValue(
+                    definition.Relationship,
+                    out var previousValue) ||
+                previousValue;
+
+            var series =
+                new StackedColumnSeries<double>
                 {
-                    var scannerIndex = Convert.ToInt32(Math.Round(
-                        point.Coordinate.SecondaryValue));
+                    Name =
+                        definition.Relationship,
 
-                    var scannerName = scannerIndex >= 0 &&
-                                      scannerIndex < scannerNames.Length
-                        ? scannerNames[scannerIndex]
-                        : "Unknown scanner";
+                    Values =
+                        values,
 
-                    var sourcePoint = RelationshipMixChartData
-                        .FirstOrDefault(item =>
-                            string.Equals(
-                                item.ScanName,
-                                scannerName,
-                                StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(
-                                item.Relationship,
-                                definition.Relationship,
-                                StringComparison.OrdinalIgnoreCase));
+                    IsVisible =
+                        isVisible,
 
-                    return sourcePoint is null
-                        ? $"Scanner: {scannerName}" +
-                          $"{Environment.NewLine}Relationship: " +
-                          $"{definition.Relationship}" +
-                          $"{Environment.NewLine}Percentage: " +
-                          $"{point.Coordinate.PrimaryValue:F2}%"
-                        : $"Scanner: {sourcePoint.ScanName}" +
-                          $"{Environment.NewLine}Relationship: " +
-                          $"{sourcePoint.Relationship}" +
-                          $"{Environment.NewLine}Count: {sourcePoint.Count}" +
-                          $"{Environment.NewLine}Percentage: " +
-                          $"{sourcePoint.Percentage:F2}%";
-                }
-            });
+                    /*
+                     * Keep disabled series in our custom legend.
+                     */
+                    IsVisibleAtLegend =
+                        true,
+
+                    Fill =
+                        new SolidColorPaint(
+                            definition.Color),
+
+                    Stroke =
+                        null,
+
+                    MaxBarWidth =
+                        65,
+
+                    /*
+                     * Tooltip
+                     *
+                     * SecondaryValue is the X-axis position. Because
+                     * scannerNames is used to build Values, this index maps
+                     * directly back to the corresponding ScanName.
+                     */
+                    YToolTipLabelFormatter =
+                        point =>
+                        {
+                            var scannerIndex =
+                                Convert.ToInt32(
+                                    Math.Round(
+                                        point.Coordinate.SecondaryValue));
+
+                            if (scannerIndex < 0 ||
+                                scannerIndex >= scannerNames.Length)
+                            {
+                                return
+                                    $"Relationship: {definition.Relationship}" +
+                                    $"{Environment.NewLine}" +
+                                    $"Percentage: {point.Coordinate.PrimaryValue:F2}%";
+                            }
+
+                            var scanName =
+                                scannerNames[scannerIndex];
+
+                            /*
+                             * IMPORTANT:
+                             *
+                             * Match using ScanName because scannerNames and
+                             * the X-axis were constructed from ScanName.
+                             *
+                             * ScannerName is the display name stored on the
+                             * underlying data point and can still be shown
+                             * in the tooltip.
+                             */
+                            var sourcePoint =
+                                RelationshipMixChartData
+                                    .FirstOrDefault(item =>
+                                        string.Equals(
+                                            item.ScanName,
+                                            scanName,
+                                            StringComparison.OrdinalIgnoreCase) &&
+                                        string.Equals(
+                                            item.Relationship,
+                                            definition.Relationship,
+                                            StringComparison.OrdinalIgnoreCase));
+
+                            if (sourcePoint is null)
+                            {
+                                return
+                                    $"Scanner: {scanName}" +
+                                    $"{Environment.NewLine}" +
+                                    $"Relationship: {definition.Relationship}" +
+                                    $"{Environment.NewLine}" +
+                                    $"Percentage: {point.Coordinate.PrimaryValue:F2}%";
+                            }
+
+                            /*
+                             * Prefer the friendly scanner display name when
+                             * one exists. Fall back to ScanName otherwise.
+                             */
+                            var displayName =
+                                !string.IsNullOrWhiteSpace(
+                                    sourcePoint.ScannerName)
+                                    ? sourcePoint.ScannerName
+                                    : sourcePoint.ScanName;
+
+                            return
+                                $"Scanner: {displayName}" +
+                                $"{Environment.NewLine}" +
+                                $"Relationship: {sourcePoint.Relationship}" +
+                                $"{Environment.NewLine}" +
+                                $"Count: {sourcePoint.Count:N0}" +
+                                $"{Environment.NewLine}" +
+                                $"Percentage: {sourcePoint.Percentage:F2}%";
+                        }
+                };
+
+            chartSeries.Add(series);
+
+            legendItems.Add(
+                new ChartLegendItem(
+                    series,
+                    ToMauiColor(definition.Color),
+                    isVisible));
         }
 
-        RelationshipMixChartSeries = chartSeries.ToArray();
+        RelationshipMixChartSeries =
+            chartSeries.ToArray();
+
+        RelationshipMixLegendItems =
+            legendItems;
     }
 
     private void BuildPolarLiveChart()
@@ -2041,9 +2362,11 @@ new(1, 79, "Cross-site Scripting"),
         TestSeries.Clear();
         RelatedSeries.Clear();
         AggregatedSeries.Clear();
+        FalsePositiveLegendItems.Clear();
         FalseNegativeParetoSeries.Clear();
         RelationshipMixSeries.Clear();
         RelationshipMixChartData.Clear();
+        RelationshipMixLegendItems.Clear();
         ParetoCharts.Clear();
 
         FalsePositiveSeries = [];
@@ -2095,7 +2418,21 @@ new(1, 79, "Cross-site Scripting"),
 
         await ExecuteLoadAsync();
     }
+    [RelayCommand]
+    private void ShowAllFalsePositiveSeries()
+    {
+        SetLegendVisibility(
+            FalsePositiveLegendItems,
+            true);
+    }
 
+    [RelayCommand]
+    private void HideAllFalsePositiveSeries()
+    {
+        SetLegendVisibility(
+            FalsePositiveLegendItems,
+            false);
+    }
     private async Task ExecuteLoadAsync()
     {
         if (IsLoading)
@@ -2181,6 +2518,45 @@ new(1, 79, "Cross-site Scripting"),
         }
     }
 
+    [RelayCommand]
+    private void ShowAllRelationshipMixSeries()
+    {
+        SetLegendVisibility(
+            RelationshipMixLegendItems,
+            true);
+    }
+
+    [RelayCommand]
+    private void HideAllRelationshipMixSeries()
+    {
+        SetLegendVisibility(
+            RelationshipMixLegendItems,
+            false);
+    }
+    [RelayCommand]
+    private void ShowAllRelatedFindingSeries()
+    {
+        SetLegendVisibility(
+            RelatedFindingLegendItems,
+            true);
+    }
+
+    [RelayCommand]
+    private void HideAllRelatedFindingSeries()
+    {
+        SetLegendVisibility(
+            RelatedFindingLegendItems,
+            false);
+    }
+    private static void SetLegendVisibility(
+        IEnumerable<ChartLegendItem> legendItems,
+        bool isVisible)
+    {
+        foreach (var legendItem in legendItems)
+        {
+            legendItem.SetVisibility(isVisible);
+        }
+    }
     private void AddResultsWorksheet(XLWorkbook workbook)
     {
         var worksheet = workbook.Worksheets.Add("Results");
@@ -2427,7 +2803,7 @@ new(1, 79, "Cross-site Scripting"),
     private static SolidColorPaint CreateTextPaint()
     {
         return new SolidColorPaint(
-  new SKColor(60, 60, 60));
+ new SKColor(120, 120, 120));
     }
 
     private static SolidColorPaint CreateSeparatorPaint()
@@ -2442,6 +2818,12 @@ new(1, 79, "Cross-site Scripting"),
     private static SKColor GetChartColor(int index)
     {
         return ChartColors[index % ChartColors.Length];
+    }
+    private static string ToMauiColor(SKColor color)
+    {
+        return $"#{color.Red:X2}" +
+               $"{color.Green:X2}" +
+               $"{color.Blue:X2}";
     }
 
     private static string CoordinateKey(double x, double y)
