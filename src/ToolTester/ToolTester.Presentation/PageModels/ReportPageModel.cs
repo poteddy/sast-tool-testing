@@ -26,6 +26,7 @@ namespace ToolTester.Presentation.PageModels;
 
 public partial class ReportPageModel : BaseViewModel
 {
+    private bool _excludeHighVolumeNoise = true;
     private const int HighFalsePositiveThreshold = 10000;
     private const int TestResultPageSize = 250000;
     private const int ReportPageSize = 10000;
@@ -152,7 +153,27 @@ public partial class ReportPageModel : BaseViewModel
     }
 
     private bool _hasScannerCweHeatmapData;
+    public bool ExcludeHighVolumeNoise
+    {
+        get => _excludeHighVolumeNoise;
 
+        set
+        {
+            if (!SetProperty(
+                    ref _excludeHighVolumeNoise,
+                    value))
+            {
+                return;
+            }
+
+            if (!_dataLoaded)
+            {
+                return;
+            }
+
+            RebuildNoiseSensitiveCharts();
+        }
+    }
 
 
     private bool _isNavigatedTo;
@@ -3529,11 +3550,40 @@ new(1, 79, "Cross-site Scripting"),
     {
         return $"{x:F4}|{y:F4}";
     }
+    private void RebuildNoiseSensitiveCharts()
+    {
+        /*
+         * RelationshipMixChartData must be rebuilt first because
+         * the percentage relationship chart uses that collection.
+         */
+        BuildRelationshipMix();
 
+        BuildRelatedFindingChart();
+
+        BuildRelationshipMixLiveChart();
+
+        BuildPolarLiveChart();
+
+        /*
+         * Do NOT rebuild/filter the raw count relationship chart here
+         * if the intent is for that chart to always show the original
+         * counts, including high-volume findings.
+         */
+    }
     private bool IsExcludedHighVolumeResult(
     int scanId,
     int scannerCweId)
     {
+        /*
+         * Global page switch.
+         *
+         * When disabled, nothing is considered excluded.
+         */
+        if (!ExcludeHighVolumeNoise)
+        {
+            return false;
+        }
+
         var scanSeries = AggregatedSeries.FirstOrDefault(
             series => series.ScanId == scanId);
 
@@ -3551,6 +3601,7 @@ new(1, 79, "Cross-site Scripting"),
         return resultCount >
                HighFalsePositiveThreshold;
     }
+    
 
 
 

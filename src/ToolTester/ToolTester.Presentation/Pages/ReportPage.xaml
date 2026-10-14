@@ -29,12 +29,53 @@
                 <Button
 Text="Refresh"
 Command="{Binding RefreshCommand}" />
-                <!-- FALSE POSITIVES -->
 
+                <Border
+Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
+StrokeThickness="1"
+Padding="12"
+BackgroundColor="{AppThemeBinding Light=#F7F9FC, Dark=#252525}">
+
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="6" />
+                    </Border.StrokeShape>
+
+                    <Grid
+    ColumnDefinitions="Auto,*"
+    ColumnSpacing="10">
+
+                        <CheckBox
+        Grid.Column="0"
+        IsChecked="{Binding ExcludeHighVolumeNoise}"
+        VerticalOptions="Center" />
+
+                        <VerticalStackLayout
+        Grid.Column="1"
+        Spacing="2">
+
+                            <Label
+            Text="Exclude high-volume noise"
+            FontAttributes="Bold"
+            FontSize="14" />
+                            <!-- FALSE POSITIVES -->
+             
+
+                            <Label
+                Text="Excludes individual scanner/CWE results above the configured noise threshold from analytical charts. The scanner itself and its other CWE results remain included."
+                FontSize="11"
+                TextColor="Gray"
+                LineBreakMode="WordWrap" />
+
+                        </VerticalStackLayout>
+
+                    </Grid>
+
+                </Border>
                 <Border
     Stroke="#D9D9D9"
     StrokeThickness="1"
     Padding="10">
+                    
 
                     <VerticalStackLayout Spacing="10">
 
