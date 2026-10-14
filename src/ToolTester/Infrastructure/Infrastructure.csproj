@@ -25,6 +25,7 @@
     <ProjectReference Include="..\Parsers\CheckMarx\CheckMarx.csproj" />
     <ProjectReference Include="..\Parsers\CPPChecker\CPPChecker.csproj" />
     <ProjectReference Include="..\Parsers\Cycode\Cycode.csproj" />
+    <ProjectReference Include="..\Parsers\Gitlab\Gitlab.csproj" />
     <ProjectReference Include="..\Parsers\NpuAiParser\OpenVINO.csproj" />
     <ProjectReference Include="..\Parsers\Sarif\SarifParser\Sarif.csproj" />
     <ProjectReference Include="..\Parsers\SemGrep\SemGrep.csproj" />

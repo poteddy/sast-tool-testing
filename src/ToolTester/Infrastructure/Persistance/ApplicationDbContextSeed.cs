@@ -1178,7 +1178,11 @@ public sealed class ApplicationDbContextSeed
 
             new ToolSeed(
                 Name: "OpenVINO",
-                Format: "OpenVINO")
+                Format: "OpenVINO"),
+
+            new ToolSeed(
+                Name: "GitLabSast",
+                Format: "GitLabSast")
         };
 
         var existingToolNames =

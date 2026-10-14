@@ -26,6 +26,7 @@ namespace ToolTester.Presentation.PageModels;
 
 public partial class ReportPageModel : BaseViewModel
 {
+    private const int HighFalsePositiveThreshold = 10000;
     private const int TestResultPageSize = 250000;
     private const int ReportPageSize = 10000;
     private const int RelatedErrorValue = 0;
@@ -116,11 +117,39 @@ public partial class ReportPageModel : BaseViewModel
 
     private Axis[] _scannerCweHeatmapYAxes = [];
 
+    private ISeries[] _relationshipMixCountChartSeries = [];
+    private Axis[] _relationshipMixCountXAxes = [];
+    private Axis[] _relationshipMixCountYAxes = [];
+
     private ObservableCollection<CweScannerHeatmapPoint>
         _scannerCweHeatmapData = [];
 
     private ObservableCollection<ChartLegendItem>
     _relatedFindingLegendItems = [];
+
+    public ISeries[] RelationshipMixCountChartSeries
+    {
+        get => _relationshipMixCountChartSeries;
+        private set => SetProperty(
+            ref _relationshipMixCountChartSeries,
+            value);
+    }
+
+    public Axis[] RelationshipMixCountXAxes
+    {
+        get => _relationshipMixCountXAxes;
+        private set => SetProperty(
+            ref _relationshipMixCountXAxes,
+            value);
+    }
+
+    public Axis[] RelationshipMixCountYAxes
+    {
+        get => _relationshipMixCountYAxes;
+        private set => SetProperty(
+            ref _relationshipMixCountYAxes,
+            value);
+    }
 
     private bool _hasScannerCweHeatmapData;
 
@@ -469,9 +498,8 @@ public partial class ReportPageModel : BaseViewModel
                     }));
 
         OnPropertyChanged(
-            nameof(AvailableRelationships));
-
-        BuildRelationshipMix();
+            nameof(AvailableRelationships));   
+      
 
         var mappedItems = testResult.Items
         .Select(item =>
@@ -585,6 +613,7 @@ public partial class ReportPageModel : BaseViewModel
                          })
                      .ToList()
              }));
+        BuildRelationshipMix();
     }
 
     private void BuildFalseNegativePareto(
@@ -689,18 +718,24 @@ public partial class ReportPageModel : BaseViewModel
                 GetScanDisplayName(scanId);
 
             var relationshipCounts =
-                relatedSeries.Items
-                    .Where(item =>
-                        !string.IsNullOrWhiteSpace(
-                            item.Relationship))
-                    .GroupBy(
-                        item => item.Relationship,
-                        StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(
-                        group => group.Key,
-                        group => group.Sum(
-                            item => item.Count),
-                        StringComparer.OrdinalIgnoreCase);
+     relatedSeries.Items
+         .Where(item =>
+             !string.IsNullOrWhiteSpace(
+                 item.Relationship))
+         .Where(item =>
+             !item.ScannerCweId.HasValue ||
+             !IsExcludedHighVolumeResult(
+                 scanId,
+                 item.ScannerCweId.Value))
+         .GroupBy(
+             item => item.Relationship,
+             StringComparer.OrdinalIgnoreCase)
+         .ToDictionary(
+             group => group.Key,
+             group => group.Sum(
+                 item => item.Count),
+             StringComparer.OrdinalIgnoreCase);
+
 
             var totalCount =
                 relationshipCounts.Values.Sum();
@@ -834,6 +869,7 @@ public partial class ReportPageModel : BaseViewModel
         BuildRelatedFindingChart();
         BuildParetoCharts();
         BuildRelationshipMixLiveChart();
+        BuildRelationshipMixCountLiveChart();
         BuildPolarLiveChart();
     }
 
@@ -945,7 +981,6 @@ public partial class ReportPageModel : BaseViewModel
 
     private void BuildRelatedFindingChart()
     {
-        // Preserve scanner visibility when the relationship filter changes.
         var previousVisibility = RelatedFindingLegendItems
             .GroupBy(
                 item => item.Name,
@@ -978,13 +1013,17 @@ public partial class ReportPageModel : BaseViewModel
                         .ToList();
 
             /*
-             * A scatter coordinate requires a scanner CWE.
+             * Keep the scanner series visible.
              *
-             * DetectedWithoutCwe rows have ScannerCweId = null,
-             * so they cannot be plotted on the Scanner CWE axis.
+             * Remove only a specific ScanId + ScannerCweId result when
+             * that scanner/CWE count exceeds the configured threshold.
              */
             var plottableItems = filteredItems
-                .Where(item => item.ScannerCweId.HasValue)
+                .Where(item =>
+                    item.ScannerCweId.HasValue &&
+                    !IsExcludedHighVolumeResult(
+                        dataSeries.ScanId,
+                        item.ScannerCweId.Value))
                 .ToList();
 
             if (plottableItems.Count == 0)
@@ -1000,69 +1039,85 @@ public partial class ReportPageModel : BaseViewModel
                     group => group.Key,
                     group => group.First());
 
-            var color = GetChartColor(colorIndex++);
+            var color =
+                GetChartColor(colorIndex++);
 
-            var seriesName = GetScanDisplayName(
-                dataSeries.ScanId);
+            var seriesName =
+                GetScanDisplayName(
+                    dataSeries.ScanId);
 
+            /*
+             * Do not use the high false-positive condition here.
+             * The scanner remains checked and visible.
+             */
             var isVisible =
                 !previousVisibility.TryGetValue(
                     seriesName,
                     out var previousValue) ||
                 previousValue;
 
-            var series = new ScatterSeries<WeightedPoint>
-            {
-                Name = seriesName,
-
-                Values = plottableItems
-                    .Select(item => new WeightedPoint(
-                        item.GroundTruthCweId,
-                        item.ScannerCweId!.Value,
-                        Math.Max(item.Count, 1)))
-                    .ToArray(),
-
-                IsVisible = isVisible,
-
-                IsVisibleAtLegend = true,
-
-                MinGeometrySize = 8,
-
-                GeometrySize = 30,
-
-                Fill = new SolidColorPaint(
-                    color.WithAlpha(150)),
-
-                Stroke = new SolidColorPaint(color)
+            var series =
+                new ScatterSeries<WeightedPoint>
                 {
-                    StrokeThickness = 1
-                },
+                    Name = seriesName,
 
-                YToolTipLabelFormatter = point =>
-                {
-                    var key = CoordinateKey(
-                        point.Coordinate.SecondaryValue,
-                        point.Coordinate.PrimaryValue);
+                    Values = plottableItems
+                        .Select(item => new WeightedPoint(
+                            item.GroundTruthCweId,
+                            item.ScannerCweId!.Value,
+                            Math.Max(item.Count, 1)))
+                        .ToArray(),
 
-                    if (!lookup.TryGetValue(key, out var item))
-                    {
-                        return $"Scan: {seriesName}";
-                    }
+                    IsVisible = isVisible,
 
-                    return
-                        $"Scan: {seriesName}" +
-                        $"{Environment.NewLine}" +
-                        $"Ground Truth CWE: {item.GroundTruthCweId}" +
-                        $"{Environment.NewLine}" +
-                        $"Scanner CWE: {item.ScannerCweId!.Value}" +
-                        $"{Environment.NewLine}" +
-                        $"Relationship: {item.Relationship}" +
-                        $"{Environment.NewLine}" +
-                        $"Confidence: {item.RelationshipScore}" +
-                        $"{Environment.NewLine}" +
-                        $"Count: {item.Count:N0}";
-                }
-            };
+                    IsVisibleAtLegend = true,
+
+                    MinGeometrySize = 8,
+
+                    GeometrySize = 30,
+
+                    Fill =
+                        new SolidColorPaint(
+                            color.WithAlpha(150)),
+
+                    Stroke =
+                        new SolidColorPaint(color)
+                        {
+                            StrokeThickness = 1
+                        },
+
+                    YToolTipLabelFormatter =
+                        point =>
+                        {
+                            var key = CoordinateKey(
+                                point.Coordinate.SecondaryValue,
+                                point.Coordinate.PrimaryValue);
+
+                            if (!lookup.TryGetValue(
+                                    key,
+                                    out var item))
+                            {
+                                return $"Scan: {seriesName}";
+                            }
+
+                            return
+                                $"Scan: {seriesName}" +
+                                $"{Environment.NewLine}" +
+                                $"Ground Truth CWE: " +
+                                $"{item.GroundTruthCweId}" +
+                                $"{Environment.NewLine}" +
+                                $"Scanner CWE: " +
+                                $"{item.ScannerCweId!.Value}" +
+                                $"{Environment.NewLine}" +
+                                $"Relationship: " +
+                                $"{item.Relationship}" +
+                                $"{Environment.NewLine}" +
+                                $"Confidence: " +
+                                $"{item.RelationshipScore}" +
+                                $"{Environment.NewLine}" +
+                                $"Count: {item.Count:N0}";
+                        }
+                };
 
             chartSeries.Add(series);
 
@@ -1083,14 +1138,16 @@ public partial class ReportPageModel : BaseViewModel
         [
             CreateNumericAxis(
             name: "Ground Truth CWE",
-            labeler: value => $"CWE-{value:N0}")
+            labeler: value =>
+                $"CWE-{value:N0}")
         ];
 
         RelatedFindingYAxes =
         [
             CreateNumericAxis(
             name: "Scanner CWE",
-            labeler: value => $"CWE-{value:N0}")
+            labeler: value =>
+                $"CWE-{value:N0}")
         ];
     }
     private void BuildParetoCharts()
@@ -1253,20 +1310,73 @@ public partial class ReportPageModel : BaseViewModel
                     group => group.First().IsVisible,
                     StringComparer.OrdinalIgnoreCase);
 
+        const string finalTotalLabel = "Final Total";
+
         /*
-         * IMPORTANT:
-         * scannerNames defines the X-axis and also determines the order of
-         * every value in every stacked series.
+         * Snapshot the data so every lookup in this chart is based on the
+         * same collection state.
          */
-        var scannerNames =
+        var chartData =
             RelationshipMixChartData
+                .Where(item =>
+                    !string.IsNullOrWhiteSpace(item.ScanName) &&
+                    !string.IsNullOrWhiteSpace(item.Relationship))
+                .ToArray();
+
+        /*
+         * These are the individual scanner/scan names displayed before the
+         * aggregate Final Total column.
+         */
+        var individualScannerNames =
+            chartData
                 .Select(item => item.ScanName)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(
                     name => name,
                     StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+
+        /*
+         * scannerNames defines the X-axis and the position of every value
+         * in every stacked series.
+         */
+        var scannerNames =
+            individualScannerNames
+                .Append(finalTotalLabel)
+                .ToArray();
+
+        /*
+         * Calculate the total count for each specific scanner.
+         */
+        var scannerTotals =
+            chartData
+                .GroupBy(
+                    item => item.ScanName,
+                    StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Sum(item => item.Count),
+                    StringComparer.OrdinalIgnoreCase);
+
+        /*
+         * Grand total across every scanner and every relationship.
+         */
+        var finalTotalCount =
+            scannerTotals.Values.Sum();
+
+        /*
+         * Group scanner/relationship records once. This safely handles
+         * duplicate data points for the same scanner and relationship.
+         */
+        var scannerRelationshipGroups =
+            chartData
+                .GroupBy(
+                    item => (
+                        ScanName: item.ScanName.ToUpperInvariant(),
+                        Relationship: item.Relationship.ToUpperInvariant()))
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.ToArray());
 
         RelationshipMixXAxes =
         [
@@ -1274,6 +1384,10 @@ public partial class ReportPageModel : BaseViewModel
         {
             Name = "Scanner",
 
+            /*
+             * Use scannerNames, not individualScannerNames, because the
+             * series includes the Final Total value.
+             */
             Labels = scannerNames,
 
             MinLimit = -0.5,
@@ -1424,30 +1538,72 @@ public partial class ReportPageModel : BaseViewModel
         foreach (var definition in definitions)
         {
             /*
-             * Build one value for every scanner.
-             *
-             * The index in this array corresponds exactly to the index in
-             * scannerNames and therefore to the X-axis position.
+             * Aggregate this relationship across every scanner.
+             */
+            var relationshipFinalCount =
+                chartData
+                    .Where(point =>
+                        string.Equals(
+                            point.Relationship,
+                            definition.Relationship,
+                            StringComparison.OrdinalIgnoreCase))
+                    .Sum(point => point.Count);
+
+            var relationshipFinalPercentage =
+                finalTotalCount > 0
+                    ? relationshipFinalCount * 100d / finalTotalCount
+                    : 0d;
+
+            /*
+             * Build one percentage value for every scanner, followed by the
+             * overall Final Total percentage.
              */
             var values =
                 scannerNames
                     .Select(scannerName =>
-                        RelationshipMixChartData
-                            .FirstOrDefault(point =>
-                                string.Equals(
-                                    point.ScanName,
-                                    scannerName,
-                                    StringComparison.OrdinalIgnoreCase) &&
-                                string.Equals(
-                                    point.Relationship,
-                                    definition.Relationship,
-                                    StringComparison.OrdinalIgnoreCase))
-                            ?.Percentage ?? 0)
+                    {
+                        if (string.Equals(
+                                scannerName,
+                                finalTotalLabel,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            return relationshipFinalPercentage;
+                        }
+
+                        if (!scannerTotals.TryGetValue(
+                                scannerName,
+                                out var scannerTotalCount) ||
+                            scannerTotalCount <= 0)
+                        {
+                            return 0d;
+                        }
+
+                        var lookupKey =
+                        (
+                            ScanName: scannerName.ToUpperInvariant(),
+                            Relationship:
+                                definition.Relationship.ToUpperInvariant()
+                        );
+
+                        if (!scannerRelationshipGroups.TryGetValue(
+                                lookupKey,
+                                out var matchingPoints))
+                        {
+                            return 0d;
+                        }
+
+                        var relationshipCount =
+                            matchingPoints.Sum(point => point.Count);
+
+                        return
+                            relationshipCount * 100d /
+                            scannerTotalCount;
+                    })
                     .ToArray();
 
             /*
-             * Don't create a series if this relationship does not exist
-             * for any scanner.
+             * Do not create a series when the relationship has no values for
+             * any scanner or for the aggregate total.
              */
             if (values.All(value => value <= 0))
             {
@@ -1473,7 +1629,7 @@ public partial class ReportPageModel : BaseViewModel
                         isVisible,
 
                     /*
-                     * Keep disabled series in our custom legend.
+                     * Keep disabled series in the custom legend.
                      */
                     IsVisibleAtLegend =
                         true,
@@ -1489,11 +1645,9 @@ public partial class ReportPageModel : BaseViewModel
                         65,
 
                     /*
-                     * Tooltip
-                     *
-                     * SecondaryValue is the X-axis position. Because
-                     * scannerNames is used to build Values, this index maps
-                     * directly back to the corresponding ScanName.
+                     * SecondaryValue is the X-axis position. scannerNames is
+                     * used for both the labels and series values, so the
+                     * position maps directly to the correct scanner.
                      */
                     YToolTipLabelFormatter =
                         point =>
@@ -1509,62 +1663,90 @@ public partial class ReportPageModel : BaseViewModel
                                 return
                                     $"Relationship: {definition.Relationship}" +
                                     $"{Environment.NewLine}" +
-                                    $"Percentage: {point.Coordinate.PrimaryValue:F2}%";
+                                    $"Percentage: " +
+                                    $"{point.Coordinate.PrimaryValue:F2}%";
                             }
 
                             var scanName =
                                 scannerNames[scannerIndex];
 
                             /*
-                             * IMPORTANT:
-                             *
-                             * Match using ScanName because scannerNames and
-                             * the X-axis were constructed from ScanName.
-                             *
-                             * ScannerName is the display name stored on the
-                             * underlying data point and can still be shown
-                             * in the tooltip.
+                             * Tooltip for the aggregate Final Total column.
                              */
-                            var sourcePoint =
-                                RelationshipMixChartData
-                                    .FirstOrDefault(item =>
-                                        string.Equals(
-                                            item.ScanName,
-                                            scanName,
-                                            StringComparison.OrdinalIgnoreCase) &&
-                                        string.Equals(
-                                            item.Relationship,
-                                            definition.Relationship,
-                                            StringComparison.OrdinalIgnoreCase));
-
-                            if (sourcePoint is null)
+                            if (string.Equals(
+                                    scanName,
+                                    finalTotalLabel,
+                                    StringComparison.OrdinalIgnoreCase))
                             {
                                 return
-                                    $"Scanner: {scanName}" +
+                                    $"Scanner: {finalTotalLabel}" +
                                     $"{Environment.NewLine}" +
-                                    $"Relationship: {definition.Relationship}" +
+                                    $"Relationship: " +
+                                    $"{definition.Relationship}" +
                                     $"{Environment.NewLine}" +
-                                    $"Percentage: {point.Coordinate.PrimaryValue:F2}%";
+                                    $"Relationship Count: " +
+                                    $"{relationshipFinalCount:N0}" +
+                                    $"{Environment.NewLine}" +
+                                    $"All Findings: {finalTotalCount:N0}" +
+                                    $"{Environment.NewLine}" +
+                                    $"Percentage: " +
+                                    $"{relationshipFinalPercentage:F2}%";
                             }
 
+                            var scannerTotalCount =
+                                scannerTotals.TryGetValue(
+                                    scanName,
+                                    out var scannerTotal)
+                                    ? scannerTotal
+                                    : 0;
+
+                            var lookupKey =
+                            (
+                                ScanName: scanName.ToUpperInvariant(),
+                                Relationship:
+                                    definition.Relationship.ToUpperInvariant()
+                            );
+
+                            scannerRelationshipGroups.TryGetValue(
+                                lookupKey,
+                                out var matchingPoints);
+
+                            var relationshipCount =
+                                matchingPoints?.Sum(item => item.Count) ?? 0;
+
                             /*
-                             * Prefer the friendly scanner display name when
-                             * one exists. Fall back to ScanName otherwise.
+                             * Use the first matching point to obtain the
+                             * scanner's friendly display name.
                              */
+                            var sourcePoint =
+                                matchingPoints?.FirstOrDefault();
+
                             var displayName =
+                                sourcePoint is not null &&
                                 !string.IsNullOrWhiteSpace(
                                     sourcePoint.ScannerName)
                                     ? sourcePoint.ScannerName
-                                    : sourcePoint.ScanName;
+                                    : scanName;
+
+                            var percentage =
+                                scannerTotalCount > 0
+                                    ? relationshipCount * 100d /
+                                      scannerTotalCount
+                                    : 0d;
 
                             return
                                 $"Scanner: {displayName}" +
                                 $"{Environment.NewLine}" +
-                                $"Relationship: {sourcePoint.Relationship}" +
+                                $"Relationship: " +
+                                $"{definition.Relationship}" +
                                 $"{Environment.NewLine}" +
-                                $"Count: {sourcePoint.Count:N0}" +
+                                $"Relationship Count: " +
+                                $"{relationshipCount:N0}" +
                                 $"{Environment.NewLine}" +
-                                $"Percentage: {sourcePoint.Percentage:F2}%";
+                                $"Scanner Total: " +
+                                $"{scannerTotalCount:N0}" +
+                                $"{Environment.NewLine}" +
+                                $"Percentage: {percentage:F2}%";
                         }
                 };
 
@@ -1583,68 +1765,582 @@ public partial class ReportPageModel : BaseViewModel
         RelationshipMixLegendItems =
             legendItems;
     }
-
-    private void BuildPolarLiveChart()
+    private void BuildRelationshipMixCountLiveChart()
     {
-        var chartSeries = new List<ISeries>();
-        var index = 0;
+        const string finalTotalLabel = "Final Total";
 
-        foreach (var dataSeries in AggregatedSeries)
+        /*
+         * IMPORTANT:
+         *
+         * This count chart intentionally uses RelatedSeries directly.
+         *
+         * It does NOT use RelationshipMixChartData because that collection
+         * has already had the high-volume scanner/CWE results excluded.
+         *
+         * Therefore:
+         *
+         *   Percentage Relationship Mix = noise-filtered
+         *   Count Relationship Mix      = includes ALL findings
+         *
+         * This lets the count chart expose the high-volume CWE results
+         * rather than hiding them.
+         */
+
+        var chartData = RelatedSeries
+            .SelectMany(series =>
+                series.Items
+                    .Where(item =>
+                        !string.IsNullOrWhiteSpace(
+                            item.Relationship))
+                    .Select(item => new
+                    {
+                        series.ScanId,
+
+                        ScanName =
+                            GetScanName(series.ScanId),
+
+                        ScannerName =
+                            GetScanDisplayName(series.ScanId),
+
+                        item.ScannerCweId,
+
+                        item.GroundTruthCweId,
+
+                        item.Relationship,
+
+                        item.Count,
+
+                        IsHighVolume =
+                            item.ScannerCweId.HasValue &&
+                            IsExcludedHighVolumeResult(
+                                series.ScanId,
+                                item.ScannerCweId.Value)
+                    }))
+            .ToArray();
+
+        if (chartData.Length == 0)
         {
-            if (dataSeries.Items.Count == 0)
+            RelationshipMixCountChartSeries = [];
+            RelationshipMixCountXAxes = [];
+            RelationshipMixCountYAxes = [];
+
+            return;
+        }
+
+        var individualScannerNames = chartData
+            .Select(item => item.ScanName)
+            .Distinct(
+                StringComparer.OrdinalIgnoreCase)
+            .OrderBy(
+                name => name,
+                StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var scannerNames = individualScannerNames
+            .Append(finalTotalLabel)
+            .ToArray();
+
+        /*
+         * ALL findings are included here, including results identified
+         * as high-volume/noise by IsHighFalsePositiveResult().
+         */
+        var scannerTotals = chartData
+            .GroupBy(
+                item => item.ScanName,
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Sum(
+                    item => item.Count),
+                StringComparer.OrdinalIgnoreCase);
+
+        var finalTotalCount =
+            scannerTotals.Values.Sum();
+
+        /*
+         * Aggregate relationship counts for every scanner.
+         *
+         * No high-volume exclusion is applied.
+         */
+        var scannerRelationshipGroups = chartData
+            .GroupBy(
+                item => (
+                    ScanName:
+                        item.ScanName.ToUpperInvariant(),
+
+                    Relationship:
+                        item.Relationship.ToUpperInvariant()))
+            .ToDictionary(
+                group => group.Key,
+                group => group.ToArray());
+
+        var definitions = new[]
+        {
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Exact),
+            SKColors.SteelBlue),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DirectParent),
+            SKColors.Gold),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DirectChild),
+            SKColors.DarkOrange),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Ancestor),
+            SKColors.Goldenrod),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Descendant),
+            SKColors.OrangeRed),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.GrandParent),
+            SKColors.Khaki),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.GrandChild),
+            SKColors.Coral),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DirectSibling),
+            SKColors.ForestGreen),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SharedAncestor),
+            SKColors.Gray),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.PeerOf),
+            SKColors.SeaGreen),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.CanPrecede),
+            SKColors.Purple),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.CanFollow),
+            SKColors.MediumPurple),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Requires),
+            SKColors.DarkViolet),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.CanAlsoBe),
+            SKColors.Plum),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameRootCauseBroaderCwe),
+            SKColors.LightBlue),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameRootCauseNarrowerCwe),
+            SKColors.DeepSkyBlue),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameConsequence),
+            SKColors.CadetBlue),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.SameWeaknessFamily),
+            SKColors.LightSeaGreen),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.RelatedAttackPattern),
+            SKColors.MediumTurquoise),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.RelatedWeakness),
+            SKColors.SlateGray),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.JulietRootCause),
+            SKColors.DarkCyan),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.DetectedWithoutCwe),
+            SKColors.DimGray),
+
+        new RelationshipChartDefinition(
+            nameof(CweRelationshipKind.Unrelated),
+            SKColors.Red)
+    };
+
+        var chartSeries =
+            new List<ISeries>();
+
+        foreach (var definition in definitions)
+        {
+            /*
+             * Overall relationship count INCLUDING high-volume results.
+             */
+            var relationshipFinalCount = chartData
+                .Where(item =>
+                    string.Equals(
+                        item.Relationship,
+                        definition.Relationship,
+                        StringComparison.OrdinalIgnoreCase))
+                .Sum(item => item.Count);
+
+            var values = scannerNames
+                .Select(scannerName =>
+                {
+                    if (string.Equals(
+                            scannerName,
+                            finalTotalLabel,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        return (double)relationshipFinalCount;
+                    }
+
+                    var lookupKey =
+                    (
+                        ScanName:
+                            scannerName.ToUpperInvariant(),
+
+                        Relationship:
+                            definition.Relationship.ToUpperInvariant()
+                    );
+
+                    if (!scannerRelationshipGroups.TryGetValue(
+                            lookupKey,
+                            out var matchingPoints))
+                    {
+                        return 0d;
+                    }
+
+                    return (double)matchingPoints.Sum(
+                        point => point.Count);
+                })
+                .ToArray();
+
+            if (values.All(value => value <= 0))
             {
                 continue;
             }
 
-            var color = GetChartColor(index++);
+            /*
+             * Match the current visibility state of the percentage chart's
+             * relationship legend where possible.
+             */
+            var existingLegendItem =
+                RelationshipMixLegendItems.FirstOrDefault(
+                    item => string.Equals(
+                        item.Name,
+                        definition.Relationship,
+                        StringComparison.OrdinalIgnoreCase));
 
-            chartSeries.Add(new PolarLineSeries<ObservablePoint>
-            {
-                Name = $"Scan {dataSeries.ScanName}",
-                Values = dataSeries.Items
-                    .OrderBy(item => item.CweId)
-                    .Select(item => new ObservablePoint(item.CweId, item.Count))
-                    .ToArray(),
-                IsClosed = true,
-                LineSmoothness = 0,
-                Fill = new SolidColorPaint(color.WithAlpha(50)),
-                Stroke = new SolidColorPaint(color)
-                {
-                    StrokeThickness = 2
-                },
-                GeometryFill = new SolidColorPaint(color),
-                GeometryStroke = new SolidColorPaint(SKColors.White)
-                {
-                    StrokeThickness = 1
-                },
-                GeometrySize = 8,
+            var isVisible =
+                existingLegendItem?.IsVisible ?? true;
 
-            });
+            var series =
+                new StackedColumnSeries<double>
+                {
+                    Name =
+                        definition.Relationship,
+
+                    Values =
+                        values,
+
+                    IsVisible =
+                        isVisible,
+
+                    IsVisibleAtLegend =
+                        true,
+
+                    Fill =
+                        new SolidColorPaint(
+                            definition.Color),
+
+                    Stroke =
+                        null,
+
+                    MaxBarWidth =
+                        65,
+
+                    YToolTipLabelFormatter =
+                        point =>
+                        {
+                            var scannerIndex =
+                                Convert.ToInt32(
+                                    Math.Round(
+                                        point.Coordinate
+                                            .SecondaryValue));
+
+                            if (scannerIndex < 0 ||
+                                scannerIndex >=
+                                scannerNames.Length)
+                            {
+                                return
+                                    $"Relationship: " +
+                                    $"{definition.Relationship}" +
+                                    $"{Environment.NewLine}" +
+                                    $"Count: " +
+                                    $"{point.Coordinate.PrimaryValue:N0}";
+                            }
+
+                            var scanName =
+                                scannerNames[
+                                    scannerIndex];
+
+                            if (string.Equals(
+                                    scanName,
+                                    finalTotalLabel,
+                                    StringComparison.OrdinalIgnoreCase))
+                            {
+                                var finalHighVolumeCount =
+                                    chartData
+                                        .Where(item =>
+                                            item.IsHighVolume &&
+                                            string.Equals(
+                                                item.Relationship,
+                                                definition.Relationship,
+                                                StringComparison.OrdinalIgnoreCase))
+                                        .Sum(item =>
+                                            item.Count);
+
+                                return
+                                    $"Scanner: {finalTotalLabel}" +
+                                    $"{Environment.NewLine}" +
+                                    $"Relationship: " +
+                                    $"{definition.Relationship}" +
+                                    $"{Environment.NewLine}" +
+                                    $"Relationship Count: " +
+                                    $"{relationshipFinalCount:N0}" +
+                                    $"{Environment.NewLine}" +
+                                    $"High-volume Count: " +
+                                    $"{finalHighVolumeCount:N0}" +
+                                    $"{Environment.NewLine}" +
+                                    $"All Findings: " +
+                                    $"{finalTotalCount:N0}";
+                            }
+
+                            var lookupKey =
+                            (
+                                ScanName:
+                                    scanName.ToUpperInvariant(),
+
+                                Relationship:
+                                    definition.Relationship
+                                        .ToUpperInvariant()
+                            );
+
+                            scannerRelationshipGroups
+                                .TryGetValue(
+                                    lookupKey,
+                                    out var matchingPoints);
+
+                            var relationshipCount =
+                                matchingPoints?.Sum(
+                                    item => item.Count) ?? 0;
+
+                            var highVolumeCount =
+                                matchingPoints?
+                                    .Where(item =>
+                                        item.IsHighVolume)
+                                    .Sum(item =>
+                                        item.Count) ?? 0;
+
+                            var scannerTotal =
+                                scannerTotals.TryGetValue(
+                                    scanName,
+                                    out var total)
+                                    ? total
+                                    : 0;
+
+                            var displayName =
+                                matchingPoints?
+                                    .FirstOrDefault()?
+                                    .ScannerName
+                                ?? scanName;
+
+                            return
+                                $"Scanner: {displayName}" +
+                                $"{Environment.NewLine}" +
+                                $"Relationship: " +
+                                $"{definition.Relationship}" +
+                                $"{Environment.NewLine}" +
+                                $"Relationship Count: " +
+                                $"{relationshipCount:N0}" +
+                                $"{Environment.NewLine}" +
+                                $"High-volume Count: " +
+                                $"{highVolumeCount:N0}" +
+                                $"{Environment.NewLine}" +
+                                $"Scanner Total: " +
+                                $"{scannerTotal:N0}";
+                        }
+                };
+
+            chartSeries.Add(series);
         }
 
-        PolarSeries = chartSeries.ToArray();
+        RelationshipMixCountChartSeries =
+            chartSeries.ToArray();
+
+        RelationshipMixCountXAxes =
+        [
+            new Axis
+        {
+            Name =
+                "Scanner",
+
+            Labels =
+                scannerNames,
+
+            MinLimit =
+                -0.5,
+
+            MaxLimit =
+                scannerNames.Length - 0.5,
+
+            MinStep =
+                1,
+
+            ForceStepToMin =
+                true,
+
+            LabelsRotation =
+                -45,
+
+            LabelsPaint =
+                CreateTextPaint(),
+
+            NamePaint =
+                CreateTextPaint(),
+
+            SeparatorsPaint =
+                null
+        }
+        ];
+
+        RelationshipMixCountYAxes =
+        [
+            new Axis
+        {
+            Name =
+                "Finding Count",
+
+            MinLimit =
+                0,
+
+            LabelsPaint =
+                CreateTextPaint(),
+
+            NamePaint =
+                CreateTextPaint(),
+
+            SeparatorsPaint =
+                CreateSeparatorPaint(),
+
+            Labeler =
+                value =>
+                    value.ToString("N0")
+        }
+        ];
+    }
+    private void BuildPolarLiveChart()
+    {
+        var chartSeries =
+            new List<ISeries>();
+
+        var index = 0;
+
+        foreach (var dataSeries in AggregatedSeries
+                     .OrderBy(series => series.ScanId))
+        {
+            /*
+             * Remove only individual excessive ScanId + CWE results.
+             * Do not hide the complete scanner series.
+             */
+            var plottableItems = dataSeries.Items
+                .Where(item =>
+                    !IsExcludedHighVolumeResult(
+                        dataSeries.ScanId,
+                        item.CweId))
+                .OrderBy(item => item.CweId)
+                .ToArray();
+
+            if (plottableItems.Length == 0)
+            {
+                continue;
+            }
+
+            var color =
+                GetChartColor(index++);
+
+            chartSeries.Add(
+                new PolarLineSeries<ObservablePoint>
+                {
+                    Name =
+                        GetScanDisplayName(
+                            dataSeries.ScanId),
+
+                    Values = plottableItems
+                        .Select(item =>
+                            new ObservablePoint(
+                                item.CweId,
+                                item.Count))
+                        .ToArray(),
+
+                    IsVisible = true,
+
+                    IsVisibleAtLegend = true,
+
+                    IsClosed = true,
+
+                    LineSmoothness = 0,
+
+                    Fill =
+                        new SolidColorPaint(
+                            color.WithAlpha(50)),
+
+                    Stroke =
+                        new SolidColorPaint(color)
+                        {
+                            StrokeThickness = 2
+                        },
+
+                    GeometryFill =
+                        new SolidColorPaint(color),
+
+                    GeometryStroke =
+                        new SolidColorPaint(
+                            SKColors.White)
+                        {
+                            StrokeThickness = 1
+                        },
+
+                    GeometrySize = 8
+                });
+        }
+
+        PolarSeries =
+            chartSeries.ToArray();
 
         PolarAngleAxes =
         [
             new PolarAxis
-            {
-                Name = "Scanner CWE",
-                LabelsPaint = CreateTextPaint(),
-                NamePaint = CreateTextPaint(),
-                SeparatorsPaint = CreateSeparatorPaint()
-            }
+        {
+            Name = "Scanner CWE",
+            LabelsPaint = CreateTextPaint(),
+            NamePaint = CreateTextPaint(),
+            SeparatorsPaint = CreateSeparatorPaint()
+        }
         ];
 
         PolarRadiusAxes =
         [
             new PolarAxis
-            {
-                Name = "Finding Count",
-                MinLimit = 0,
-                LabelsPaint = CreateTextPaint(),
-                NamePaint = CreateTextPaint(),
-                SeparatorsPaint = CreateSeparatorPaint()
-            }
+        {
+            Name = "Finding Count",
+            MinLimit = 0,
+            LabelsPaint = CreateTextPaint(),
+            NamePaint = CreateTextPaint(),
+            SeparatorsPaint = CreateSeparatorPaint()
+        }
         ];
     }
     private void BuildScannerCweHeatmap(
@@ -2372,6 +3068,9 @@ new(1, 79, "Cross-site Scripting"),
         FalsePositiveSeries = [];
         RelatedFindingSeries = [];
         RelationshipMixChartSeries = [];
+        RelationshipMixCountChartSeries = [];
+        RelationshipMixCountXAxes = [];
+        RelationshipMixCountYAxes = [];
         PolarSeries = [];
 
         MitreTop25Series = [];
@@ -2830,4 +3529,29 @@ new(1, 79, "Cross-site Scripting"),
     {
         return $"{x:F4}|{y:F4}";
     }
+
+    private bool IsExcludedHighVolumeResult(
+    int scanId,
+    int scannerCweId)
+    {
+        var scanSeries = AggregatedSeries.FirstOrDefault(
+            series => series.ScanId == scanId);
+
+        if (scanSeries is null)
+        {
+            return false;
+        }
+
+        var resultCount = scanSeries.Items
+            .Where(item =>
+                item.CweId == scannerCweId)
+            .Sum(item =>
+                item.Count);
+
+        return resultCount >
+               HighFalsePositiveThreshold;
+    }
+
+
+
 }
