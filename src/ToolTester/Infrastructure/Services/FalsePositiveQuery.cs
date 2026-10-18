@@ -42,7 +42,7 @@ namespace ToolTester.Infrastructure.Services
             foreach (var scanGroup in groupedByScan)
             {
                 var scanId = scanGroup.Key;
-                var scanName = _scanNameProvider.GetDisplayName(scanId);
+                var scanName = _scanNameProvider.GetScanDisplayName(scanId);
 
                 var points = scanGroup
                     .GroupBy(r => r.ScannerCweId!.Value) // safe: filtered above

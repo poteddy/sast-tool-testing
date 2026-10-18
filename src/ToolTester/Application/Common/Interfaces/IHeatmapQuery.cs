@@ -11,6 +11,8 @@ namespace ToolTester.Application.Common.Interfaces
     }
     public interface IScanDisplayNameProvider
     {
-        string GetDisplayName(int scanId);
+        Task LoadAsync(CancellationToken cancellationToken = default);
+        string GetScanName(int scanId);
+        string GetScanDisplayName(int scanId);
     }
 }

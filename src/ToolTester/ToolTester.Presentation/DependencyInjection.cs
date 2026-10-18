@@ -29,6 +29,7 @@ namespace ToolTester.Presentation
             services.AddSingleton<IScanDisplayNameProvider, ScanDisplayNameProvider>();
             services.AddScoped<IHeatmapQuery, ScannerHeatmapService>();
             services.AddScoped<IFalsePositiveQuery, FalsePositiveQuery>();
+            services.AddScoped<IReportQueryService, ReportQueryService>();
             return services;
         }
     }

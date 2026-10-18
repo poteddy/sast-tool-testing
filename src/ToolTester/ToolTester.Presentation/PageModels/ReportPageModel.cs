@@ -3,19 +3,15 @@ using CommunityToolkit.Mvvm.Input;
 
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
-using LiveChartsCore.Drawing;
-using LiveChartsCore.Kernel;
 using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SkiaSharp;
-using Syncfusion.Maui.Toolkit.Charts;
 using System.Collections.ObjectModel;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.CWETestResultBases.Queries;
-using ToolTester.Application.Reports.DTO;
 using ToolTester.Application.Reports.Quiries;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Infrastructure.Services;
@@ -86,8 +82,6 @@ public partial class ReportPageModel : BaseViewModel
 
     private readonly BenchmarkReportService _benchmarkService;
     private readonly ModalErrorHandler _errorHandler;
-    private readonly IMediator _mediator;
-    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
     private IReadOnlyDictionary<int, string> _scanNames =
         new Dictionary<int, string>();
@@ -185,25 +179,23 @@ public partial class ReportPageModel : BaseViewModel
     private string _selectedRelationship = AllRelationships;
     private readonly IHeatmapQuery _heatmapQuery;
     private readonly IFalsePositiveQuery _falsePositiveQuery;
+    private readonly IReportQueryService _reportQueryService;
     private readonly IScanDisplayNameProvider _scanNameProvider; // if not already present
     public ReportPageModel(
-        ModalErrorHandler errorHandler,
-        IMediator mediator,
-        BenchmarkReportService benchmarkService,
-        IDbContextFactory<ApplicationDbContext> contextFactory, IHeatmapQuery heatmapQuery, IFalsePositiveQuery falsePositiveQuery)
+          ModalErrorHandler errorHandler,
+          IReportQueryService reportQueryService,
+          IScanDisplayNameProvider scanNameProvider,
+          BenchmarkReportService benchmarkService,
+          IHeatmapQuery heatmapQuery,
+          IFalsePositiveQuery falsePositiveQuery)
     {
-        _errorHandler = errorHandler ??
-            throw new ArgumentNullException(nameof(errorHandler));
-        _mediator = mediator ??
-            throw new ArgumentNullException(nameof(mediator));
-        _benchmarkService = benchmarkService ??
-            throw new ArgumentNullException(nameof(benchmarkService));
-        _contextFactory = contextFactory ??
-            throw new ArgumentNullException(nameof(contextFactory));
+        _errorHandler = errorHandler ?? throw new ArgumentNullException(nameof(errorHandler));
+        _reportQueryService = reportQueryService ?? throw new ArgumentNullException(nameof(reportQueryService));
+        _scanNameProvider = scanNameProvider ?? throw new ArgumentNullException(nameof(scanNameProvider));
+        _benchmarkService = benchmarkService ?? throw new ArgumentNullException(nameof(benchmarkService));
         _heatmapQuery = heatmapQuery ?? throw new ArgumentNullException(nameof(heatmapQuery));
         _falsePositiveQuery = falsePositiveQuery;
     }
-
     public event EventHandler? ReportDataLoaded;
 
     public bool HasLoadedData => _dataLoaded;
@@ -458,199 +450,22 @@ public partial class ReportPageModel : BaseViewModel
         await ExecuteLoadAsync();
     }
 
-    public async Task LoadItemsAsync(
-       CancellationToken cancellationToken = default)
+    public async Task LoadItemsAsync(CancellationToken cancellationToken = default)
     {
-        await LoadScanNamesAsync(cancellationToken);
+        // Ensure the scan name provider is primed
+        await _scanNameProvider.LoadAsync(cancellationToken);
 
-        var testResult = await _mediator.Send(
-            new GetCweTestResultBasesWithPaginationQuery
-            {
-                PageSize = TestResultPageSize
-            },
-            cancellationToken);
+        var result = await _reportQueryService.GetReportDataAsync(cancellationToken);
 
-        var reportResult = await _mediator.Send(
-            new GetReportsWithPaginationQuery
-            {
-                PageSize = ReportPageSize
-            },
-            cancellationToken);
+        // assign to VM properties exactly as before
+        RelatedSeries = new System.Collections.ObjectModel.ObservableCollection<RelatedSeries>(result.RelatedSeries);
+        Items = new System.Collections.ObjectModel.ObservableCollection<CweTestResults>(result.Items);
+        TestSeries = new System.Collections.ObjectModel.ObservableCollection<TestSeries>(result.TestSeries);
+        AggregatedSeries = new System.Collections.ObjectModel.ObservableCollection<AggrigatedSeries>(result.AggregatedSeries);
 
-        cancellationToken.ThrowIfCancellationRequested();
+        OnPropertyChanged(nameof(AvailableRelationships));
 
-        var reportLookup = reportResult.Items
-            .GroupBy(report => (
-                report.ScanId,
-                ScannerCweId: report.ScannerCweId,
-                GroundTruthCweId: report.GroundTruthCweId))
-            .ToDictionary(
-                group => group.Key,
-                group => group.First());
-
-        RelatedSeries =
-            new ObservableCollection<RelatedSeries>(
-                reportResult.Items
-                    .GroupBy(report => report.ScanId)
-                    .OrderBy(group => group.Key)
-                    .Select(group => new RelatedSeries
-                    {
-                        ScanId = group.Key,
-
-                        ScanName =
-                            GetScanName(group.Key),
-
-                        Items = group
-                            .OrderBy(report =>
-                                report.GroundTruthCweId)
-                            .ThenBy(report =>
-                                report.ScannerCweId)
-                            .Select(report =>
-                                new RelatedItemsInTest
-                                {
-                                    Id =
-                                        report.Id,
-
-                                    GroundTruthCweId =
-                                        report.GroundTruthCweId,
-
-                                    ScannerCweId =
-                                        report.ScannerCweId,
-
-                                    ScanId =
-                                        report.ScanId,
-
-                                    ToolId =
-                                        report.ToolId,
-
-                                    Count =
-                                        report.Count,
-
-                                    Relationship =
-                                        report.Relationship,
-
-                                    RelationshipScore =
-                                        report.RelationshipScore
-                                })
-                            .ToList()
-                    }));
-
-        OnPropertyChanged(
-            nameof(AvailableRelationships));
-
-
-        var mappedItems = testResult.Items
-        .Select(item =>
-        {
-            var reportKey = (
-                ScanId: item.ScanId,
-                ScannerCweId: item.ScannerFoundCWE,
-                GroundTruthCweId: item.GroundTruthCwe);
-
-            var hasSavedReport =
-                reportLookup.TryGetValue(
-                    reportKey,
-                    out var savedReport);
-
-            var detectedWithoutCwe =
-                !item.ScannerFoundCWE.HasValue ||
-                (
-                    hasSavedReport &&
-                    string.Equals(
-                        savedReport!.Relationship,
-                        nameof(CweRelationshipKind.DetectedWithoutCwe),
-                        StringComparison.OrdinalIgnoreCase)
-                );
-
-            var errorValue =
-                detectedWithoutCwe
-                    ? DetectedWithoutCweErrorValue
-                    : hasSavedReport &&
-                      savedReport!.RelationshipScore > 0
-                        ? RelatedErrorValue
-                        : UnrelatedErrorValue;
-
-            return new CweTestResults
-            {
-                Id =
-                    item.Id,
-
-                ScanId =
-                    item.ScanId,
-
-                TestId =
-                    item.TestId,
-
-                ScannerFoundCWE =
-                    item.ScannerFoundCWE,
-
-                GroundTruthCwe =
-                    item.GroundTruthCwe,
-
-                TestFileName =
-                    item.TestFileName,
-
-                TestPath =
-                    item.TestPath,
-
-                ErrorValue =
-                    errorValue
-            };
-        })
-        .ToList();
-
-        Items =
-            new ObservableCollection<CweTestResults>(
-                mappedItems);
-
-        TestSeries =
-            new ObservableCollection<TestSeries>(
-                mappedItems
-                    .GroupBy(item => item.ScanId)
-                    .OrderBy(group => group.Key)
-                    .Select(group => new TestSeries
-                    {
-                        ScanId =
-                            group.Key,
-
-                        ScanName =
-                            GetScanName(group.Key),
-
-                        Items =
-                            group.ToList()
-                    }));
-
-        AggregatedSeries =
-     new ObservableCollection<AggrigatedSeries>(
-         testResult.Items
-             .GroupBy(item => item.ScanId)
-             .OrderBy(group => group.Key)
-             .Select(group => new AggrigatedSeries
-             {
-                 ScanId =
-                     group.Key,
-
-                 ScanName =
-                     GetScanName(group.Key),
-
-                 Items = group
-                     .Where(item =>
-                         item.ScannerFoundCWE.HasValue)
-                     .GroupBy(item =>
-                         item.ScannerFoundCWE!.Value)
-                     .OrderBy(cweGroup =>
-                         cweGroup.Key)
-                     .Select(cweGroup =>
-                         new AggrigatedItems
-                         {
-                             CweId =
-                                 cweGroup.Key,
-
-                             Count =
-                                 cweGroup.Count()
-                         })
-                     .ToList()
-             }));
+        // original VM still drives subsequent UI-only operations
         BuildRelationshipMix();
     }
 
@@ -902,12 +717,33 @@ public partial class ReportPageModel : BaseViewModel
 
     private async Task BuildLiveCharts()
     {
-      await  BuildFalsePositiveChart();
+        var falseNegatives = await _benchmarkService
+             .GetFalseNegativesByScannerAsync();
+
+        BuildFalseNegativePareto(falseNegatives);
+
+        BuildMitreTop25Chart(falseNegatives);
+
+        await BuildHeapChart();
+
+        await BuildFalsePositiveChart();
         BuildRelatedFindingChart();
         BuildParetoCharts();
         BuildRelationshipMixLiveChart();
         BuildRelationshipMixCountLiveChart();
         BuildPolarLiveChart();
+    }
+
+    private async Task BuildHeapChart()
+    {
+        var heatmapDto = await _heatmapQuery.GetHeatmapAsync();
+        var heatmapResult = heatmapDto.ToHeatmapResult(); // uses mapper above
+
+        ScannerCweHeatmapData = heatmapResult.Data;
+        ScannerCweHeatmapSeries = heatmapResult.Series;
+        ScannerCweHeatmapXAxes = heatmapResult.XAxes;
+        ScannerCweHeatmapYAxes = heatmapResult.YAxes;
+        HasScannerCweHeatmapData = heatmapResult.HasData;
     }
 
     private async Task BuildFalsePositiveChart()
@@ -2804,21 +2640,7 @@ new(1, 79, "Cross-site Scripting"),
             await Task.Yield();
             await LoadItemsAsync();
 
-            var falseNegatives = await _benchmarkService
-                .GetFalseNegativesByScannerAsync();
-
-            BuildFalseNegativePareto(falseNegatives);
-
-            BuildMitreTop25Chart(falseNegatives);
-
-            var heatmapDto = await _heatmapQuery.GetHeatmapAsync();
-            var heatmapResult = heatmapDto.ToHeatmapResult(); // uses mapper above
-
-            ScannerCweHeatmapData = heatmapResult.Data;
-            ScannerCweHeatmapSeries = heatmapResult.Series;
-            ScannerCweHeatmapXAxes = heatmapResult.XAxes;
-            ScannerCweHeatmapYAxes = heatmapResult.YAxes;
-            HasScannerCweHeatmapData = heatmapResult.HasData;
+         
 
          await   BuildLiveCharts();
 
@@ -2879,22 +2701,7 @@ new(1, 79, "Cross-site Scripting"),
             legendItem.SetVisibility(isVisible);
         }
     }
-    private async Task LoadScanNamesAsync(
-        CancellationToken cancellationToken)
-    {
-        await using var context = await _contextFactory
-            .CreateDbContextAsync(cancellationToken);
-
-        _scanNames = await context.Scans
-            .AsNoTracking()
-            .ToDictionaryAsync(
-                scan => scan.Id,
-                scan => string.IsNullOrWhiteSpace(scan.Name)
-                    ? $"Scan {scan.Id}"
-                    : scan.Name,
-                cancellationToken);
-    }
-
+   
     private string GetScanName(int scanId)
     {
         return _scanNames.TryGetValue(scanId, out var scanName)

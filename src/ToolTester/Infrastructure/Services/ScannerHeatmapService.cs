@@ -41,7 +41,7 @@ namespace ToolTester.Infrastructure.Services
                 .Select(scanId => new ScanInfoDto
                 {
                     ScanId = scanId,
-                    ScanName = _scanDisplayNameProvider.GetDisplayName(scanId)
+                    ScanName = _scanDisplayNameProvider.GetScanDisplayName(scanId)
                 })
                 .OrderBy(s => s.ScanName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(s => s.ScanId)
