@@ -441,7 +441,7 @@ public partial class ReportPageModel : BaseViewModel
         {
             return;
         }
-
+        await _scanNameProvider.LoadAsync();
         await ExecuteLoadAsync();
     }
 
@@ -2697,17 +2697,11 @@ new(1, 79, "Cross-site Scripting"),
         }
     }
 
-    private string GetScanName(int scanId)
-    {
-        return _scanNames.TryGetValue(scanId, out var scanName)
-            ? scanName
-            : $"Scan {scanId}";
-    }
+    private string GetScanName(int scanId) =>
+     _scanNameProvider.GetScanName(scanId);
 
-    private string GetScanDisplayName(int scanId)
-    {
-        return $"{GetScanName(scanId)} ({scanId})";
-    }
+    private string GetScanDisplayName(int scanId) =>
+        _scanNameProvider.GetScanDisplayName(scanId);
 
     private static Axis CreateNumericAxis(
     string name,
