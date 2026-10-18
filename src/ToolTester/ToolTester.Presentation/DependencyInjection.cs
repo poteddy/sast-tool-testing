@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ToolTester.Application.Common.Interfaces;
+using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.PageModels;
 using ToolTester.Presentation.Services;
 
@@ -24,18 +26,9 @@ namespace ToolTester.Presentation
             services.AddTransient<PageModels.ScansPageModel>();
             services.AddTransient<Pages.ScansPage>();
             services.AddTransient<PageModels.ScansPageModel>();
-            //builder.Services.AddSingleton<ProjectRepository>();
-            //builder.Services.AddSingleton<TaskRepository>();
-            //builder.Services.AddSingleton<CategoryRepository>();
-            //builder.Services.AddSingleton<TagRepository>();
-            //builder.Services.AddSingleton<SeedDataService>();
-
-
-            //builder.Services.AddSingleton<ProjectListPageModel>();
-            //builder.Services.AddSingleton<ManageMetaPageModel>();
-
-            //builder.Services.AddTransientWithShellRoute<ProjectDetailPage, ProjectDetailPageModel>("project");
-            //builder.Services.AddTransientWithShellRoute<TaskDetailPage, TaskDetailPageModel>("task");
+            services.AddSingleton<IScanDisplayNameProvider, ScanDisplayNameProvider>();
+            services.AddScoped<IHeatmapQuery, ScannerHeatmapService>();
+            services.AddScoped<IFalsePositiveQuery, FalsePositiveQuery>();
             return services;
         }
     }

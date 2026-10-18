@@ -1,3 +1,4 @@
+using ToolTester.Application.Reports.DTO;
 using ToolTester.Presentation.Models;
 
 namespace ToolTester.Presentation.PageModels;

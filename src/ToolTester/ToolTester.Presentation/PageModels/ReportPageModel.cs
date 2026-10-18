@@ -13,7 +13,9 @@ using Microsoft.EntityFrameworkCore;
 using SkiaSharp;
 using Syncfusion.Maui.Toolkit.Charts;
 using System.Collections.ObjectModel;
+using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.CWETestResultBases.Queries;
+using ToolTester.Application.Reports.DTO;
 using ToolTester.Application.Reports.Quiries;
 using ToolTester.Infrastructure.Persistance;
 using ToolTester.Infrastructure.Services;
@@ -33,8 +35,9 @@ public partial class ReportPageModel : BaseViewModel
     private const int RelatedErrorValue = 0;
     private const int UnrelatedErrorValue = 5;
     private const int ParetoCweLimit = 25;
-    private const string AllRelationships = "All";
-     private const int DetectedWithoutCweErrorValue = 2;
+    private const string AllRelationships = "All Relationships";
+    private const string ExcludeUnrelatedRelationships = "Exclude Unrelated";
+    private const int DetectedWithoutCweErrorValue = 2;
     private static readonly string[] RelationshipDisplayOrder =
 [
     nameof(CweRelationshipKind.Exact),
@@ -97,9 +100,9 @@ public partial class ReportPageModel : BaseViewModel
     private ObservableCollection<RelationshipMixSeries> _relationshipMixSeries = [];
     private ObservableCollection<RelationshipMixChartPoint> _relationshipMixChartData = [];
     private ObservableCollection<ParetoChartModel> _paretoCharts = [];
-    private ObservableCollection<ChartLegendItem>  _relationshipMixLegendItems = [];
+    private ObservableCollection<ChartLegendItem> _relationshipMixLegendItems = [];
 
-    private ObservableCollection<ChartLegendItem>  _falsePositiveLegendItems = [];
+    private ObservableCollection<ChartLegendItem> _falsePositiveLegendItems = [];
     private ISeries[] _falsePositiveSeries = [];
     private Axis[] _falsePositiveXAxes = [];
     private Axis[] _falsePositiveYAxes = [];
@@ -180,12 +183,14 @@ public partial class ReportPageModel : BaseViewModel
     private bool _isLoading;
     private bool _dataLoaded;
     private string _selectedRelationship = AllRelationships;
-
+    private readonly IHeatmapQuery _heatmapQuery;
+    private readonly IFalsePositiveQuery _falsePositiveQuery;
+    private readonly IScanDisplayNameProvider _scanNameProvider; // if not already present
     public ReportPageModel(
         ModalErrorHandler errorHandler,
         IMediator mediator,
         BenchmarkReportService benchmarkService,
-        IDbContextFactory<ApplicationDbContext> contextFactory)
+        IDbContextFactory<ApplicationDbContext> contextFactory, IHeatmapQuery heatmapQuery, IFalsePositiveQuery falsePositiveQuery)
     {
         _errorHandler = errorHandler ??
             throw new ArgumentNullException(nameof(errorHandler));
@@ -195,6 +200,8 @@ public partial class ReportPageModel : BaseViewModel
             throw new ArgumentNullException(nameof(benchmarkService));
         _contextFactory = contextFactory ??
             throw new ArgumentNullException(nameof(contextFactory));
+        _heatmapQuery = heatmapQuery ?? throw new ArgumentNullException(nameof(heatmapQuery));
+        _falsePositiveQuery = falsePositiveQuery;
     }
 
     public event EventHandler? ReportDataLoaded;
@@ -402,13 +409,17 @@ public partial class ReportPageModel : BaseViewModel
     public string SelectedRelationship
     {
         get => _selectedRelationship;
+
         set
         {
-            var normalized = string.IsNullOrWhiteSpace(value)
-                ? AllRelationships
-                : value;
+            var normalized =
+                string.IsNullOrWhiteSpace(value)
+                    ? AllRelationships
+                    : value;
 
-            if (!SetProperty(ref _selectedRelationship, normalized))
+            if (!SetProperty(
+                    ref _selectedRelationship,
+                    normalized))
             {
                 return;
             }
@@ -421,15 +432,21 @@ public partial class ReportPageModel : BaseViewModel
     }
 
     public List<string> AvailableRelationships =>
-    [
-        AllRelationships,
-        .. RelatedSeries
-            .SelectMany(series => series.Items)
-            .Select(item => item.Relationship)
-            .Where(relationship => !string.IsNullOrWhiteSpace(relationship))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(relationship => relationship, StringComparer.OrdinalIgnoreCase)
-    ];
+ [
+     AllRelationships,
+    ExcludeUnrelatedRelationships,
+
+    .. RelatedSeries
+        .SelectMany(series => series.Items)
+        .Select(item => item.Relationship)
+        .Where(relationship =>
+            !string.IsNullOrWhiteSpace(relationship))
+        .Distinct(
+            StringComparer.OrdinalIgnoreCase)
+        .OrderBy(
+            relationship => relationship,
+            StringComparer.OrdinalIgnoreCase)
+ ];
 
     public async Task InitializeAsync()
     {
@@ -519,8 +536,8 @@ public partial class ReportPageModel : BaseViewModel
                     }));
 
         OnPropertyChanged(
-            nameof(AvailableRelationships));   
-      
+            nameof(AvailableRelationships));
+
 
         var mappedItems = testResult.Items
         .Select(item =>
@@ -738,24 +755,23 @@ public partial class ReportPageModel : BaseViewModel
             var scanDisplayName =
                 GetScanDisplayName(scanId);
 
-            var relationshipCounts =
-     relatedSeries.Items
-         .Where(item =>
-             !string.IsNullOrWhiteSpace(
-                 item.Relationship))
-         .Where(item =>
-             !item.ScannerCweId.HasValue ||
-             !IsExcludedHighVolumeResult(
-                 scanId,
-                 item.ScannerCweId.Value))
-         .GroupBy(
-             item => item.Relationship,
-             StringComparer.OrdinalIgnoreCase)
-         .ToDictionary(
-             group => group.Key,
-             group => group.Sum(
-                 item => item.Count),
-             StringComparer.OrdinalIgnoreCase);
+            var relationshipCounts = relatedSeries.Items
+      .Where(item =>
+          !string.IsNullOrWhiteSpace(
+              item.Relationship))
+      .Where(item =>
+          !IsExcludedHighVolumeUnrelatedResult(
+              scanId,
+              item.ScannerCweId,
+              item.Relationship))
+      .GroupBy(
+          item => item.Relationship,
+          StringComparer.OrdinalIgnoreCase)
+      .ToDictionary(
+          group => group.Key,
+          group => group.Sum(
+              item => item.Count),
+          StringComparer.OrdinalIgnoreCase);
 
 
             var totalCount =
@@ -884,9 +900,9 @@ public partial class ReportPageModel : BaseViewModel
                 chartPoints);
     }
 
-    private void BuildLiveCharts()
+    private async Task BuildLiveCharts()
     {
-        BuildFalsePositiveChart();
+      await  BuildFalsePositiveChart();
         BuildRelatedFindingChart();
         BuildParetoCharts();
         BuildRelationshipMixLiveChart();
@@ -894,110 +910,56 @@ public partial class ReportPageModel : BaseViewModel
         BuildPolarLiveChart();
     }
 
-    private void BuildFalsePositiveChart()
+    private async Task BuildFalsePositiveChart()
     {
-        // Preserve scanner visibility if the chart gets rebuilt.
-        var previousVisibility = FalsePositiveLegendItems
-            .GroupBy(
-                item => item.Name,
-                StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => group.First().IsVisible,
-                StringComparer.OrdinalIgnoreCase);
+        // example: call inside BuildLiveCharts or Initialize
+        var fpDto = await _falsePositiveQuery.GetFalsePositiveChartAsync();
+        var fpResult = fpDto.ToFalsePositiveResult();
 
-        var chartSeries = new List<ISeries>();
+        FalsePositiveSeries = fpResult.Series;
+        FalsePositiveXAxes = fpResult.XAxes;
+        FalsePositiveYAxes = fpResult.YAxes;
 
-        var legendItems =
-            new ObservableCollection<ChartLegendItem>();
+        FalsePositiveLegendItems = new ObservableCollection<ChartLegendItem>(
+      fpResult.LegendInfo.Select((info, idx) =>
+          new ChartLegendItem(
+              fpResult.Series.ElementAtOrDefault(idx) ?? throw new InvalidOperationException($"No series for legend index {idx}"),
+              ToMauiColor(info.Color),
+              info.IsVisible)
+          {
+              // optional init
+          }));
+    }
+    private IEnumerable<RelatedItemsInTest> ApplyRelationshipFilter(
+    IEnumerable<RelatedItemsInTest> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
 
-        var colorIndex = 0;
-
-        foreach (var dataSeries in AggregatedSeries
-                     .OrderBy(series => series.ScanId))
+        if (string.Equals(
+                SelectedRelationship,
+                AllRelationships,
+                StringComparison.OrdinalIgnoreCase))
         {
-            if (dataSeries.Items.Count == 0)
-            {
-                continue;
-            }
-
-            var color =
-                GetChartColor(colorIndex++);
-
-            var seriesName =
-                GetScanDisplayName(dataSeries.ScanId);
-
-            var isVisible =
-                !previousVisibility.TryGetValue(
-                    seriesName,
-                    out var previousValue) ||
-                previousValue;
-
-            var series =
-                new ScatterSeries<ObservablePoint>
-                {
-                    Name = seriesName,
-
-                    Values = dataSeries.Items
-                        .Select(item =>
-                            new ObservablePoint(
-                                item.CweId,
-                                item.Count))
-                        .ToArray(),
-
-                    IsVisible = isVisible,
-
-                    IsVisibleAtLegend = true,
-
-                    GeometrySize = 12,
-
-                    Fill =
-                        new SolidColorPaint(color),
-
-                    Stroke =
-                        new SolidColorPaint(color)
-                        {
-                            StrokeThickness = 1
-                        },
-
-                    YToolTipLabelFormatter =
-                        point =>
-                            $"Scan: {seriesName}" +
-                            $"{Environment.NewLine}" +
-                            $"CWE: " +
-                            $"{point.Coordinate.SecondaryValue:F0}" +
-                            $"{Environment.NewLine}" +
-                            $"Count: " +
-                            $"{point.Coordinate.PrimaryValue:F0}"
-                };
-
-            chartSeries.Add(series);
-
-            legendItems.Add(
-                new ChartLegendItem(
-                    series,
-                    ToMauiColor(color),
-                    isVisible));
+            return source;
         }
 
-        FalsePositiveSeries =
-            chartSeries.ToArray();
+        if (string.Equals(
+                SelectedRelationship,
+                ExcludeUnrelatedRelationships,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return source.Where(item =>
+                !string.Equals(
+                    item.Relationship,
+                    nameof(CweRelationshipKind.Unrelated),
+                    StringComparison.OrdinalIgnoreCase));
+        }
 
-        FalsePositiveLegendItems =
-            legendItems;
-
-        FalsePositiveXAxes =
-        [
-            CreateNumericAxis(
-            "Scanner CWE")
-        ];
-
-        FalsePositiveYAxes =
-        [
-            CreateNumericAxis(
-            "Finding Count",
-            0)
-        ];
+        return source.Where(item =>
+            string.Equals(
+                item.Relationship,
+                SelectedRelationship,
+                StringComparison.OrdinalIgnoreCase));
     }
 
     private void BuildRelatedFindingChart()
@@ -1021,17 +983,10 @@ public partial class ReportPageModel : BaseViewModel
         foreach (var dataSeries in RelatedSeries
                      .OrderBy(series => series.ScanId))
         {
-            var filteredItems = string.Equals(
-                SelectedRelationship,
-                AllRelationships,
-                StringComparison.OrdinalIgnoreCase)
-                    ? dataSeries.Items
-                    : dataSeries.Items
-                        .Where(item => string.Equals(
-                            item.Relationship,
-                            SelectedRelationship,
-                            StringComparison.OrdinalIgnoreCase))
-                        .ToList();
+            var filteredItems =
+      ApplyRelationshipFilter(
+              dataSeries.Items)
+          .ToList();
 
             /*
              * Keep the scanner series visible.
@@ -1040,12 +995,13 @@ public partial class ReportPageModel : BaseViewModel
              * that scanner/CWE count exceeds the configured threshold.
              */
             var plottableItems = filteredItems
-                .Where(item =>
-                    item.ScannerCweId.HasValue &&
-                    !IsExcludedHighVolumeResult(
-                        dataSeries.ScanId,
-                        item.ScannerCweId.Value))
-                .ToList();
+     .Where(item =>
+         item.ScannerCweId.HasValue &&
+         !IsExcludedHighVolumeUnrelatedResult(
+             dataSeries.ScanId,
+             item.ScannerCweId,
+             item.Relationship))
+     .ToList();
 
             if (plottableItems.Count == 0)
             {
@@ -2364,325 +2320,6 @@ public partial class ReportPageModel : BaseViewModel
         }
         ];
     }
-    private void BuildScannerCweHeatmap(
-    IEnumerable<ScannerFalseNegativeDto> data)
-    {
-        ArgumentNullException.ThrowIfNull(data);
-
-        var source = data
-            .Where(item => item.Opportunities > 0)
-            .ToList();
-
-        if (source.Count == 0)
-        {
-            ScannerCweHeatmapData = [];
-            ScannerCweHeatmapSeries = [];
-            ScannerCweHeatmapXAxes = [];
-            ScannerCweHeatmapYAxes = [];
-            HasScannerCweHeatmapData = false;
-
-            return;
-        }
-
-        /*
-         * A scan is treated as one scanner result set.
-         *
-         * Sorting by display name keeps the axis stable between
-         * reloads when scan IDs are not sequential.
-         */
-        var scans = source
-            .Select(item => item.ScanId)
-            .Distinct()
-            .Select(scanId => new
-            {
-                ScanId = scanId,
-                ScanName = GetScanDisplayName(scanId)
-            })
-            .OrderBy(
-                item => item.ScanName,
-                StringComparer.OrdinalIgnoreCase)
-            .ThenBy(item => item.ScanId)
-            .ToList();
-
-        /*
-         * Order CWEs numerically. This makes it easier to compare
-         * the heatmap with the ground-truth CWE values shown by
-         * the other charts.
-         */
-        var cwes = source
-            .GroupBy(item => item.CweId)
-            .Select(group => new
-            {
-                CweId = group.Key,
-
-                CweName = group
-                    .Select(item => item.CweName)
-                    .FirstOrDefault(name =>
-                        !string.IsNullOrWhiteSpace(name))
-                    ?? $"CWE-{group.Key}"
-            })
-            .OrderBy(item => item.CweId)
-            .ToList();
-
-        var scanIndexById = scans
-            .Select((scan, index) => new
-            {
-                scan.ScanId,
-                Index = index
-            })
-            .ToDictionary(
-                item => item.ScanId,
-                item => item.Index);
-
-        var cweIndexById = cwes
-            .Select((cwe, index) => new
-            {
-                cwe.CweId,
-                Index = index
-            })
-            .ToDictionary(
-                item => item.CweId,
-                item => item.Index);
-
-        /*
-         * Aggregate first because BenchmarkReportService may
-         * return more than one row for a ScanId/CWE combination.
-         */
-        var cells = source
-            .GroupBy(item => new
-            {
-                item.ScanId,
-                item.CweId
-            })
-            .Select(group =>
-            {
-                var opportunities = group.Sum(
-                    item => item.Opportunities);
-
-                var detected = group.Sum(
-                    item => item.Detected);
-
-                var falseNegatives = group.Sum(
-                    item => item.FalseNegatives);
-
-                var detectionRate = opportunities <= 0
-                    ? 0
-                    : detected * 100.0 / opportunities;
-
-                var cweName = group
-                    .Select(item => item.CweName)
-                    .FirstOrDefault(name =>
-                        !string.IsNullOrWhiteSpace(name))
-                    ?? $"CWE-{group.Key.CweId}";
-
-                return new CweScannerHeatmapPoint
-                {
-                    ScanId =
-                        group.Key.ScanId,
-
-                    ScanName =
-                        GetScanDisplayName(
-                            group.Key.ScanId),
-
-                    ScannerIndex =
-                        scanIndexById[
-                            group.Key.ScanId],
-
-                    CweIndex =
-                        cweIndexById[
-                            group.Key.CweId],
-
-                    CweId =
-                        group.Key.CweId,
-
-                    CweName =
-                        cweName,
-
-                    Opportunities =
-                        opportunities,
-
-                    Detected =
-                        detected,
-
-                    FalseNegatives =
-                        falseNegatives,
-
-                    DetectionRate =
-                        Math.Clamp(
-                            detectionRate,
-                            0,
-                            100)
-                };
-            })
-            .OrderBy(item => item.CweIndex)
-            .ThenBy(item => item.ScannerIndex)
-            .ToList();
-
-        ScannerCweHeatmapData =
-            new ObservableCollection<CweScannerHeatmapPoint>(
-                cells);
-
-        var cellLookup = cells.ToDictionary(
-            cell => CoordinateKey(
-                cell.ScannerIndex,
-                cell.CweIndex));
-
-        var heatmapValues = cells
-            .Select(cell => new WeightedPoint(
-                cell.ScannerIndex,
-                cell.CweIndex,
-                cell.DetectionRate))
-            .ToArray();
-
-        ScannerCweHeatmapSeries =
-        [
-            new HeatSeries<WeightedPoint>
-        {
-            Name = "Juliet detection rate",
-
-            Values = heatmapValues,
-
-            /*
-             * Low coverage is red, medium coverage is yellow,
-             * and high coverage is green.
-             */
-           HeatMap =
-[
-    new LvcColor(198, 40, 40),
-    new LvcColor(239, 108, 0),
-    new LvcColor(253, 216, 53),
-    new LvcColor(124, 179, 66),
-    new LvcColor(27, 94, 32)
-],
-
-
-        
-
-            YToolTipLabelFormatter = point =>
-            {
-                var scannerIndex = Convert.ToInt32(
-                    Math.Round(
-                        point.Coordinate.SecondaryValue));
-
-                var cweIndex = Convert.ToInt32(
-                    Math.Round(
-                        point.Coordinate.PrimaryValue));
-
-                var key = CoordinateKey(
-                    scannerIndex,
-                    cweIndex);
-
-                if (!cellLookup.TryGetValue(
-                        key,
-                        out var item))
-                {
-                    return "No benchmark data";
-                }
-
-                return
-                    $"Scanner: {item.ScanName}" +
-                    $"{Environment.NewLine}" +
-                    $"Ground truth: CWE-{item.CweId}" +
-                    $"{Environment.NewLine}" +
-                    $"CWE name: {item.CweName}" +
-                    $"{Environment.NewLine}" +
-                    $"Opportunities: {item.Opportunities:N0}" +
-                    $"{Environment.NewLine}" +
-                    $"Detected: {item.Detected:N0}" +
-                    $"{Environment.NewLine}" +
-                    $"False negatives: " +
-                    $"{item.FalseNegatives:N0}" +
-                    $"{Environment.NewLine}" +
-                    $"Detection rate: " +
-                    $"{item.DetectionRate:F2}%";
-            }
-        }
-        ];
-
-        ScannerCweHeatmapXAxes =
-        [
-            new Axis
-        {
-            Name = "Scanner / Scan",
-
-            Labels = scans
-                .Select(item => item.ScanName)
-                .ToArray(),
-
-            MinLimit = -0.5,
-
-            MaxLimit = scans.Count - 0.5,
-
-            MinStep = 1,
-
-            ForceStepToMin = true,
-
-            LabelsRotation = -45,
-
-            LabelsPaint =
-                CreateTextPaint(),
-
-            NamePaint =
-                CreateTextPaint(),
-
-            SeparatorsPaint =
-                new SolidColorPaint(
-                    new SKColor(
-                        225,
-                        225,
-                        225))
-                {
-                    StrokeThickness = 1
-                },
-
-            Padding =
-                new LiveChartsCore.Drawing.Padding(8)
-        }
-        ];
-
-        ScannerCweHeatmapYAxes =
-        [
-            new Axis
-        {
-            Name = "Juliet Ground-Truth CWE",
-
-            Labels = cwes
-                .Select(item =>
-                    $"CWE-{item.CweId}")
-                .ToArray(),
-
-            MinLimit = -0.5,
-
-            MaxLimit = cwes.Count - 0.5,
-
-            MinStep = 1,
-
-            ForceStepToMin = true,
-
-            LabelsPaint =
-                CreateTextPaint(),
-
-            NamePaint =
-                CreateTextPaint(),
-
-            SeparatorsPaint =
-                new SolidColorPaint(
-                    new SKColor(
-                        225,
-                        225,
-                        225))
-                {
-                    StrokeThickness = 1
-                },
-
-            Padding =
-                new LiveChartsCore.Drawing.Padding(8)
-        }
-        ];
-
-        HasScannerCweHeatmapData =
-            cells.Count > 0;
-    }
 
     private static readonly CweTop25Definition[] MitreCweTop25 =
 [
@@ -3064,8 +2701,8 @@ new(1, 79, "Cross-site Scripting"),
             chartSeries.Count > 0;
     }
 
-    
-    
+
+
     public async Task ForceReloadAsync()
     {
         if (IsLoading)
@@ -3173,10 +2810,17 @@ new(1, 79, "Cross-site Scripting"),
             BuildFalseNegativePareto(falseNegatives);
 
             BuildMitreTop25Chart(falseNegatives);
-            
-            BuildScannerCweHeatmap(falseNegatives);
 
-            BuildLiveCharts();
+            var heatmapDto = await _heatmapQuery.GetHeatmapAsync();
+            var heatmapResult = heatmapDto.ToHeatmapResult(); // uses mapper above
+
+            ScannerCweHeatmapData = heatmapResult.Data;
+            ScannerCweHeatmapSeries = heatmapResult.Series;
+            ScannerCweHeatmapXAxes = heatmapResult.XAxes;
+            ScannerCweHeatmapYAxes = heatmapResult.YAxes;
+            HasScannerCweHeatmapData = heatmapResult.HasData;
+
+         await   BuildLiveCharts();
 
 
             _dataLoaded = true;
@@ -3195,48 +2839,6 @@ new(1, 79, "Cross-site Scripting"),
         }
     }
 
-    [RelayCommand]
-    private async Task ExportAsync()
-    {
-        if (IsLoading)
-        {
-            return;
-        }
-
-        IsLoading = true;
-
-        try
-        {
-            using var workbook = new XLWorkbook();
-
-            AddResultsWorksheet(workbook);
-            AddRelationshipsWorksheet(workbook);
-            AddAggregatedWorksheet(workbook);
-            AddFalseNegativesWorksheet(workbook);
-            AddSummaryWorksheet(workbook);
-
-            var filePath = Path.Combine(
-                FileSystem.CacheDirectory,
-                $"CWE_Report_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
-
-            workbook.SaveAs(filePath);
-
-            await Share.Default.RequestAsync(
-                new ShareFileRequest
-                {
-                    Title = "CWE Benchmark Report",
-                    File = new ShareFile(filePath)
-                });
-        }
-        catch (Exception exception)
-        {
-            _errorHandler.HandleError(exception);
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
 
     [RelayCommand]
     private void ShowAllRelationshipMixSeries()
@@ -3277,195 +2879,6 @@ new(1, 79, "Cross-site Scripting"),
             legendItem.SetVisibility(isVisible);
         }
     }
-    private void AddResultsWorksheet(XLWorkbook workbook)
-    {
-        var worksheet = workbook.Worksheets.Add("Results");
-
-        worksheet.Cell(1, 1).Value = "Ground Truth CWE";
-        worksheet.Cell(1, 2).Value = "Scanner CWE";
-        worksheet.Cell(1, 3).Value = "Scan Name";
-        worksheet.Cell(1, 4).Value = "Scan Id";
-        worksheet.Cell(1, 5).Value = "Error Value";
-        ApplyHeaderStyle(worksheet.Range(1, 1, 1, 5));
-
-        var row = 2;
-
-        foreach (var item in Items)
-        {
-            worksheet.Cell(row, 1).Value = item.GroundTruthCwe;
-            worksheet.Cell(row, 2).Value = item.ScannerFoundCWE;
-            worksheet.Cell(row, 3).Value = GetScanName(item.ScanId);
-            worksheet.Cell(row, 4).Value = item.ScanId;
-            worksheet.Cell(row, 5).Value = item.ErrorValue;
-            row++;
-        }
-
-        CreateTableIfDataExists(worksheet, "ResultsTable", row - 1, 5);
-        worksheet.SheetView.FreezeRows(1);
-        worksheet.Columns().AdjustToContents();
-    }
-
-    private void AddRelationshipsWorksheet(XLWorkbook workbook)
-    {
-        var worksheet = workbook.Worksheets.Add("Relationships");
-
-        worksheet.Cell(1, 1).Value = "Scan Name";
-        worksheet.Cell(1, 2).Value = "Scan Id";
-        worksheet.Cell(1, 3).Value = "Ground Truth CWE";
-        worksheet.Cell(1, 4).Value = "Scanner CWE";
-        worksheet.Cell(1, 5).Value = "Relationship";
-        worksheet.Cell(1, 6).Value = "Score";
-        worksheet.Cell(1, 7).Value = "Count";
-        ApplyHeaderStyle(worksheet.Range(1, 1, 1, 7));
-
-        var row = 2;
-
-        foreach (var series in RelatedSeries)
-        {
-            foreach (var item in series.Items)
-            {
-                worksheet.Cell(row, 1).Value = series.ScanName;
-                worksheet.Cell(row, 2).Value = series.ScanId;
-                worksheet.Cell(row, 3).Value = item.GroundTruthCweId;
-                worksheet.Cell(row, 4).Value = item.ScannerCweId;
-                worksheet.Cell(row, 5).Value = item.Relationship;
-                worksheet.Cell(row, 6).Value = item.RelationshipScore;
-                worksheet.Cell(row, 7).Value = item.Count;
-                row++;
-            }
-        }
-
-        CreateTableIfDataExists(worksheet, "RelationshipsTable", row - 1, 7);
-        worksheet.SheetView.FreezeRows(1);
-        worksheet.Columns().AdjustToContents();
-    }
-
-    private void AddAggregatedWorksheet(XLWorkbook workbook)
-    {
-        var worksheet = workbook.Worksheets.Add("Aggregated");
-
-        worksheet.Cell(1, 1).Value = "Scan Name";
-        worksheet.Cell(1, 2).Value = "Scan Id";
-        worksheet.Cell(1, 3).Value = "CWE";
-        worksheet.Cell(1, 4).Value = "Count";
-        ApplyHeaderStyle(worksheet.Range(1, 1, 1, 4));
-
-        var row = 2;
-
-        foreach (var series in AggregatedSeries)
-        {
-            foreach (var item in series.Items)
-            {
-                worksheet.Cell(row, 1).Value = series.ScanName;
-                worksheet.Cell(row, 2).Value = series.ScanId;
-                worksheet.Cell(row, 3).Value = item.CweId;
-                worksheet.Cell(row, 4).Value = item.Count;
-                row++;
-            }
-        }
-
-        CreateTableIfDataExists(worksheet, "AggregatedTable", row - 1, 4);
-        worksheet.SheetView.FreezeRows(1);
-        worksheet.Columns().AdjustToContents();
-    }
-
-    private void AddFalseNegativesWorksheet(XLWorkbook workbook)
-    {
-        var worksheet = workbook.Worksheets.Add("False Negatives");
-
-        worksheet.Cell(1, 1).Value = "Scan Name";
-        worksheet.Cell(1, 2).Value = "Scan Id";
-        worksheet.Cell(1, 3).Value = "CWE";
-        worksheet.Cell(1, 4).Value = "CWE Name";
-        worksheet.Cell(1, 5).Value = "Known Opportunities";
-        worksheet.Cell(1, 6).Value = "Detected";
-        worksheet.Cell(1, 7).Value = "False Negatives";
-        worksheet.Cell(1, 8).Value = "Cumulative Percent";
-        ApplyHeaderStyle(worksheet.Range(1, 1, 1, 8));
-
-        var row = 2;
-
-        foreach (var series in FalseNegativeParetoSeries)
-        {
-            foreach (var item in series.Items)
-            {
-                worksheet.Cell(row, 1).Value = series.ScanName;
-                worksheet.Cell(row, 2).Value = series.ScanId;
-                worksheet.Cell(row, 3).Value = item.CweLabel;
-                worksheet.Cell(row, 4).Value = item.CweName;
-                worksheet.Cell(row, 5).Value = item.Opportunities;
-                worksheet.Cell(row, 6).Value = item.Detected;
-                worksheet.Cell(row, 7).Value = item.FalseNegatives;
-                worksheet.Cell(row, 8).Value = item.CumulativePercent / 100.0;
-                row++;
-            }
-        }
-
-        if (row > 2)
-        {
-            worksheet.Range(2, 8, row - 1, 8)
-                .Style.NumberFormat.Format = "0.00%";
-        }
-
-        CreateTableIfDataExists(
-            worksheet,
-            "FalseNegativesTable",
-            row - 1,
-            8);
-
-        worksheet.SheetView.FreezeRows(1);
-        worksheet.Columns().AdjustToContents();
-    }
-
-    private void AddSummaryWorksheet(XLWorkbook workbook)
-    {
-        var worksheet = workbook.Worksheets.Add("Summary");
-
-        worksheet.Cell(1, 1).Value = "Metric";
-        worksheet.Cell(1, 2).Value = "Value";
-        ApplyHeaderStyle(worksheet.Range(1, 1, 1, 2));
-
-        worksheet.Cell(2, 1).Value = "Total Results";
-        worksheet.Cell(2, 2).Value = Items.Count;
-        worksheet.Cell(3, 1).Value = "Scan Series";
-        worksheet.Cell(3, 2).Value = TestSeries.Count;
-        worksheet.Cell(4, 1).Value = "Relationship Series";
-        worksheet.Cell(4, 2).Value = RelatedSeries.Count;
-        worksheet.Cell(5, 1).Value = "Aggregated Series";
-        worksheet.Cell(5, 2).Value = AggregatedSeries.Count;
-        worksheet.Cell(6, 1).Value = "Saved Relationship Rows";
-        worksheet.Cell(6, 2).Value = RelatedSeries.Sum(series => series.Items.Count);
-        worksheet.Cell(7, 1).Value = "Scanners With False Negatives";
-        worksheet.Cell(7, 2).Value = FalseNegativeParetoSeries.Count;
-        worksheet.Cell(8, 1).Value = "Displayed False Negatives";
-        worksheet.Cell(8, 2).Value = FalseNegativeParetoSeries
-            .SelectMany(series => series.Items)
-            .Sum(item => item.FalseNegatives);
-
-        worksheet.Columns().AdjustToContents();
-    }
-
-    private static void ApplyHeaderStyle(IXLRange headerRange)
-    {
-        headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
-    }
-
-    private static void CreateTableIfDataExists(
-        IXLWorksheet worksheet,
-        string tableName,
-        int lastRow,
-        int lastColumn)
-    {
-        if (lastRow < 2)
-        {
-            return;
-        }
-
-        worksheet.Range(1, 1, lastRow, lastColumn)
-            .CreateTable(tableName);
-    }
-
     private async Task LoadScanNamesAsync(
         CancellationToken cancellationToken)
     {
@@ -3571,8 +2984,8 @@ new(1, 79, "Cross-site Scripting"),
          */
     }
     private bool IsExcludedHighVolumeResult(
-    int scanId,
-    int scannerCweId)
+     int scanId,
+     int scannerCweId)
     {
         /*
          * Global page switch.
@@ -3584,24 +2997,52 @@ new(1, 79, "Cross-site Scripting"),
             return false;
         }
 
-        var scanSeries = AggregatedSeries.FirstOrDefault(
-            series => series.ScanId == scanId);
+        /*
+         * Count only Unrelated findings for this exact
+         * ScanId + ScannerCweId combination.
+         *
+         * Do not use AggregatedSeries here because it combines
+         * all relationship types into one count.
+         */
+        var unrelatedCount = RelatedSeries
+            .Where(series =>
+                series.ScanId == scanId)
+            .SelectMany(series =>
+                series.Items)
+            .Where(item =>
+                item.ScannerCweId == scannerCweId &&
+                string.Equals(
+                    item.Relationship,
+                    nameof(CweRelationshipKind.Unrelated),
+                    StringComparison.OrdinalIgnoreCase))
+            .Sum(item =>
+                item.Count);
 
-        if (scanSeries is null)
+        return unrelatedCount >
+               HighFalsePositiveThreshold;
+    }
+    private bool IsExcludedHighVolumeUnrelatedResult(
+    int scanId,
+    int? scannerCweId,
+    string? relationship)
+    {
+        if (!scannerCweId.HasValue)
         {
             return false;
         }
 
-        var resultCount = scanSeries.Items
-            .Where(item =>
-                item.CweId == scannerCweId)
-            .Sum(item =>
-                item.Count);
+        if (!string.Equals(
+                relationship,
+                nameof(CweRelationshipKind.Unrelated),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
 
-        return resultCount >
-               HighFalsePositiveThreshold;
+        return IsExcludedHighVolumeResult(
+            scanId,
+            scannerCweId.Value);
     }
-    
 
 
 

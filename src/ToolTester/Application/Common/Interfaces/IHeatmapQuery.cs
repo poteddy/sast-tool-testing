@@ -1,0 +1,16 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+using ToolTester.Application.Reports.DTO;
+
+namespace ToolTester.Application.Common.Interfaces
+{
+    public interface IHeatmapQuery
+    {
+        Task<HeatmapDto> GetHeatmapAsync(CancellationToken cancellationToken = default);
+    }
+    public interface IScanDisplayNameProvider
+    {
+        string GetDisplayName(int scanId);
+    }
+}
