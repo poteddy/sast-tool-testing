@@ -6,14 +6,9 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
-using MediatR;
-using Microsoft.EntityFrameworkCore;
 using SkiaSharp;
 using System.Collections.ObjectModel;
 using ToolTester.Application.Common.Interfaces;
-using ToolTester.Application.CWETestResultBases.Queries;
-using ToolTester.Application.Reports.Quiries;
-using ToolTester.Infrastructure.Persistance;
 using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Models.Charts;
@@ -2640,9 +2635,9 @@ new(1, 79, "Cross-site Scripting"),
             await Task.Yield();
             await LoadItemsAsync();
 
-         
 
-         await   BuildLiveCharts();
+
+            await BuildLiveCharts();
 
 
             _dataLoaded = true;
@@ -2701,7 +2696,7 @@ new(1, 79, "Cross-site Scripting"),
             legendItem.SetVisibility(isVisible);
         }
     }
-   
+
     private string GetScanName(int scanId)
     {
         return _scanNames.TryGetValue(scanId, out var scanName)

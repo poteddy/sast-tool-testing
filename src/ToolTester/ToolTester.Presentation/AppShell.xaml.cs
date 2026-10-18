@@ -1,6 +1,5 @@
 ﻿using CommunityToolkit.Maui.Alerts;
 using CommunityToolkit.Maui.Core;
-using Microsoft.Graphics.Canvas.Text;
 using Font = Microsoft.Maui.Font;
 
 namespace ToolTester.Presentation

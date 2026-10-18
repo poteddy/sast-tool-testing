@@ -3,7 +3,7 @@
 
     public class CWETestResultBase
     {
-        public int Id { get; set; }      
+        public int Id { get; set; }
 
         public int ScanId { get; set; }
 

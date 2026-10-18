@@ -4,10 +4,10 @@ using ToolTester.Infrastructure.Persistance;
 
 namespace ToolTester.Infrastructure.Services
 {
-    public sealed class CweRelationshipService:ICweRelationshipService
+    public sealed class CweRelationshipService : ICweRelationshipService
     {
         private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
-        
+
 
         private readonly ISemanticRuleProvider
         _semanticRuleProvider;
@@ -81,7 +81,7 @@ namespace ToolTester.Infrastructure.Services
         scannerCweId,
         groundTruthCweId,
         scannerRuleId,
-        programmingLanguage,CancellationToken.None);
+        programmingLanguage, CancellationToken.None);
 
             if (semanticResult is not null)
             {

@@ -114,7 +114,7 @@ public sealed partial class Parser : IParser
           , filePath: NormalizePath(primary?.FileName)
           , line: primary?.Line
           , references: ""
-          
+
           );
 
         newresult.Cve = TryExtractCve(description) ?? TryExtractCve(result.Label);
@@ -123,7 +123,7 @@ public sealed partial class Parser : IParser
         newresult.Date = DateTime.Parse(sinceDate.Value.ToUniversalTime().ToString());
 
         return newresult;
-      
+
     }
 
     private static string BuildDescription(CheckmarxResult result, IReadOnlyList<CheckmarxNode> nodes)

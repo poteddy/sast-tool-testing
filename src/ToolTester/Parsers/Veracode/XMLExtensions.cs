@@ -2,7 +2,7 @@
 {
     public class XMLExtensions
     {
-      
+
         public static async Task<detailedreport> ReadXMLAsync(Stream fs)
         {
 

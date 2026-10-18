@@ -1,15 +1,10 @@
 ﻿using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
 using ToolTester.Domain.Entities;
 
 namespace ToolTester.Application.CWECatalogs.DTO
 {
-    public class CWECatalogDTO:IMapFrom<CWECatalog>
+    public class CWECatalogDTO : IMapFrom<CWECatalog>
     {
         public void Mapping(Profile profile)
         {

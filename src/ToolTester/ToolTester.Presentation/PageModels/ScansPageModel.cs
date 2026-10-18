@@ -1,9 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Input;
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Domain.Entities;
 using ToolTester.Presentation.Models;

@@ -1,4 +1,3 @@
-using Microsoft.Maui.Controls;
 using ToolTester.Presentation.PageModels;
 
 namespace ToolTester.Presentation.Pages

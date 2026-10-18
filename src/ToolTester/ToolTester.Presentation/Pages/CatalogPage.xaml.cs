@@ -12,7 +12,7 @@ public partial class CatalogPage : ContentPage
         InitializeComponent();
 
         BindingContext = catalogPageModel;
-   
+
     }
-   
+
 }

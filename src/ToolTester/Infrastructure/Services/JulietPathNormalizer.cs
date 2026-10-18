@@ -1,6 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using ToolTester.Application.Common.Interfaces;
 
 namespace ToolTester.Infrastructure.Services;

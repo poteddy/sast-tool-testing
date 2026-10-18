@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json;
-using System.Data;
 using System.Text.RegularExpressions;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
@@ -72,7 +71,7 @@ namespace ToolTester.Parsers.SemGrep
                             line: run.start.line,
                             references: extra.metadata.references.FirstOrDefault());
 
-                        finding.Cwe = reportedCwe;                    
+                        finding.Cwe = reportedCwe;
 
                         items.Add(finding);
                     }

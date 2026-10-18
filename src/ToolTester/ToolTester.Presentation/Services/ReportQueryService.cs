@@ -1,14 +1,8 @@
 ﻿using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.CWETestResultBases.Queries;
 using ToolTester.Application.Reports.Quiries;
 using ToolTester.Presentation.Models;
-using ToolTester.Presentation.Models.Reports;
 using ToolTester.Presentation.PageModels;
 
 namespace ToolTester.Presentation.Services

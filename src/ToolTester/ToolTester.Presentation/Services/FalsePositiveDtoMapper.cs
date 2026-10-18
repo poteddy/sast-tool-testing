@@ -7,9 +7,9 @@ using SkiaSharp;
 namespace ToolTester.Presentation.Services
 {
     public static class FalsePositiveDtoMapper
+    {
+        private static readonly SKColor[] Palette = new[]
         {
-            private static readonly SKColor[] Palette = new[]
-            {
             new SKColor(70,130,180),
             new SKColor(34,139,34),
             new SKColor(255,140,0),
@@ -20,50 +20,50 @@ namespace ToolTester.Presentation.Services
             new SKColor(255,20,147)
         };
 
-            public static FalsePositiveResult ToFalsePositiveResult(this FalsePositiveChartDto dto)
+        public static FalsePositiveResult ToFalsePositiveResult(this FalsePositiveChartDto dto)
+        {
+            var result = new FalsePositiveResult();
+            if (dto == null || dto.Series == null || dto.Series.Count == 0)
+                return result;
+
+            var chartSeries = new List<ISeries>();
+            var legendInfo = new List<(string Name, SKColor Color, bool IsVisible)>();
+            var colorIndex = 0;
+
+            foreach (var series in dto.Series.OrderBy(s => s.ScanId))
             {
-                var result = new FalsePositiveResult();
-                if (dto == null || dto.Series == null || dto.Series.Count == 0)
-                    return result;
+                if (series.Points == null || series.Points.Count == 0)
+                    continue;
 
-                var chartSeries = new List<ISeries>();
-                var legendInfo = new List<(string Name, SKColor Color, bool IsVisible)>();
-                var colorIndex = 0;
+                var color = Palette[(colorIndex++) % Palette.Length];
+                var name = series.ScanName ?? $"Scan {series.ScanId}";
 
-                foreach (var series in dto.Series.OrderBy(s => s.ScanId))
+                var values = series.Points
+                    .Select(p => new ObservablePoint(p.CweId, p.Count))
+                    .ToArray();
+
+                var sc = new ScatterSeries<ObservablePoint>
                 {
-                    if (series.Points == null || series.Points.Count == 0)
-                        continue;
+                    Name = name,
+                    Values = values,
+                    IsVisible = true,
+                    IsVisibleAtLegend = true,
+                    GeometrySize = 12,
+                    Fill = new SolidColorPaint(color),
+                    Stroke = new SolidColorPaint(color) { StrokeThickness = 1 },
+                    YToolTipLabelFormatter = point =>
+                        $"Scan: {name}{Environment.NewLine}CWE: {point.Coordinate.SecondaryValue:F0}{Environment.NewLine}Count: {point.Coordinate.PrimaryValue:F0}"
+                };
 
-                    var color = Palette[(colorIndex++) % Palette.Length];
-                    var name = series.ScanName ?? $"Scan {series.ScanId}";
+                chartSeries.Add(sc);
+                legendInfo.Add((name, color, true));
+            }
 
-                    var values = series.Points
-                        .Select(p => new ObservablePoint(p.CweId, p.Count))
-                        .ToArray();
+            result.Series = chartSeries.ToArray();
+            result.LegendInfo = legendInfo;
 
-                    var sc = new ScatterSeries<ObservablePoint>
-                    {
-                        Name = name,
-                        Values = values,
-                        IsVisible = true,
-                        IsVisibleAtLegend = true,
-                        GeometrySize = 12,
-                        Fill = new SolidColorPaint(color),
-                        Stroke = new SolidColorPaint(color) { StrokeThickness = 1 },
-                        YToolTipLabelFormatter = point =>
-                            $"Scan: {name}{Environment.NewLine}CWE: {point.Coordinate.SecondaryValue:F0}{Environment.NewLine}Count: {point.Coordinate.PrimaryValue:F0}"
-                    };
-
-                    chartSeries.Add(sc);
-                    legendInfo.Add((name, color, true));
-                }
-
-                result.Series = chartSeries.ToArray();
-                result.LegendInfo = legendInfo;
-
-                result.XAxes = new[]
-                {
+            result.XAxes = new[]
+            {
                 new Axis
                 {
                     Name = "Scanner CWE",
@@ -75,8 +75,8 @@ namespace ToolTester.Presentation.Services
                 }
             };
 
-                result.YAxes = new[]
-                {
+            result.YAxes = new[]
+            {
                 new Axis
                 {
                     Name = "Finding Count",
@@ -88,7 +88,7 @@ namespace ToolTester.Presentation.Services
                 }
             };
 
-                return result;
-            }
+            return result;
         }
     }
+}

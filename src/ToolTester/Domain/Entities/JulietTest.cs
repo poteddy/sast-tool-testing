@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ToolTester.Domain.Entities
+﻿namespace ToolTester.Domain.Entities
 {
     public class JulietTest
     {

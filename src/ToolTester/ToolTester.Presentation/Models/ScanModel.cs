@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ToolTester.Presentation.Models
+﻿namespace ToolTester.Presentation.Models
 {
     public class ScanModel
     {

@@ -1,8 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
 using ToolTester.Infrastructure.Persistance;
 namespace ToolTester.Infrastructure.Services
 {
@@ -18,9 +14,9 @@ namespace ToolTester.Infrastructure.Services
         public async Task<List<ScannerFalseNegativeDto>>
         GetFalseNegativesByScannerAsync()
         {
-            var coverage = await _context.JulietCoverages                
+            var coverage = await _context.JulietCoverages
                 .ToListAsync();
-         
+
             var reports = await _context.Reports
                 .ToListAsync();
             var scans = await _context.Reports
@@ -43,9 +39,9 @@ namespace ToolTester.Infrastructure.Services
     r.GroundTruthCweId == cwe.CweId &&
     r.Relationship !=
     CweRelationshipKind.Unrelated.ToString()
-    && 
-    r.Relationship != 
-    CweRelationshipKind.DetectedWithoutCwe.ToString())    
+    &&
+    r.Relationship !=
+    CweRelationshipKind.DetectedWithoutCwe.ToString())
     .Sum(r => r.Count);
                     results.Add(
                         new ScannerFalseNegativeDto
@@ -55,7 +51,7 @@ namespace ToolTester.Infrastructure.Services
                             CweId = cwe.CweId,
 
                             CweName =
-                                
+
                                 $"CWE-{cwe.CweId}",
 
                             Opportunities =
@@ -78,7 +74,7 @@ namespace ToolTester.Infrastructure.Services
     public sealed class ScannerFalseNegativeDto
     {
         public int ScanId { get; set; }
-     
+
         public int CweId { get; set; }
 
         public string CweName { get; set; } = string.Empty;

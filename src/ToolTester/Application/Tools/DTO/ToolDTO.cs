@@ -1,11 +1,5 @@
 ﻿using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
-using ToolTester.Application.Reports.DTO;
 using ToolTester.Domain.Entities;
 
 namespace ToolTester.Application.Tools.DTO

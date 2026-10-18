@@ -4,7 +4,6 @@ using System.Diagnostics;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
 using ToolTester.Application.CweRelationshipEngine;
-using ToolTester.Domain;
 using ToolTester.Domain.Entities;
 using ToolTester.Infrastructure.Extensions;
 using ToolTester.Infrastructure.Persistance;

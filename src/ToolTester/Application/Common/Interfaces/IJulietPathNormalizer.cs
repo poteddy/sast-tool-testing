@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ToolTester.Application.Common.Interfaces;
+﻿namespace ToolTester.Application.Common.Interfaces;
 
 
 public interface IJulietPathNormalizer

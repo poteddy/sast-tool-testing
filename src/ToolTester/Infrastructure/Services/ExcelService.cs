@@ -159,7 +159,7 @@ namespace ToolTester.Infrastructure.Services
         //        return await Result<IEnumerable<TEntity>>.SuccessAsync(list);
         //    }
         //}
-      
+
         public async Task<byte[]> CreateTemplateAsync(IEnumerable<string> fields, string sheetName = "Sheet1")
         {
             throw new NotImplementedException();
@@ -175,6 +175,6 @@ namespace ToolTester.Infrastructure.Services
             throw new NotImplementedException();
         }
 
-      
+
     }
 }

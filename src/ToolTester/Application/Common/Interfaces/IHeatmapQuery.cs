@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using ToolTester.Application.Reports.DTO;
+﻿using ToolTester.Application.Reports.DTO;
 
 namespace ToolTester.Application.Common.Interfaces
 {

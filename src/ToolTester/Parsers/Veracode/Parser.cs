@@ -1,6 +1,4 @@
-﻿using Microsoft.CodeAnalysis.Sarif;
-using System.Text.RegularExpressions;
-using ToolTester.Application.Common.Interfaces;
+﻿using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
 
 namespace ToolTester.Parsers.Veracode
@@ -19,10 +17,10 @@ namespace ToolTester.Parsers.Veracode
                 if (item.category == null) continue;
                 foreach (var cat in item.category)
                 {
-                    
+
                     foreach (var cwe in cat.cwe)
                     {
-                        foreach(var staticflaws in cwe.staticflaws)
+                        foreach (var staticflaws in cwe.staticflaws)
                         {
                             var finding = new CWEs(title: cwe.cwename, test: 3614, numericalSeverity: "100", foundBy: new List<int?>() { 1 }, severity: item.level.ToString(), description: cwe.description.text.ToString(), staticFinding: true, dynamicFinding: false, filePath: staticflaws.sourcefilepath + staticflaws.sourcefile, line: staticflaws.line, references: "");
 
@@ -30,7 +28,7 @@ namespace ToolTester.Parsers.Veracode
 
                             items.Add(finding);
                         }
-                      
+
                     }
 
                 }

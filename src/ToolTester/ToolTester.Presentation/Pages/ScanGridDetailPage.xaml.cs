@@ -2,8 +2,8 @@ namespace ToolTester.Presentation.Pages;
 
 public partial class ScanGridDetailPage : ContentPage
 {
-	public ScanGridDetailPage()
-	{
-		InitializeComponent();
-	}
+    public ScanGridDetailPage()
+    {
+        InitializeComponent();
+    }
 }

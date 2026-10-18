@@ -105,7 +105,7 @@ public sealed partial class Parser : IParser
         result.Cwe = cwe.Value;
         result.Date = DateTime.Parse(sinceDate.Value.ToUniversalTime().ToString());
 
-        return result;                             
+        return result;
     }
 
     private static CppcheckLocation ParseLocation(XElement location) => new(
@@ -252,5 +252,5 @@ public sealed partial class Parser : IParser
         GC.SuppressFinalize(this);
     }
 
-    
+
 }

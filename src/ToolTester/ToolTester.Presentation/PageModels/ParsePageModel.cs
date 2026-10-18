@@ -20,22 +20,22 @@ namespace ToolTester.Presentation.PageModels
         public ObservableCollection<MyButtonDataItem> ButtonItems { get; set; }
         public ICommand ButtonClickedCommand { get; }
 
-        public ParsePageModel(IParsingService parsingService, IReportingService reportingService,IMediator mediator)
+        public ParsePageModel(IParsingService parsingService, IReportingService reportingService, IMediator mediator)
         {
-             _parsingService = parsingService;
+            _parsingService = parsingService;
             _reportingService = reportingService;
             _mediator = mediator;
             ButtonItems = new ObservableCollection<MyButtonDataItem>();
-            ButtonClickedCommand = new AsyncRelayCommand<MyButtonDataItem>( ExecuteButtonClickedCommand);
+            ButtonClickedCommand = new AsyncRelayCommand<MyButtonDataItem>(ExecuteButtonClickedCommand);
 
             var buttonresult = _mediator.Send(new GetToolsWithPaginationQuery()).Result;
             // Populate your list dynamically
             foreach (var tool in buttonresult.Items)
             {
                 ButtonItems.Add(new MyButtonDataItem { ButtonText = tool.Name, CommandParameter = tool.Id });
-                
+
             }
-           
+
             // ... add more items as needed
         }
 
@@ -59,14 +59,14 @@ namespace ToolTester.Presentation.PageModels
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
- 
-     
+
+
         async Task<string> PickAndShowImage()
         {
             var result = await FilePicker.PickAsync(new PickOptions
             {
                 PickerTitle = "Please select an sarif file",
-                
+
             });
 
             if (result != null)

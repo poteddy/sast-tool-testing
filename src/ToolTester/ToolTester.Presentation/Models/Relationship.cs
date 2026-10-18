@@ -5,9 +5,9 @@ using ToolTester.Presentation.Interfaces;
 
 namespace ToolTester.Presentation.Models
 {
-    public partial class Relationship:RelationshipDTO, IFromDto
+    public partial class Relationship : RelationshipDTO, IFromDto
     {
-   
+
 
         #region IFromDto
 

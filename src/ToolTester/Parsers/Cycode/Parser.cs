@@ -230,7 +230,7 @@ public sealed class Parser : IParser
         {
             finding.Cwe = reportedCwe.Value;
         }
-     
+
 
         finding.Mitigation = BuildMitigation(violation);
 

@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Collections.ObjectModel;
-using LiveChartsCore;
+﻿using LiveChartsCore;
 using LiveChartsCore.Defaults;
+using LiveChartsCore.Drawing;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 using ToolTester.Application.Reports.DTO;
-using ToolTester.Presentation.Models.Reports;
 using ToolTester.Presentation.Models.Charts;
-using LiveChartsCore.Drawing;
 namespace ToolTester.Presentation.Services
 {
     // Presentation-only mapper: converts HeatmapDto -> HeatmapResult (LiveCharts types).

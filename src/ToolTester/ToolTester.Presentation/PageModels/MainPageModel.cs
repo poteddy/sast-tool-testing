@@ -1,26 +1,24 @@
 ﻿using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Configuration;
 using ToolTester.Application.Common.Interfaces;
-using ToolTester.Application.Common.Models;
-using ToolTester.Infrastructure.Persistance;
 using ToolTester.Presentation.Services;
 
 namespace ToolTester.Presentation.PageModels
 {
-    public partial class MainPageModel:BaseViewModel
+    public partial class MainPageModel : BaseViewModel
     {
         private readonly IConfiguration _configuration;
-       private readonly IApplicationDbContextSeed _applicationDbContextSeed;
+        private readonly IApplicationDbContextSeed _applicationDbContextSeed;
         private readonly ModalErrorHandler _errorHandler;
         private bool _isNavigatedTo;
         private bool _dataLoaded;
-        public MainPageModel(IConfiguration configuration,IApplicationDbContextSeed applicationDbContextSeed, ModalErrorHandler errorHandler)
+        public MainPageModel(IConfiguration configuration, IApplicationDbContextSeed applicationDbContextSeed, ModalErrorHandler errorHandler)
         {
             _configuration = configuration;
             _applicationDbContextSeed = applicationDbContextSeed;
-           _errorHandler = errorHandler;
+            _errorHandler = errorHandler;
         }
-      
+
         [RelayCommand]
         private void NavigatedTo() =>
          _isNavigatedTo = true;
@@ -49,7 +47,7 @@ namespace ToolTester.Presentation.PageModels
             try
             {
                 IsRefreshing = true;
-              //  await LoadData();
+                //  await LoadData();
             }
             catch (Exception e)
             {
@@ -61,33 +59,33 @@ namespace ToolTester.Presentation.PageModels
             }
         }
         [RelayCommand]
-        private  Task NavigateToRelationshipPage(RelationshipsPage project)
+        private Task NavigateToRelationshipPage(RelationshipsPage project)
         => Shell.Current.GoToAsync("relationships");
         [RelayCommand]
-        private  Task NavigateToCatalogpPage(RelationshipsPage project)
+        private Task NavigateToCatalogpPage(RelationshipsPage project)
         => Shell.Current.GoToAsync("catalog");
 
         [RelayCommand]
-        private  Task NavigateToJulietPage(JulietCoveragePage project)
+        private Task NavigateToJulietPage(JulietCoveragePage project)
         => Shell.Current.GoToAsync("julietproject");
 
         [RelayCommand]
-        private  Task NavigateToParsePage(ParsePage project)
+        private Task NavigateToParsePage(ParsePage project)
         => Shell.Current.GoToAsync("parse");
 
-     [RelayCommand]
-        private  Task NavigateToReportPage(ReportPage project)
-        => Shell.Current.GoToAsync("report");
-    
-     [RelayCommand]
-        private  Task NavigateToRulesPage(SemanticRulesPage project)
-        => Shell.Current.GoToAsync("rules");
-     [RelayCommand]
+        [RelayCommand]
+        private Task NavigateToReportPage(ReportPage project)
+           => Shell.Current.GoToAsync("report");
+
+        [RelayCommand]
+        private Task NavigateToRulesPage(SemanticRulesPage project)
+           => Shell.Current.GoToAsync("rules");
+        [RelayCommand]
         private Task NavigateToScanPage(ScansPage project)
-           => Shell.Current.GoToAsync("scan");
-     [RelayCommand]
+              => Shell.Current.GoToAsync("scan");
+        [RelayCommand]
         private Task NavigateToDetailPage(ScanGridDetailPage project)
-           => Shell.Current.GoToAsync("scanGridDetail");
-    
+              => Shell.Current.GoToAsync("scanGridDetail");
+
     }
 }

@@ -1,5 +1,4 @@
 ﻿using ToolTester.Application.Common.Interfaces;
-using System;
 
 namespace ToolTester.Infrastructure.Services
 {

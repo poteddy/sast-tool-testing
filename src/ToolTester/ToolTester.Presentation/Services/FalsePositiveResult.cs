@@ -3,7 +3,7 @@ using LiveChartsCore.SkiaSharpView;
 using SkiaSharp;
 namespace ToolTester.Presentation.Services
 {
-    
+
     public sealed class FalsePositiveResult
     {
         public ISeries[] Series { get; set; } = System.Array.Empty<ISeries>();

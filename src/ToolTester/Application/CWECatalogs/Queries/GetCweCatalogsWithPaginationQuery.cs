@@ -8,7 +8,7 @@ using ToolTester.Application.CWECatalogs.DTO;
 
 namespace ToolTester.Application.CWECatalogs.Queries
 {
-   
+
 
     public record GetCweCatalogsWithPaginationQuery : IRequest<PaginatedList<CWECatalogDTO>>
     {

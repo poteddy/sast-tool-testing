@@ -4,7 +4,7 @@ namespace ToolTester.Presentation.Pages;
 
 public partial class SemanticRulesPage : ContentPage
 {
-	public SemanticRulesPage(SemanticRulesViewModel SmPageModel)
+    public SemanticRulesPage(SemanticRulesViewModel SmPageModel)
     {
         InitializeComponent();
         BindingContext = SmPageModel;

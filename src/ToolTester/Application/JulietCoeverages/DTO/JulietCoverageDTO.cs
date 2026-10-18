@@ -1,11 +1,5 @@
 ﻿using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
-using ToolTester.Application.CWECatalogs.DTO;
 using ToolTester.Domain.Entities;
 
 namespace ToolTester.Application.JulietCoeverages.DTO

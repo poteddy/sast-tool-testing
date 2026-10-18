@@ -5,8 +5,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using ToolTester.Application.Common.Interfaces;
-using ToolTester.Application.Common.Models;
 
 namespace ToolTester.Parsers.Sarif;
 

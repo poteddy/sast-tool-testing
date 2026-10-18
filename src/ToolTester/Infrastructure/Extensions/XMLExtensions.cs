@@ -1,6 +1,5 @@
 ﻿using System.Xml;
 using System.Xml.Serialization;
-using ToolTester.Infrastructure;
 
 namespace ToolTester.Infrastructure.Extensions
 {

@@ -1,6 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using LiveChartsCore;
 
 namespace ToolTester.Presentation.Models.Charts;

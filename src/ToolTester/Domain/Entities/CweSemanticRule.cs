@@ -2,7 +2,7 @@
 
 namespace ToolTester.Domain.Entities
 {
-    public sealed class CweSemanticRule:IEntity
+    public sealed class CweSemanticRule : IEntity
     {
         public int Id { get; set; }
 

@@ -30,7 +30,7 @@ namespace ToolTester.Presentation
             builder
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
-                .ConfigureSyncfusionToolkit()              
+                .ConfigureSyncfusionToolkit()
                 .UseSkiaSharp()
                 .UseLiveCharts()
                 .ConfigureMauiHandlers(handlers =>
@@ -48,26 +48,26 @@ namespace ToolTester.Presentation
                 });
 
 #if DEBUG
-    		builder.Logging.AddDebug();
-    		builder.Services.AddLogging(configure => configure.AddDebug());
+            builder.Logging.AddDebug();
+            builder.Services.AddLogging(configure => configure.AddDebug());
 #endif
             builder.Services.AddInfrastructureServices()
                .AddApplicationServices()
                .AddPresentationServices();
-           
+
             var app = builder.Build();
             var syncfusionSetting = config.GetRequiredSection("SyncfusionSetting").Get<SyncfusionSetting>();
 
-    
-            
-          
+
+
+
             var context = app.Services.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureCreated();
-          var seed = app.Services.GetRequiredService<IApplicationDbContextSeed>();
+            var seed = app.Services.GetRequiredService<IApplicationDbContextSeed>();
             seed.SeedCWECatalog();
             return app;
         }
-     
+
     }
-    
+
 }

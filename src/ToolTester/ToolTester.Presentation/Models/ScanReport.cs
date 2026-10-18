@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace ToolTester.Presentation.Models
+﻿namespace ToolTester.Presentation.Models
 {
     public class ScanReport
     {

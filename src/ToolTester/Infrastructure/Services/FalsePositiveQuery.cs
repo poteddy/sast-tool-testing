@@ -1,11 +1,5 @@
 ﻿using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Interfaces;
-using ToolTester.Application.Reports;
 using ToolTester.Application.Reports.DTO;
 using ToolTester.Application.Reports.Quiries; // existing query used by ReportPageModel
 

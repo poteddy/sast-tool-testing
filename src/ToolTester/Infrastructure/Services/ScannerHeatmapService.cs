@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using ToolTester.Application.Common.Interfaces;
-using ToolTester.Application.Reports;
+﻿using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Reports.DTO;
 
 namespace ToolTester.Infrastructure.Services

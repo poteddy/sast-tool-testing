@@ -2,13 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.SkiaSharpView.Maui;
-using Syncfusion.Maui.Toolkit.Charts;
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
-using ToolTester.Domain.Entities;
 using ToolTester.Presentation.Models;
 
 namespace ToolTester.Presentation.PageModels

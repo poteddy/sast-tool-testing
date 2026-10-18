@@ -25,18 +25,18 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(
         provider => provider.GetRequiredService<ApplicationDbContext>());
 
-        services.AddSingleton<IJulietPathNormalizer,JulietPathNormalizer>();
+        services.AddSingleton<IJulietPathNormalizer, JulietPathNormalizer>();
         services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>());
         services.AddScoped<IApplicationDbContextSeed, ApplicationDbContextSeed>();
         services.AddTransient<IDateTime, DateTimeService>();
         services.AddTransient<IExcelService, ExcelService>();
         services.AddTransient<IUploadService, UploadService>();
         services.AddScoped<IParsingService, ParsingService>();
-        services.AddScoped<IReportingService,ReportingService>();
-        services.AddScoped<IZipfileService,ZipfileService>();
+        services.AddScoped<IReportingService, ReportingService>();
+        services.AddScoped<IZipfileService, ZipfileService>();
         services.AddScoped<ICweRelationshipService, CweRelationshipService>();
         services.AddScoped<ISemanticRuleProvider, JsonSemanticRuleProvider>();
-        services.AddScoped <ICweTopologyService,CweTopologyService > ();
+        services.AddScoped<ICweTopologyService, CweTopologyService>();
         services.AddScoped<ICweRootCauseResolver, CweRootCauseResolver>();
         services.AddScoped<BenchmarkReportService>();
         services.AddScoped<IScanService, ScanService>();

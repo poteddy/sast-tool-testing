@@ -1,13 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.Input;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
 using MediatR;
 using System.Collections.ObjectModel;
 using ToolTester.Application.JulietCoeverages.Queries;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Services;
 using ToolTester.Presentation.Ulitlities;
-using LiveChartsCore;
-using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.Measure;
 
 namespace ToolTester.Presentation.PageModels
 {

@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.IO.Compression;
-using System.Linq;
+﻿using System.IO.Compression;
 using System.Text.RegularExpressions;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;

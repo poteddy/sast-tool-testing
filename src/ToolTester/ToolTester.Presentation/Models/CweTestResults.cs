@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using ToolTester.Application.CWETestResultBases.DTO;
-using ToolTester.Application.JulietCoeverages.DTO;
-using ToolTester.Application.Reports.DTO;
 using ToolTester.Presentation.Interfaces;
 
 namespace ToolTester.Presentation.Models
@@ -80,8 +73,8 @@ namespace ToolTester.Presentation.Models
     }
     public class CweTestResults : CweTestResultBaseDTO, IFromDto
     {
-        
-        public double ErrorValue {  get; set; }
+
+        public double ErrorValue { get; set; }
 
 
         #region IFromDto

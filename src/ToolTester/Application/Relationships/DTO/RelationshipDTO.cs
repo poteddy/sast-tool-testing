@@ -1,10 +1,5 @@
 ﻿
 using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ToolTester.Application.Common.Mapping;
 using ToolTester.Domain.Entities;
 
@@ -35,7 +30,7 @@ namespace ToolTester.Application.Relationships.DTO
         public bool OrderSpecified { get; set; }
 
         public string? ChainId { get; set; }
-   
+
 
     }
 }

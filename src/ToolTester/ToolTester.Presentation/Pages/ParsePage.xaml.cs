@@ -4,11 +4,11 @@ namespace ToolTester.Presentation.Pages;
 
 public partial class ParsePage : ContentPage
 {
-	public ParsePage(ParsePageModel parsePageModel)
-	{
-		InitializeComponent();
+    public ParsePage(ParsePageModel parsePageModel)
+    {
+        InitializeComponent();
         BindingContext = parsePageModel;
 
     }
-   
+
 }

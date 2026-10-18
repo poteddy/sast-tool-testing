@@ -12,7 +12,7 @@ public partial class BaseViewModel : ObservableObject
     [ObservableProperty]
     string title;
 
- 
+
     [ObservableProperty]
     bool _isRefreshing;
 }

@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace ToolTester.Application.Reports.DTO
+﻿namespace ToolTester.Application.Reports.DTO
 {
     public sealed class HeatmapCellDto
     {

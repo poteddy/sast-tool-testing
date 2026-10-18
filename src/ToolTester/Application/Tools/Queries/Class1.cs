@@ -9,7 +9,7 @@ using ToolTester.Application.Tools.DTO;
 
 namespace ToolTester.Application.Tools.Queries
 {
-      public record GetToolsWithPaginationQuery : IRequest<PaginatedList<ToolDTO>>
+    public record GetToolsWithPaginationQuery : IRequest<PaginatedList<ToolDTO>>
     {
         public int Id { get; init; }
         public int PageNumber { get; init; } = 1;

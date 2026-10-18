@@ -318,13 +318,13 @@ public partial class SemanticRulesViewModel : ObservableObject
                     List<SemanticRule>>(
                     stream,
                     options);
-            
+
             if (importedRules is null)
             {
                 ValidationMessage = "The selected file contained no rules.";
                 return;
             }
-         
+
             await using var context = await _contextFactory.CreateDbContextAsync();
             int importedCount = 0;
 

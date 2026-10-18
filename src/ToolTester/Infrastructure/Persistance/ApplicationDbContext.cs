@@ -1,9 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using System;
-using System.Linq;
 using ToolTester.Application.Common.Interfaces;
-using ToolTester.Domain;
 using ToolTester.Domain.Entities;
 
 namespace ToolTester.Infrastructure.Persistance;
