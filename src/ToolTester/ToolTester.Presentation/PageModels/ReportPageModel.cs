@@ -1173,7 +1173,7 @@ public partial class ReportPageModel : BaseViewModel
                     MaxBarWidth = 45,
                     DataLabelsPaint =
                         new SolidColorPaint(
-                            SKColors.Black),
+                            SKColors.DarkGray),
                     DataLabelsPosition =
                         DataLabelsPosition.Top,
                     DataLabelsFormatter = point =>

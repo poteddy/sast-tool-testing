@@ -95,6 +95,43 @@ public sealed class ApplicationDbContextSeed
     1341,
     1419
 ];
+    private static readonly int[] SnykCppCwes =
+[
+    23,
+    78,
+    79,
+    89,
+    90,
+    122,
+    125,
+    134,
+    170,
+    190,
+    287,
+    290,
+    321,
+    326,
+    359,
+    369,
+    401,
+    415,
+    416,
+    476,
+    611,
+    643,
+    775,
+    787,
+    910,
+    916,
+    918,
+    1285,
+    1330
+];
+    private static readonly int[] CodeQlCppCwes =
+[
+    // Populate from the official CodeQL C/C++ CWE
+    // coverage table.
+];
     private static bool _seedCompleted;
 
     private readonly IConfiguration _configuration;
@@ -179,15 +216,53 @@ public sealed class ApplicationDbContextSeed
             context,
             cancellationToken);
 
-        await SeedGitLabAdvancedSastDeclaredCwesAsync(
+        await SeedGitLabDeclaredCwesAsync(
+           context,
+           cancellationToken);
+
+        await SeedSnykDeclaredCwesAsync(
+            context,
+            cancellationToken);
+
+        await SeedCodeQlDeclaredCwesAsync(
+            context,
+            cancellationToken);
+
+        await SeedCheckmarxDeclaredCwesAsync(
+            context,
+            cancellationToken);
+
+        await SeedCycodeDeclaredCwesAsync(
+            context,
+            cancellationToken);
+
+        await SeedVeracodeDeclaredCwesAsync(
             context,
             cancellationToken);
     }
-    private static async Task SeedGitLabAdvancedSastDeclaredCwesAsync(
+    private static async Task SeedToolDeclaredCwesAsync(
     ApplicationDbContext context,
+    string toolName,
+    IEnumerable<int> declaredCweIds,
     CancellationToken cancellationToken)
     {
-        const string toolName = "GitLabSast";
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
+        ArgumentNullException.ThrowIfNull(declaredCweIds);
+
+        var cweIds = declaredCweIds
+            .Where(cweId => cweId > 0)
+            .Distinct()
+            .OrderBy(cweId => cweId)
+            .ToArray();
+
+        if (cweIds.Length == 0)
+        {
+            Debug.WriteLine(
+                $"No declared CWEs configured for {toolName}.");
+
+            return;
+        }
 
         var tool = await context.Tools
             .SingleOrDefaultAsync(
@@ -200,21 +275,21 @@ public sealed class ApplicationDbContextSeed
                 $"Tool '{toolName}' was not found.");
         }
 
-        var catalogCweIds = await context.CWECatalogs
+        var validCatalogCweIds = await context.CWECatalogs
             .AsNoTracking()
+            .Where(cwe => cweIds.Contains(cwe.CweId))
             .Select(cwe => cwe.CweId)
             .ToHashSetAsync(cancellationToken);
 
-        var missingCweIds =
-            GitLabAdvancedSastCppCwes
-                .Where(cweId => !catalogCweIds.Contains(cweId))
-                .OrderBy(cweId => cweId)
-                .ToArray();
+        var missingCweIds = cweIds
+            .Where(cweId =>
+                !validCatalogCweIds.Contains(cweId))
+            .ToArray();
 
         if (missingCweIds.Length > 0)
         {
             throw new InvalidDataException(
-                "The following GitLab Advanced SAST CWEs " +
+                $"The following declared CWEs for {toolName} " +
                 "do not exist in CWECatalog: " +
                 string.Join(
                     ", ",
@@ -224,46 +299,113 @@ public sealed class ApplicationDbContextSeed
 
         var existingCweIds = await context.ToolDeclaredCwes
             .AsNoTracking()
-            .Where(declaredCwe =>
-                declaredCwe.ToolId == tool.Id)
-            .Select(declaredCwe =>
-                declaredCwe.CweId)
+            .Where(declared =>
+                declared.ToolId == tool.Id)
+            .Select(declared =>
+                declared.CweId)
             .ToHashSetAsync(cancellationToken);
 
-        var newDeclaredCwes =
-            GitLabAdvancedSastCppCwes
-                .Distinct()
-                .Where(cweId =>
-                    !existingCweIds.Contains(cweId))
-                .OrderBy(cweId => cweId)
-                .Select(cweId =>
-                    new ToolDeclaredCwe
-                    {
-                        ToolId = tool.Id,
-                        CweId = cweId
-                    })
-                .ToList();
+        var newRows = cweIds
+            .Where(cweId =>
+                !existingCweIds.Contains(cweId))
+            .Select(cweId =>
+                new ToolDeclaredCwe
+                {
+                    ToolId = tool.Id,
+                    CweId = cweId
+                })
+            .ToList();
 
-        if (newDeclaredCwes.Count == 0)
+        if (newRows.Count == 0)
         {
             Debug.WriteLine(
-                "GitLabSast declared CWE coverage " +
+                $"{toolName} declared CWE coverage " +
                 "is already seeded.");
 
             return;
         }
 
-        context.ToolDeclaredCwes.AddRange(
-            newDeclaredCwes);
+        context.ToolDeclaredCwes.AddRange(newRows);
 
         await context.SaveChangesAsync(
             cancellationToken);
 
         Debug.WriteLine(
-            $"Seeded {newDeclaredCwes.Count} declared CWEs " +
-            $"for GitLabSast (ToolId={tool.Id}).");
+            $"Seeded {newRows.Count} declared CWEs " +
+            $"for {toolName}.");
+    }
+    private static Task SeedGitLabDeclaredCwesAsync(
+     ApplicationDbContext context,
+     CancellationToken cancellationToken)
+    {
+        return SeedToolDeclaredCwesAsync(
+            context,
+            "GitLabSast",
+            GitLabAdvancedSastCppCwes,
+            cancellationToken);
+    }
+    private static Task SeedSnykDeclaredCwesAsync(
+    ApplicationDbContext context,
+    CancellationToken cancellationToken)
+    {
+        return SeedToolDeclaredCwesAsync(
+            context,
+            "Snyk",
+            SnykCppCwes,
+            cancellationToken);
     }
 
+    private static Task SeedCodeQlDeclaredCwesAsync(
+    ApplicationDbContext context,
+    CancellationToken cancellationToken)
+    {
+        return SeedToolDeclaredCwesAsync(
+            context,
+            "CodeQL",
+            CodeQlCppCwes,
+            cancellationToken);
+    }
+    private static Task SeedCheckmarxDeclaredCwesAsync(
+        ApplicationDbContext context,
+        CancellationToken cancellationToken)
+    {
+        return SeedToolDeclaredCwesAsync(
+            context,
+            "CheckMarx",
+            CheckmarxCppCwes,
+            cancellationToken);
+    }
+    private static readonly int[] CheckmarxCppCwes =
+    [
+    ];
+    private static Task SeedCycodeDeclaredCwesAsync(
+    ApplicationDbContext context,
+    CancellationToken cancellationToken)
+    {
+        return SeedToolDeclaredCwesAsync(
+            context,
+            "Cycode",
+            CycodeCppCwes,
+            cancellationToken);
+    }
+
+    private static readonly int[] CycodeCppCwes =
+    [
+    ];
+    private static Task SeedVeracodeDeclaredCwesAsync(
+    ApplicationDbContext context,
+    CancellationToken cancellationToken)
+    {
+        return SeedToolDeclaredCwesAsync(
+            context,
+            "Veracode",
+            VeracodeCppCwes,
+            cancellationToken);
+    }
+
+    private static readonly int[] VeracodeCppCwes =
+    [
+    ];
     private async Task ImportMitreCatalogAsync(
         IReadOnlyCollection<SemanticRule> semanticRules,
         CancellationToken cancellationToken)
@@ -1307,39 +1449,43 @@ public sealed class ApplicationDbContextSeed
         CancellationToken cancellationToken)
     {
         var desiredTools = new[]
-        {
-            new ToolSeed(
-                Name: "Semgrep",
-                Format: "JSON"),
+ {
+    new ToolSeed(
+        Name: "Semgrep",
+        Format: "JSON"),
 
-            new ToolSeed(
-                Name: "Sarif",
-                Format: "Sarif"),
+    new ToolSeed(
+        Name: "Snyk",
+        Format: "Sarif"),
 
-            new ToolSeed(
-                Name: "Veracode",
-                Format: "Veracode"),
+    new ToolSeed(
+        Name: "Veracode",
+        Format: "Veracode"),
 
-            new ToolSeed(
-                Name: "CPP Checker",
-                Format: "Cpp Checker"),
+    new ToolSeed(
+        Name: "CPP Checker",
+        Format: "Cpp Checker"),
 
-            new ToolSeed(
-                Name: "CheckMarx",
-                Format: "CheckMarx"),
+    new ToolSeed(
+        Name: "CheckMarx",
+        Format: "CheckMarx"),
 
-            new ToolSeed(
-                Name: "Cycode",
-                Format: "Cycode"),
+    new ToolSeed(
+        Name: "Cycode",
+        Format: "Cycode"),
 
-            new ToolSeed(
-                Name: "OpenVINO",
-                Format: "OpenVINO"),
+    new ToolSeed(
+        Name: "OpenVINO",
+        Format: "OpenVINO"),
 
-            new ToolSeed(
-                Name: "GitLabSast",
-                Format: "GitLabSast")
-        };
+    new ToolSeed(
+        Name: "GitLabSast",
+        Format: "GitLabSast"),
+
+    new ToolSeed(
+        Name: "CodeQl",
+        Format: "Sarif")
+};
 
         var existingToolNames =
             await context.Tools

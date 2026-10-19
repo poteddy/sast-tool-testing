@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.InkML;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ToolTester.Application.Common.Interfaces;
 using ToolTester.Application.Common.Models;
@@ -56,31 +57,88 @@ public sealed class ParsingService : IParsingService
                 resultFilePath);
         }
 
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(
+                cancellationToken);
         await using var stream =
             File.OpenRead(resultFilePath);
 
-        List<CWEs> findings = toolId switch
+        var tool = await context.Tools
+      .AsNoTracking()
+      .SingleOrDefaultAsync(
+          t => t.Id == toolId,
+          cancellationToken);
+
+        if (tool is null)
         {
-            1 => await ParseSemgrepAsync(stream),
+            throw new InvalidOperationException(
+                $"Tool with ID {toolId} was not found.");
+        }
 
-            2 => await ParseSarifAsync(stream),
+        var format = tool.Format?.Trim();
 
-            3 => await ParseVeracodeAsync(stream),
+        if (string.IsNullOrWhiteSpace(format))
+        {
+            throw new InvalidOperationException(
+                $"Tool '{tool.Name}' does not have a parser format configured.");
+        }
 
-            4 => await ParseCppCheckerAsync(stream),
+        List<CWEs> findings;
 
-            5 => await ParseCheckmarxAsync(stream),
-
-            6 => await ParseCycodeAsync(stream),
-
-            7 => await ParseOpenVINOAsync(stream),
-
-            8 => await ParseGitlabAsync(stream),
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(toolId),
-                toolId,
-                "The specified scanner tool is not supported.")
-        };
+        if (format.Equals(
+                "JSON",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseSemgrepAsync(stream);
+        }
+        else if (format.Equals(
+                     "Sarif",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseSarifAsync(stream);
+        }
+        else if (format.Equals(
+                     "Veracode",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseVeracodeAsync(stream);
+        }
+        else if (format.Equals(
+                     "Cpp Checker",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseCppCheckerAsync(stream);
+        }
+        else if (format.Equals(
+                     "CheckMarx",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseCheckmarxAsync(stream);
+        }
+        else if (format.Equals(
+                     "Cycode",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseCycodeAsync(stream);
+        }
+        else if (format.Equals(
+                     "OpenVINO",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseOpenVINOAsync(stream);
+        }
+        else if (format.Equals(
+                     "GitLabSast",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            findings = await ParseGitlabAsync(stream);
+        }
+        else
+        {
+            throw new NotSupportedException(
+                $"Tool '{tool.Name}' uses unsupported parser format " +
+                $"'{tool.Format}'.");
+        }
 
         return await SaveReportAsync(
             findings,
