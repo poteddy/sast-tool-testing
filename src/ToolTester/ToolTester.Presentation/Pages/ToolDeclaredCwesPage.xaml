@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ToolTester.Presentation.Pages.ToolDeclaredCwesPage"
+    x:Name="ThisPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:ToolTester.Presentation.PageModels"
+    xmlns:domain="clr-namespace:ToolTester.Domain.Entities;assembly=ToolTester.Domain"
     x:DataType="vm:ToolDeclaredCwesPageModel"
     Title="Declared CWEs">
 
@@ -11,30 +13,82 @@
         <VerticalStackLayout Padding="12" Spacing="12">
 
             <!-- Tool selector -->
-            <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                <Label Text="Tool:" VerticalOptions="Center" />
+            <Grid
+    ColumnDefinitions="Auto,*,Auto"
+    ColumnSpacing="8">
+
+                <Label
+        Grid.Column="0"
+        Text="Tool:"
+        VerticalOptions="Center" />
+
                 <Picker
-            ItemsSource="{Binding Tools}"
-            ItemDisplayBinding="{Binding Name}"
-            SelectedItem="{Binding SelectedTool}" />
-                <Button Text="Refresh" Command="{Binding RefreshCommand}" />
-            </HorizontalStackLayout>
+        Grid.Column="1"
+        ItemsSource="{Binding Tools}"
+        ItemDisplayBinding="{Binding Name}"
+        SelectedItem="{Binding SelectedTool}"
+        HorizontalOptions="Fill" />
+
+                <Button
+        Grid.Column="2"
+        Text="Refresh"
+        Command="{Binding RefreshCommand}" />
+
+            </Grid>
 
             <!-- Editable declared CWE list -->
             <Frame Padding="10" Stroke="#D9D9D9">
                 <VerticalStackLayout Spacing="8">
                     <Label Text="Declared CWEs" FontAttributes="Bold" />
+                    <CollectionView
+    ItemsSource="{Binding DeclaredCoverages}"
+    SelectionMode="None"
+    HeightRequest="240"
+    HorizontalOptions="Fill">
 
-                    <CollectionView ItemsSource="{Binding DeclaredCoverages}" SelectionMode="None" HeightRequest="240">
                         <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="domain:ToolDeclaredCwe" xmlns:domain="clr-namespace:ToolTester.Domain.Entities;assembly=ToolTester.Domain">
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="6">
-                                    <Label Grid.Column="0" Text="{Binding CweId}" VerticalOptions="Center" />
-                                    <Label Grid.Column="1" Text="{Binding CweId, StringFormat='CWE-{0}'}" VerticalOptions="Center" />
-                                    <Button Grid.Column="2" Text="Remove" Command="{Binding BindingContext.RemoveDeclaredCweCommand, Source={x:Reference Name=ThisPage}}" CommandParameter="{Binding .}" />
+
+                            <DataTemplate
+            x:DataType="domain:ToolDeclaredCwe"
+            xmlns:domain="clr-namespace:ToolTester.Domain.Entities;assembly=ToolTester.Domain">
+
+                                <Grid
+                ColumnDefinitions="120,*,Auto"
+                ColumnSpacing="12"
+                Padding="8,6"
+                HorizontalOptions="Fill">
+
+                                    <!-- CWE NUMBER -->
+                                    <Label
+                    Grid.Column="0"
+                    Text="{Binding CweId, StringFormat='CWE-{0}'}"
+                    FontAttributes="Bold"
+                    FontSize="16"
+                    TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                    VerticalOptions="Center" />
+
+                                    <!-- DEBUG/RAW ID -->
+                                    <Label
+                    Grid.Column="1"
+                    Text="{Binding CweId, StringFormat='ID: {0}'}"
+                    FontSize="14"
+                    TextColor="{AppThemeBinding Light=#606060, Dark=#C0C0C0}"
+                    VerticalOptions="Center" />
+
+                                    <Button
+                    Grid.Column="2"
+                    Text="Remove"
+                    Command="{Binding BindingContext.RemoveDeclaredCweCommand,
+                                      Source={x:Reference ThisPage}}"
+                    CommandParameter="{Binding .}"
+                    VerticalOptions="Center" />
+
                                 </Grid>
+
                             </DataTemplate>
+
                         </CollectionView.ItemTemplate>
+
                     </CollectionView>
 
                     <!-- Add new declared CWE -->

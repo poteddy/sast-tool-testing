@@ -21,7 +21,80 @@ public sealed class ApplicationDbContextSeed
 
     private static readonly SemaphoreSlim SeedLock =
         new(initialCount: 1, maxCount: 1);
-
+    private static readonly int[] GitLabAdvancedSastCppCwes =
+[
+    125,
+    131,
+    190,
+    242,
+    243,
+    252,
+    253,
+    271,
+    338,
+    362,
+    369,
+    377,
+    398,
+    400,
+    401,
+    404,
+    413,
+    415,
+    416,
+    448,
+    457,
+    459,
+    466,
+    467,
+    469,
+    476,
+    477,
+    561,
+    562,
+    563,
+    573,
+    587,
+    588,
+    667,
+    670,
+    672,
+    676,
+    684,
+    685,
+    686,
+    687,
+    704,
+    732,
+    754,
+    758,
+    762,
+    764,
+    770,
+    772,
+    775,
+    787,
+    789,
+    805,
+    821,
+    823,
+    824,
+    825,
+    833,
+    843,
+    908,
+    1024,
+    1061,
+    1077,
+    1079,
+    1098,
+    1116,
+    1164,
+    1260,
+    1335,
+    1341,
+    1419
+];
     private static bool _seedCompleted;
 
     private readonly IConfiguration _configuration;
@@ -85,7 +158,7 @@ public sealed class ApplicationDbContextSeed
     }
 
     private async Task SeedCweCatalogAsync(
-        CancellationToken cancellationToken)
+      CancellationToken cancellationToken)
     {
         var semanticRules =
             CreateJulietSemanticRules();
@@ -105,6 +178,90 @@ public sealed class ApplicationDbContextSeed
         await SeedToolsAsync(
             context,
             cancellationToken);
+
+        await SeedGitLabAdvancedSastDeclaredCwesAsync(
+            context,
+            cancellationToken);
+    }
+    private static async Task SeedGitLabAdvancedSastDeclaredCwesAsync(
+    ApplicationDbContext context,
+    CancellationToken cancellationToken)
+    {
+        const string toolName = "GitLabSast";
+
+        var tool = await context.Tools
+            .SingleOrDefaultAsync(
+                tool => tool.Name == toolName,
+                cancellationToken);
+
+        if (tool is null)
+        {
+            throw new InvalidOperationException(
+                $"Tool '{toolName}' was not found.");
+        }
+
+        var catalogCweIds = await context.CWECatalogs
+            .AsNoTracking()
+            .Select(cwe => cwe.CweId)
+            .ToHashSetAsync(cancellationToken);
+
+        var missingCweIds =
+            GitLabAdvancedSastCppCwes
+                .Where(cweId => !catalogCweIds.Contains(cweId))
+                .OrderBy(cweId => cweId)
+                .ToArray();
+
+        if (missingCweIds.Length > 0)
+        {
+            throw new InvalidDataException(
+                "The following GitLab Advanced SAST CWEs " +
+                "do not exist in CWECatalog: " +
+                string.Join(
+                    ", ",
+                    missingCweIds.Select(
+                        cweId => $"CWE-{cweId}")));
+        }
+
+        var existingCweIds = await context.ToolDeclaredCwes
+            .AsNoTracking()
+            .Where(declaredCwe =>
+                declaredCwe.ToolId == tool.Id)
+            .Select(declaredCwe =>
+                declaredCwe.CweId)
+            .ToHashSetAsync(cancellationToken);
+
+        var newDeclaredCwes =
+            GitLabAdvancedSastCppCwes
+                .Distinct()
+                .Where(cweId =>
+                    !existingCweIds.Contains(cweId))
+                .OrderBy(cweId => cweId)
+                .Select(cweId =>
+                    new ToolDeclaredCwe
+                    {
+                        ToolId = tool.Id,
+                        CweId = cweId
+                    })
+                .ToList();
+
+        if (newDeclaredCwes.Count == 0)
+        {
+            Debug.WriteLine(
+                "GitLabSast declared CWE coverage " +
+                "is already seeded.");
+
+            return;
+        }
+
+        context.ToolDeclaredCwes.AddRange(
+            newDeclaredCwes);
+
+        await context.SaveChangesAsync(
+            cancellationToken);
+
+        Debug.WriteLine(
+            $"Seeded {newDeclaredCwes.Count} declared CWEs " +
+            $"for GitLabSast (ToolId={tool.Id}).");
     }
 
     private async Task ImportMitreCatalogAsync(
