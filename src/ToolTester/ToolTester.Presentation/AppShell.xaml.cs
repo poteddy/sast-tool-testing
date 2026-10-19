@@ -17,6 +17,7 @@ namespace ToolTester.Presentation
             Routing.RegisterRoute("rules", typeof(SemanticRulesPage));
             Routing.RegisterRoute("scan", typeof(ScansPage));
             Routing.RegisterRoute("scanGridDetail", typeof(ScanGridDetailPage)); // new route for Scan Grid detail
+            Routing.RegisterRoute("toolDeclaredCwe", typeof(ToolDeclaredCwesPage)); // new route for Scan Grid detail
 
             var currentTheme = Microsoft.Maui.Controls.Application.Current!.RequestedTheme;
             ThemeSegmentedControl.SelectedIndex = currentTheme == AppTheme.Light ? 0 : 1;

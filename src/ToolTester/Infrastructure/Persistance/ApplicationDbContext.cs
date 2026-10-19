@@ -33,6 +33,7 @@ public class ApplicationDbContext :
 
     public DbSet<CweSemanticRule> CweSemanticRules { get; set; }
 
+    public DbSet<ToolDeclaredCwe> ToolDeclaredCwes { get; set; }
     protected override void OnConfiguring(
         DbContextOptionsBuilder optionsBuilder)
     {
@@ -52,7 +53,7 @@ public class ApplicationDbContext :
         ConfigureScan(modelBuilder);
         ConfigureCweTestResult(modelBuilder);
         ConfigureReport(modelBuilder);
-
+        ConfigureToolDeclaredCwe(modelBuilder);
 #if DEBUG
         ValidateNoShadowForeignKeys(modelBuilder);
 #endif
@@ -214,7 +215,32 @@ public class ApplicationDbContext :
             .IsUnique();
         });
     }
+    private static void ConfigureToolDeclaredCwe(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ToolDeclaredCwe>(entity =>
+        {
+            entity.HasKey(t => t.Id);
 
+            // Make (ToolId, CweId) unique to avoid duplicates
+            entity.HasIndex(t => new { t.ToolId, t.CweId })
+                  .IsUnique();
+
+            // Tool <-> ToolDeclaredCwe
+            entity.HasOne(td => td.Tool) // specify dependent navigation here
+                  .WithMany(tool => tool.DeclaredCoverages)
+                  .HasForeignKey(td => td.ToolId)
+                  .IsRequired()
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Optional: relate to CWECatalog by CweId principal key
+            entity.HasOne<CWECatalog>()
+                  .WithMany()
+                  .HasForeignKey(td => td.CweId)
+                  .HasPrincipalKey(c => c.CweId)
+                  .IsRequired()
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
     private static void ConfigureTool(
         ModelBuilder modelBuilder)
     {

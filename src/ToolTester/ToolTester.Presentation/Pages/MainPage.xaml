@@ -87,6 +87,14 @@
      SemanticProperties.Hint="Counts the number of times you click"                  
      Command="{Binding NavigateToDetailPageCommand}" 
      HorizontalOptions="Fill" />
+        <Button
+     x:Name="DeclaredCwesLink"
+    Text="Declared CWEs"
+     SemanticProperties.Hint="Counts the number of times you click"                  
+ Command="{Binding NavigateToDeclaredCwesCommand}"
+HorizontalOptions="Fill" />
+
+
     </VerticalStackLayout>
 
 </ContentPage>

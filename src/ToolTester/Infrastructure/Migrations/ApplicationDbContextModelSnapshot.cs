@@ -387,6 +387,28 @@ namespace ToolTester.Infrastructure.Migrations
                     b.ToTable("Tools");
                 });
 
+            modelBuilder.Entity("ToolTester.Domain.Entities.ToolDeclaredCwe", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CweId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ToolId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CweId");
+
+                    b.HasIndex("ToolId", "CweId")
+                        .IsUnique();
+
+                    b.ToTable("ToolDeclaredCwes");
+                });
+
             modelBuilder.Entity("ToolTester.Domain.Entities.CWETestResult", b =>
                 {
                     b.HasOne("ToolTester.Domain.Entities.Scan", "Scan")
@@ -473,6 +495,24 @@ namespace ToolTester.Infrastructure.Migrations
                     b.Navigation("Tool");
                 });
 
+            modelBuilder.Entity("ToolTester.Domain.Entities.ToolDeclaredCwe", b =>
+                {
+                    b.HasOne("ToolTester.Domain.Entities.CWECatalog", null)
+                        .WithMany()
+                        .HasForeignKey("CweId")
+                        .HasPrincipalKey("CweId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ToolTester.Domain.Entities.Tool", "Tool")
+                        .WithMany("DeclaredCoverages")
+                        .HasForeignKey("ToolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tool");
+                });
+
             modelBuilder.Entity("ToolTester.Domain.Entities.JulietTest", b =>
                 {
                     b.Navigation("Results");
@@ -487,6 +527,8 @@ namespace ToolTester.Infrastructure.Migrations
 
             modelBuilder.Entity("ToolTester.Domain.Entities.Tool", b =>
                 {
+                    b.Navigation("DeclaredCoverages");
+
                     b.Navigation("Reports");
 
                     b.Navigation("Scans");

@@ -86,6 +86,8 @@ namespace ToolTester.Presentation.PageModels
         [RelayCommand]
         private Task NavigateToDetailPage(ScanGridDetailPage project)
               => Shell.Current.GoToAsync("scanGridDetail");
-
+        [RelayCommand]
+        private Task NavigateToDeclaredCwes(ToolDeclaredCwesPage project)
+           => Shell.Current.GoToAsync("toolDeclaredCwe");
     }
 }

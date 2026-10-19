@@ -114,6 +114,9 @@
 	  <MauiXaml Update="Pages\ReportPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Pages\ToolDeclaredCwesPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Platforms\Windows\App.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>

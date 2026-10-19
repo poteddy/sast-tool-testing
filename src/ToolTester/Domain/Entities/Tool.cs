@@ -17,4 +17,6 @@ public sealed class Tool : IEntity
 
     public List<Report> Reports { get; set; } =
         [];
+
+    public List<ToolDeclaredCwe> DeclaredCoverages { get; set; } = [];
 }
