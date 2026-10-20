@@ -1694,104 +1694,80 @@ public partial class ReportPageModel : BaseViewModel
                      * position maps directly to the correct scanner.
                      */
                     YToolTipLabelFormatter =
-                        point =>
-                        {
-                            var scannerIndex =
-                                Convert.ToInt32(
-                                    Math.Round(
-                                        point.Coordinate.SecondaryValue));
+    point =>
+    {
+        var scannerIndex =
+            Convert.ToInt32(
+                Math.Round(
+                    point.Coordinate.SecondaryValue));
 
-                            if (scannerIndex < 0 ||
-                                scannerIndex >= scannerNames.Length)
-                            {
-                                return
-                                    $"Relationship: {definition.Relationship}" +
-                                    $"{Environment.NewLine}" +
-                                    $"Percentage: " +
-                                    $"{point.Coordinate.PrimaryValue:F2}%";
-                            }
+        if (scannerIndex < 0 ||
+            scannerIndex >= scannerNames.Length)
+        {
+            return
+                $"{definition.Relationship}: " +
+                $"{point.Coordinate.PrimaryValue:F2}%";
+        }
 
-                            var scanName =
-                                scannerNames[scannerIndex];
+        var scanName =
+            scannerNames[scannerIndex];
 
-                            /*
-                             * Tooltip for the aggregate Final Total column.
-                             */
-                            if (string.Equals(
-                                    scanName,
-                                    finalTotalLabel,
-                                    StringComparison.OrdinalIgnoreCase))
-                            {
-                                return
-                                    $"Scanner: {finalTotalLabel}" +
-                                    $"{Environment.NewLine}" +
-                                    $"Relationship: " +
-                                    $"{definition.Relationship}" +
-                                    $"{Environment.NewLine}" +
-                                    $"Relationship Count: " +
-                                    $"{relationshipFinalCount:N0}" +
-                                    $"{Environment.NewLine}" +
-                                    $"All Findings: {finalTotalCount:N0}" +
-                                    $"{Environment.NewLine}" +
-                                    $"Percentage: " +
-                                    $"{relationshipFinalPercentage:F2}%";
-                            }
+        /*
+         * Aggregate Final Total column.
+         */
+        if (string.Equals(
+                scanName,
+                finalTotalLabel,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return
+                $"{definition.Relationship}: " +
+                $"{relationshipFinalCount:N0} / " +
+                $"{finalTotalCount:N0} " +
+                $"({relationshipFinalPercentage:F2}%)";
+        }
 
-                            var scannerTotalCount =
-                                scannerTotals.TryGetValue(
-                                    scanName,
-                                    out var scannerTotal)
-                                    ? scannerTotal
-                                    : 0;
+        var scannerTotalCount =
+            scannerTotals.TryGetValue(
+                scanName,
+                out var scannerTotal)
+                ? scannerTotal
+                : 0;
 
-                            var lookupKey =
-                            (
-                                ScanName: scanName.ToUpperInvariant(),
-                                Relationship:
-                                    definition.Relationship.ToUpperInvariant()
-                            );
+        var lookupKey =
+        (
+            ScanName: scanName.ToUpperInvariant(),
+            Relationship:
+                definition.Relationship.ToUpperInvariant()
+        );
 
-                            scannerRelationshipGroups.TryGetValue(
-                                lookupKey,
-                                out var matchingPoints);
+        scannerRelationshipGroups.TryGetValue(
+            lookupKey,
+            out var matchingPoints);
 
-                            var relationshipCount =
-                                matchingPoints?.Sum(item => item.Count) ?? 0;
+        var relationshipCount =
+            matchingPoints?.Sum(item => item.Count) ?? 0;
 
-                            /*
-                             * Use the first matching point to obtain the
-                             * scanner's friendly display name.
-                             */
-                            var sourcePoint =
-                                matchingPoints?.FirstOrDefault();
+        var percentage =
+            scannerTotalCount > 0
+                ? relationshipCount * 100d /
+                  scannerTotalCount
+                : 0d;
 
-                            var displayName =
-                                sourcePoint is not null &&
-                                !string.IsNullOrWhiteSpace(
-                                    sourcePoint.ScannerName)
-                                    ? sourcePoint.ScannerName
-                                    : scanName;
-
-                            var percentage =
-                                scannerTotalCount > 0
-                                    ? relationshipCount * 100d /
-                                      scannerTotalCount
-                                    : 0d;
-
-                            return
-                                $"Scanner: {displayName}" +
-                                $"{Environment.NewLine}" +
-                                $"Relationship: " +
-                                $"{definition.Relationship}" +
-                                $"{Environment.NewLine}" +
-                                $"Relationship Count: " +
-                                $"{relationshipCount:N0}" +
-                                $"{Environment.NewLine}" +
-                                $"Scanner Total: " +
-                                $"{scannerTotalCount:N0}" +
-                                $"{Environment.NewLine}" +
-                                $"Percentage: {percentage:F2}%";
-                        }
+        /*
+         * LiveCharts invokes this formatter once for each
+         * relationship segment. Return exactly one line
+         * for the segment.
+         *
+         * The scanner name is already shown in the shared
+         * tooltip header, so it does not need to be repeated.
+         */
+        return
+            $"{definition.Relationship}: " +
+            $"{relationshipCount:N0} / " +
+            $"{scannerTotalCount:N0} " +
+            $"({percentage:F2}%)";
+    }
                 };
 
             chartSeries.Add(series);
