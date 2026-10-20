@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<ICweRootCauseResolver, CweRootCauseResolver>();
         services.AddScoped<BenchmarkReportService>();
         services.AddScoped<IScanService, ScanService>();
+        services.AddTransient<IUnrelatedFindingConsensusService,UnrelatedFindingConsensusService>();
         return services;
     }
 

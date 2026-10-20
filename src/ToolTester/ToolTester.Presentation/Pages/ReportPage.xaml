@@ -5,878 +5,966 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
-    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:pageModels="clr-namespace:ToolTester.Presentation.PageModels"
-    xmlns:charts="clr-namespace:ToolTester.Presentation.Models.Charts"    
-    xmlns:toolkitViews="clr-namespace:CommunityToolkit.Maui.Views;assembly=CommunityToolkit.Maui"
+    xmlns:charts="clr-namespace:ToolTester.Presentation.Models.Charts"
     x:DataType="pageModels:ReportPageModel"
     Title="Reports">
+
     <ScrollView>
- <Grid RowDefinitions="*">
+
         <VerticalStackLayout
             Padding="10"
             Spacing="12">
-           
-                <ActivityIndicator
+
+            <!-- ============================================ -->
+            <!-- PAGE STATUS / CONTROLS                       -->
+            <!-- ============================================ -->
+
+            <ActivityIndicator
                 IsRunning="{Binding IsLoading}"
                 IsVisible="{Binding IsLoading}"
                 HorizontalOptions="Center" />
 
-                <Label
+            <Label
                 Text="{Binding ErrorMessage}"
                 TextColor="Red"
                 IsVisible="{Binding ErrorMessage}" />
 
-                <Button
-Text="Refresh"
-Command="{Binding RefreshCommand}" />
-
-                <Border
-Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
-StrokeThickness="1"
-Padding="12"
-BackgroundColor="{AppThemeBinding Light=#F7F9FC, Dark=#252525}">
-
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="6" />
-                    </Border.StrokeShape>
-
-                    <Grid
-    ColumnDefinitions="Auto,*"
-    ColumnSpacing="10">
-
-                        <CheckBox
-        Grid.Column="0"
-        IsChecked="{Binding ExcludeHighVolumeNoise}"
-        VerticalOptions="Center" />
-
-                        <VerticalStackLayout
-        Grid.Column="1"
-        Spacing="2">
-
-                            <Label
-            Text="Exclude high-volume noise"
-            FontAttributes="Bold"
-            FontSize="14" />
-                            <!-- FALSE POSITIVES -->
-             
-
-                            <Label
-                Text="Excludes individual scanner/CWE results above the configured noise threshold from analytical charts. The scanner itself and its other CWE results remain included."
-                FontSize="11"
-                TextColor="Gray"
-                LineBreakMode="WordWrap" />
-
-                        </VerticalStackLayout>
-
-                    </Grid>
-
-                </Border>
-                <Border
-    Stroke="#D9D9D9"
-    StrokeThickness="1"
-    Padding="10">
-                    
-
-                    <VerticalStackLayout Spacing="10">
-
-                        <Label
-            Text="False Positives"
-            FontAttributes="Bold"
-            FontSize="18" />
-
-                        <Border
-    Padding="10,7"
-    BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#3A3320}"
-    Stroke="#D6A700"
-    StrokeThickness="1">
-
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="5" />
-                            </Border.StrokeShape>
-
-                            <Label
-        Text="Noise note: This chart intentionally shows all scanner CWE counts, including high-volume results over 10,000 findings. These results may be excluded from other distribution and relationship charts to prevent statistical noise from dominating those views."
-        FontSize="11"
-        TextColor="{AppThemeBinding Light=#665500, Dark=#FFE082}"
-        LineBreakMode="WordWrap" />
-
-                        </Border>
-                        <!-- LEGEND CONTROLS -->
-
-                        <Grid
-            ColumnDefinitions="*,Auto"
-            ColumnSpacing="10">
-
-                            <Label
-                Grid.Column="0"
-                Text="Select the scanners to display"
-                FontSize="12"
-                TextColor="{AppThemeBinding Light=#606060, Dark=#D0D0D0}"
-                VerticalOptions="Center" />
-
-                            <HorizontalStackLayout
-                Grid.Column="1"
-                Spacing="8">
-
-                                <Button
-                    Text="Show All"
-                    Command="{Binding ShowAllFalsePositiveSeriesCommand}"
-                    Padding="12,6" />
-
-                                <Button
-                    Text="Hide All"
-                    Command="{Binding HideAllFalsePositiveSeriesCommand}"
-                    Padding="12,6" />
-
-                            </HorizontalStackLayout>
-
-                        </Grid>
-
-                        <!-- CLICKABLE SCANNER LEGEND -->
-
-                        <FlexLayout
-            BindableLayout.ItemsSource="{Binding FalsePositiveLegendItems}"
-            Direction="Row"
-            Wrap="Wrap"
-            JustifyContent="Start"
-            AlignItems="Center">
-
-                            <BindableLayout.ItemTemplate>
-
-                                <DataTemplate
-                    x:DataType="charts:ChartLegendItem">
-
-                                    <Border
-                        Margin="4"
-                        Padding="10,6"
-                        Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
-                        StrokeThickness="1"
-                        BackgroundColor="{AppThemeBinding Light=White, Dark=#2B2B2B}">
-
-                                        <Border.StrokeShape>
-                                            <RoundRectangle
-                                CornerRadius="6" />
-                                        </Border.StrokeShape>
-
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                Command="{Binding ToggleCommand}" />
-                                        </Border.GestureRecognizers>
-
-                                        <HorizontalStackLayout
-                            Spacing="7">
-
-                                            <!-- SERIES COLOR -->
-
-                                            <BoxView
-                                WidthRequest="12"
-                                HeightRequest="12"
-                                CornerRadius="6"
-                                Color="{Binding Color}"
-                                VerticalOptions="Center" />
-
-                                            <!-- SCANNER NAME -->
-
-                                            <Label
-                                Text="{Binding Name}"
-                                TextColor="{AppThemeBinding Light=#404040, Dark=#F0F0F0}"
-                                VerticalOptions="Center" />
-
-                                            <!-- ON/OFF CHECKBOX -->
-
-                                            <CheckBox
-                                IsChecked="{Binding IsVisible}"
-                                InputTransparent="True"
-                                VerticalOptions="Center" />
-
-                                        </HorizontalStackLayout>
-
-                                        <!-- VISUALLY DIM DISABLED SERIES -->
-
-                                        <Border.Triggers>
-
-                                            <DataTrigger
-                                TargetType="Border"
-                                Binding="{Binding IsVisible}"
-                                Value="False">
-
-                                                <Setter
-                                    Property="Opacity"
-                                    Value="0.4" />
-
-                                            </DataTrigger>
-
-                                        </Border.Triggers>
-
-                                    </Border>
-
-                                </DataTemplate>
-
-                            </BindableLayout.ItemTemplate>
-
-                        </FlexLayout>
-
-                        <!-- CHART -->
-
-                        <lvc:CartesianChart
-            Series="{Binding FalsePositiveSeries}"
-            XAxes="{Binding FalsePositiveXAxes}"
-            YAxes="{Binding FalsePositiveYAxes}"
-            ZoomMode="X"
-            LegendPosition="Hidden"
-            TooltipPosition="Top"
-            HeightRequest="450"
-            TooltipTextSize="12" />
-
-                    </VerticalStackLayout>
-
-                </Border>
-
-                <!-- RELATED FINDINGS -->
-
-                <Border
-    Stroke="#D9D9D9"
-    StrokeThickness="1"
-    Padding="10">
-
-                    <VerticalStackLayout Spacing="10">
-
-                        <!-- TITLE -->
-
-                        <Label
-            Text="Related Findings"
-            FontAttributes="Bold"
-            FontSize="18" />
-                        <Border
-    Padding="10,7"
-    BackgroundColor="{AppThemeBinding Light=#EAF4FF, Dark=#1E3042}"
-    Stroke="#4A90C2"
-    StrokeThickness="1">
-
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="5" />
-                            </Border.StrokeShape>
-
-                            <Label
-        Text="Noise exclusion: Individual scanner/CWE results with more than 10,000 findings are excluded from this chart. Only the noisy CWE result is excluded; the scanner and its other CWE results remain visible."
-        FontSize="11"
-        TextColor="{AppThemeBinding Light=#24577A, Dark=#B8DCF5}"
-        LineBreakMode="WordWrap" />
-
-                        </Border>
-
-                        <!-- FILTER AND LEGEND CONTROLS -->
-
-                        <Grid
-            ColumnDefinitions="*,Auto"
-            ColumnSpacing="10">
-
-                            <!-- RELATIONSHIP FILTER -->
-
-                            <VerticalStackLayout
-                Grid.Column="0"
-                Spacing="4">
-
-                                <Label
-                    Text="Relationship Filter"
-                    FontSize="12"
-                    TextColor="Gray" />
-
-                                <Picker
-                    Title="Select a relationship"
-                    ItemsSource="{Binding AvailableRelationships}"
-                    SelectedItem="{Binding SelectedRelationship}"
-                    HorizontalOptions="Fill" />
-
-                            </VerticalStackLayout>
-
-                            <!-- SHOW/HIDE BUTTONS -->
-
-                            <HorizontalStackLayout
-                Grid.Column="1"
-                Spacing="8"
-                VerticalOptions="End">
-
-                                <Button
-                    Text="Show All"
-                    Command="{Binding ShowAllRelatedFindingSeriesCommand}"
-                    Padding="12,6" />
-
-                                <Button
-                    Text="Hide All"
-                    Command="{Binding HideAllRelatedFindingSeriesCommand}"
-                    Padding="12,6" />
-
-                            </HorizontalStackLayout>
-
-                        </Grid>
-
-                        <!-- INSTRUCTIONS -->
-
-                        <Label
-            Text="Click a scanner to show or hide its findings."
-            FontSize="12"
-            TextColor="Gray" />
-
-                        <!-- CLICKABLE SCANNER LEGEND -->
-
-                        <FlexLayout
-            BindableLayout.ItemsSource="{Binding RelatedFindingLegendItems}"
-            Direction="Row"
-            Wrap="Wrap"
-            JustifyContent="Start"
-            AlignItems="Center">
-
-                            <BindableLayout.ItemTemplate>
-
-                                <DataTemplate
-                    x:DataType="charts:ChartLegendItem">
-
-                                    <Border
-                        Margin="4"
-                        Padding="10,6"
-                        Stroke="#D9D9D9"
-                        StrokeThickness="1"
-                        BackgroundColor="White">
-
-                                        <Border.StrokeShape>
-
-                                            <RoundRectangle
-                                CornerRadius="6" />
-
-                                        </Border.StrokeShape>
-
-                                        <!-- MAKE ENTIRE ITEM CLICKABLE -->
-
-                                        <Border.GestureRecognizers>
-
-                                            <TapGestureRecognizer
-                                Command="{Binding ToggleCommand}" />
-
-                                        </Border.GestureRecognizers>
-
-                                        <HorizontalStackLayout
-                            Spacing="7">
-
-                                            <!-- SERIES COLOR -->
-
-                                            <BoxView
-                                WidthRequest="12"
-                                HeightRequest="12"
-                                CornerRadius="6"
-                                Color="{Binding Color}"
-                                VerticalOptions="Center" />
-
-                                            <!-- SCANNER NAME -->
-
-                                            <Label
-                                Text="{Binding Name}"
-                              TextColor="#707070"
-                                VerticalOptions="Center" />
-
-                                            <!-- VISIBILITY STATE -->
-
-                                            <CheckBox
-                                IsChecked="{Binding IsVisible}"
-                                InputTransparent="True"
-                                VerticalOptions="Center" />
-
-                                        </HorizontalStackLayout>
-
-                                        <!-- FADE HIDDEN SERIES -->
-
-                                        <Border.Triggers>
-
-                                            <DataTrigger
-                                TargetType="Border"
-                                Binding="{Binding IsVisible}"
-                                Value="False">
-
-                                                <Setter
-                                    Property="Opacity"
-                                    Value="0.4" />
-
-                                                <Setter
-                                    Property="BackgroundColor"
-                                    Value="#EEEEEE" />
-
-                                            </DataTrigger>
-
-                                        </Border.Triggers>
-
-                                    </Border>
-
-                                </DataTemplate>
-
-                            </BindableLayout.ItemTemplate>
-
-                        </FlexLayout>
-
-                        <!-- RELATED FINDINGS CHART -->
-
-                        <lvc:CartesianChart
-            Series="{Binding RelatedFindingSeries}"
-            XAxes="{Binding RelatedFindingXAxes}"
-            YAxes="{Binding RelatedFindingYAxes}"
-            ZoomMode="Both"
-            LegendPosition="Hidden"
-            TooltipPosition="Top"
-            HeightRequest="450"
-            TooltipTextSize="12" />
-
-                    </VerticalStackLayout>
-
-                </Border>
-                <!-- SCANNER × JULIET CWE HEATMAP -->
-
-                <Border
-    IsVisible="{Binding HasScannerCweHeatmapData}"
-    Stroke="#D9D9D9"
-    StrokeThickness="1"
-    Padding="10"
-    Margin="0,6">
+            <Button
+                Text="Refresh"
+                Command="{Binding RefreshCommand}" />
+
+            <Border
+                Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
+                StrokeThickness="1"
+                Padding="12"
+                BackgroundColor="{AppThemeBinding Light=#F7F9FC, Dark=#252525}">
+
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="6" />
+                </Border.StrokeShape>
+
+                <Grid
+                    ColumnDefinitions="Auto,*"
+                    ColumnSpacing="10">
+
+                    <CheckBox
+                        Grid.Column="0"
+                        IsChecked="{Binding ExcludeHighVolumeNoise}"
+                        VerticalOptions="Center" />
 
                     <VerticalStackLayout
-        Spacing="6">
+                        Grid.Column="1"
+                        Spacing="2">
 
                         <Label
-            Text="Juliet CWE Detection Heatmap By Scanner"
-            FontAttributes="Bold"
-            FontSize="18"
-            HorizontalTextAlignment="Center" />
+                            Text="Exclude high-volume noise"
+                            FontAttributes="Bold"
+                            FontSize="14" />
 
                         <Label
-            Text="Each cell shows the percentage of known Juliet tests detected by a scanner for a ground-truth CWE."
-            FontSize="12"
-            TextColor="Gray"
-            HorizontalTextAlignment="Center" />
-
-                        <Grid
-            ColumnDefinitions="Auto,*,Auto"
-            ColumnSpacing="8"
-            HorizontalOptions="Center">
-
-                            <Label
-                Grid.Column="0"
-                Text="0%"
-                FontSize="11"
-                TextColor="#555555"
-                VerticalTextAlignment="Center" />
-
-                            <Grid
-                Grid.Column="1"
-                WidthRequest="260"
-                HeightRequest="16">
-
-                                <Grid.Background>
-                                    <LinearGradientBrush
-                        StartPoint="0,0.5"
-                        EndPoint="1,0.5">
-
-                                        <GradientStop
-                            Color="#C62828"
-                            Offset="0.0" />
-
-                                        <GradientStop
-                            Color="#EF6C00"
-                            Offset="0.25" />
-
-                                        <GradientStop
-                            Color="#FDD835"
-                            Offset="0.5" />
-
-                                        <GradientStop
-                            Color="#7CB342"
-                            Offset="0.75" />
-
-                                        <GradientStop
-                            Color="#1B5E20"
-                            Offset="1.0" />
-
-                                    </LinearGradientBrush>
-                                </Grid.Background>
-
-                            </Grid>
-
-                            <Label
-                Grid.Column="2"
-                Text="100%"
-                FontSize="11"
-                TextColor="#555555"
-                VerticalTextAlignment="Center" />
-
-                        </Grid>
-
-                        <Label
-            Text="Low detection                             High detection"
-            FontSize="11"
-            TextColor="Gray"
-            HorizontalTextAlignment="Center" />
-
-                        <lvc:CartesianChart
-            Series="{Binding ScannerCweHeatmapSeries}"
-            XAxes="{Binding ScannerCweHeatmapXAxes}"
-            YAxes="{Binding ScannerCweHeatmapYAxes}"
-            ZoomMode="Both"
-            LegendPosition="Hidden"
-            TooltipPosition="Top"
-            TooltipTextSize="12"
-            HeightRequest="750"
-            HorizontalOptions="Fill" />
+                            Text="Excludes individual scanner/CWE results above the configured noise threshold from analytical charts. The scanner itself and its other CWE results remain included."
+                            FontSize="11"
+                            TextColor="Gray"
+                            LineBreakMode="WordWrap" />
 
                     </VerticalStackLayout>
 
-                </Border>
+                </Grid>
 
-                <!-- FALSE NEGATIVE PARETO -->
-                <Border
-    Margin="0,6"
-    Padding="10"
-    Stroke="#D9D9D9"
-    StrokeThickness="1">
+            </Border>
 
-                    <VerticalStackLayout Spacing="10">
 
-                        <Label
-            Text="False Negative Pareto Analysis"
-            FontAttributes="Bold"
-            FontSize="18" />
+            <!-- ============================================ -->
+            <!-- FALSE POSITIVES                              -->
+            <!-- ============================================ -->
 
-                        <!-- TAB BUTTONS -->
-                        <Grid
-            ColumnDefinitions="*,*"
-            ColumnSpacing="6">
-
-                            <Button
-                Grid.Column="0"
-                Text="Ground-truth Pareto"
-                Command="{Binding SelectGroundTruthParetoCommand}"
-                BackgroundColor="{Binding GroundTruthTabColor}"
-                TextColor="White"
-                CornerRadius="6"
-                Padding="12,8" />
-
-                            <Button
-                Grid.Column="1"
-                Text="Declared-CWE Pareto"
-                Command="{Binding SelectDeclaredCweParetoCommand}"
-                BackgroundColor="{Binding DeclaredCweTabColor}"
-                TextColor="White"
-                CornerRadius="6"
-                Padding="12,8" />
-
-                        </Grid>
-
-                        <!-- ========================================== -->
-                        <!-- GROUND-TRUTH PARETO -->
-                        <!-- ========================================== -->
-
-                        <VerticalStackLayout
-            IsVisible="{Binding IsGroundTruthParetoSelected}"
-            BindableLayout.ItemsSource="{Binding GroundTruthParetoCharts}"
-            Spacing="12">
-
-                            <BindableLayout.ItemTemplate>
-
-                                <DataTemplate x:DataType="charts:ParetoChartModel">
-
-                                    <Border
-                        Stroke="#D9D9D9"
-                        StrokeThickness="1"
-                        Padding="10"
-                        Margin="0,4">
-
-                                        <VerticalStackLayout Spacing="8">
-
-                                            <Label
-                                Text="{Binding Title}"
-                                FontAttributes="Bold"
-                                FontSize="16" />
-
-                                            <lvc:CartesianChart
-                                Series="{Binding Series}"
-                                XAxes="{Binding XAxes}"
-                                YAxes="{Binding YAxes}"
-                                ZoomMode="X"
-                                LegendPosition="Top"
-                                TooltipPosition="Top"
-                                HeightRequest="500"
-                                TooltipTextSize="12" />
-
-                                        </VerticalStackLayout>
-
-                                    </Border>
-
-                                </DataTemplate>
-
-                            </BindableLayout.ItemTemplate>
-
-                        </VerticalStackLayout>
-
-                        <!-- ========================================== -->
-                        <!-- DECLARED-CWE PARETO -->
-                        <!-- ========================================== -->
-
-                        <VerticalStackLayout
-            IsVisible="{Binding IsDeclaredCweParetoSelected}"
-            BindableLayout.ItemsSource="{Binding DeclaredCweParetoCharts}"
-            Spacing="12">
-
-                            <BindableLayout.ItemTemplate>
-
-                                <DataTemplate x:DataType="charts:ParetoChartModel">
-
-                                    <Border
-                        Stroke="#D9D9D9"
-                        StrokeThickness="1"
-                        Padding="10"
-                        Margin="0,4">
-
-                                        <VerticalStackLayout Spacing="8">
-
-                                            <Label
-                                Text="{Binding Title}"
-                                FontAttributes="Bold"
-                                FontSize="16" />
-
-                                            <lvc:CartesianChart
-                                Series="{Binding Series}"
-                                XAxes="{Binding XAxes}"
-                                YAxes="{Binding YAxes}"
-                                ZoomMode="X"
-                                LegendPosition="Top"
-                                TooltipPosition="Top"
-                                HeightRequest="500"
-                                TooltipTextSize="12" />
-
-                                        </VerticalStackLayout>
-
-                                    </Border>
-
-                                </DataTemplate>
-
-                            </BindableLayout.ItemTemplate>
-
-                        </VerticalStackLayout>
-
-                    </VerticalStackLayout>
-
-                </Border>
-
-                <!-- RELATIONSHIP MIX -->
-
-                <Border
-    Stroke="#D9D9D9"
-    StrokeThickness="1"
-    Padding="10">
-
-                    <VerticalStackLayout
-        Spacing="10">
-
-                        <Label
-            Text="Relationship Mix By Scanner"
-            FontAttributes="Bold"
-            FontSize="18" />
-                        <Border
-    Padding="10,7"
-    BackgroundColor="{AppThemeBinding Light=#EAF4FF, Dark=#1E3042}"
-    Stroke="#4A90C2"
-    StrokeThickness="1">
-
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="5" />
-                            </Border.StrokeShape>
-
-                            <Label
-        Text="Noise exclusion: Individual scanner/CWE results with more than 10,000 findings are excluded before relationship totals and percentages are calculated. Scanner totals, relationship percentages, and Final Total therefore represent the filtered data."
-        FontSize="11"
-        TextColor="{AppThemeBinding Light=#24577A, Dark=#B8DCF5}"
-        LineBreakMode="WordWrap" />
-
-                        </Border>
-                        <!-- Custom clickable legend controls -->
-
-                        <Grid
-            ColumnDefinitions="*,Auto"
-            ColumnSpacing="10">
-
-                            <Label
-                Grid.Column="0"
-                Text="Click a relationship to show or hide it"
-                FontSize="12"
-                TextColor="Gray"
-                VerticalOptions="Center" />
-
-                            <HorizontalStackLayout
-                Grid.Column="1"
-                Spacing="8">
-
-                                <Button
-                    Text="Show All"
-                    Command="{Binding ShowAllRelationshipMixSeriesCommand}"
-                    Padding="12,6" />
-
-                                <Button
-                    Text="Hide All"
-                    Command="{Binding HideAllRelationshipMixSeriesCommand}"
-                    Padding="12,6" />
-
-                            </HorizontalStackLayout>
-
-                        </Grid>
-
-                        <!-- Clickable relationship legend -->
-
-                        <FlexLayout
-            BindableLayout.ItemsSource="{Binding RelationshipMixLegendItems}"
-            Direction="Row"
-            Wrap="Wrap"
-            JustifyContent="Start"
-            AlignItems="Center">
-
-                            <BindableLayout.ItemTemplate>
-
-                                <DataTemplate
-                    x:DataType="charts:ChartLegendItem">
-
-                                    <Border
-                        Margin="4"
-                        Padding="10,6"
-                        Stroke="#D9D9D9"
-                        StrokeThickness="1"
-                        BackgroundColor="White">
-
-                                        <Border.StrokeShape>
-                                            <RoundRectangle
-                                CornerRadius="6" />
-                                        </Border.StrokeShape>
-
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                Command="{Binding ToggleCommand}" />
-                                        </Border.GestureRecognizers>
-
-                                        <HorizontalStackLayout
-                            Spacing="7">
-
-                                            <BoxView
-                                WidthRequest="12"
-                                HeightRequest="12"
-                                CornerRadius="2"
-                                Color="{Binding Color}"
-                                VerticalOptions="Center" />
-
-                                            <Label
-                                Text="{Binding Name}"
-                              TextColor="#707070"
-                                VerticalOptions="Center" />
-
-                                            <CheckBox
-                                IsChecked="{Binding IsVisible}"
-                                InputTransparent="True"
-                                VerticalOptions="Center" />
-
-                                        </HorizontalStackLayout>
-
-                                        <Border.Triggers>
-
-                                            <DataTrigger
-                                TargetType="Border"
-                                Binding="{Binding IsVisible}"
-                                Value="False">
-
-                                                <Setter
-                                    Property="Opacity"
-                                    Value="0.4" />
-
-                                                <Setter
-                                    Property="BackgroundColor"
-                                    Value="#EEEEEE" />
-
-                                            </DataTrigger>
-
-                                        </Border.Triggers>
-
-                                    </Border>
-
-                                </DataTemplate>
-
-                            </BindableLayout.ItemTemplate>
-
-                        </FlexLayout>
-
-                        <!-- Actual chart -->
-
-                        <lvc:CartesianChart
-            Series="{Binding RelationshipMixChartSeries}"
-            XAxes="{Binding RelationshipMixXAxes}"
-            YAxes="{Binding RelationshipMixYAxes}"
-            ZoomMode="X"
-            LegendPosition="Hidden"
-            TooltipPosition="Top"
-            HeightRequest="550"
-            TooltipTextSize="12" />
-                        <BoxView
-    HeightRequest="1"
-    Margin="0,10"
-    BackgroundColor="{AppThemeBinding Light=#E0E0E0, Dark=#444444}" />
-
-                        <Label
-    Text="Relationship Mix By Scanner - Count"
-    FontAttributes="Bold"
-    FontSize="16" />
-
-                        <Label
-    Text="Shows raw relationship counts including high-volume scanner/CWE results that are excluded from the percentage chart. The tooltip identifies how much of each relationship count comes from high-volume results."
-    FontSize="12"
-    TextColor="Gray"
-    LineBreakMode="WordWrap" />
-
-                        <lvc:CartesianChart
-    Series="{Binding RelationshipMixCountChartSeries}"
-    XAxes="{Binding RelationshipMixCountXAxes}"
-    YAxes="{Binding RelationshipMixCountYAxes}"
-    ZoomMode="X"
-    LegendPosition="Hidden"
-    TooltipPosition="Top"
-    HeightRequest="550"
-    TooltipTextSize="12" />
-                    </VerticalStackLayout>
-
-                </Border>
-
-                <!-- POLAR -->
-
-                <Border
+            <Border
                 Stroke="#D9D9D9"
                 StrokeThickness="1"
                 Padding="10">
 
-                    <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="10">
+
+                    <Label
+                        Text="False Positives"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <Border
+                        Padding="10,7"
+                        BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#3A3320}"
+                        Stroke="#D6A700"
+                        StrokeThickness="1">
+
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5" />
+                        </Border.StrokeShape>
 
                         <Label
+                            Text="Noise note: This chart intentionally shows all scanner CWE counts, including high-volume results over 10,000 findings. These results may be excluded from other distribution and relationship charts to prevent statistical noise from dominating those views."
+                            FontSize="11"
+                            TextColor="{AppThemeBinding Light=#665500, Dark=#FFE082}"
+                            LineBreakMode="WordWrap" />
+
+                    </Border>
+
+                    <Grid
+                        ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10">
+
+                        <Label
+                            Grid.Column="0"
+                            Text="Select the scanners to display"
+                            FontSize="12"
+                            TextColor="{AppThemeBinding Light=#606060, Dark=#D0D0D0}"
+                            VerticalOptions="Center" />
+
+                        <HorizontalStackLayout
+                            Grid.Column="1"
+                            Spacing="8">
+
+                            <Button
+                                Text="Show All"
+                                Command="{Binding ShowAllFalsePositiveSeriesCommand}"
+                                Padding="12,6" />
+
+                            <Button
+                                Text="Hide All"
+                                Command="{Binding HideAllFalsePositiveSeriesCommand}"
+                                Padding="12,6" />
+
+                        </HorizontalStackLayout>
+
+                    </Grid>
+
+                    <FlexLayout
+                        BindableLayout.ItemsSource="{Binding FalsePositiveLegendItems}"
+                        Direction="Row"
+                        Wrap="Wrap"
+                        JustifyContent="Start"
+                        AlignItems="Center">
+
+                        <BindableLayout.ItemTemplate>
+
+                            <DataTemplate
+                                x:DataType="charts:ChartLegendItem">
+
+                                <Border
+                                    Margin="4"
+                                    Padding="10,6"
+                                    Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
+                                    StrokeThickness="1"
+                                    BackgroundColor="{AppThemeBinding Light=White, Dark=#2B2B2B}">
+
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="6" />
+                                    </Border.StrokeShape>
+
+                                    <Border.GestureRecognizers>
+
+                                        <TapGestureRecognizer
+                                            Command="{Binding ToggleCommand}" />
+
+                                    </Border.GestureRecognizers>
+
+                                    <HorizontalStackLayout Spacing="7">
+
+                                        <BoxView
+                                            WidthRequest="12"
+                                            HeightRequest="12"
+                                            CornerRadius="6"
+                                            Color="{Binding Color}"
+                                            VerticalOptions="Center" />
+
+                                        <Label
+                                            Text="{Binding Name}"
+                                            TextColor="{AppThemeBinding Light=#404040, Dark=#F0F0F0}"
+                                            VerticalOptions="Center" />
+
+                                        <CheckBox
+                                            IsChecked="{Binding IsVisible}"
+                                            InputTransparent="True"
+                                            VerticalOptions="Center" />
+
+                                    </HorizontalStackLayout>
+
+                                    <Border.Triggers>
+
+                                        <DataTrigger
+                                            TargetType="Border"
+                                            Binding="{Binding IsVisible}"
+                                            Value="False">
+
+                                            <Setter
+                                                Property="Opacity"
+                                                Value="0.4" />
+
+                                        </DataTrigger>
+
+                                    </Border.Triggers>
+
+                                </Border>
+
+                            </DataTemplate>
+
+                        </BindableLayout.ItemTemplate>
+
+                    </FlexLayout>
+
+                    <lvc:CartesianChart
+                        Series="{Binding FalsePositiveSeries}"
+                        XAxes="{Binding FalsePositiveXAxes}"
+                        YAxes="{Binding FalsePositiveYAxes}"
+                        ZoomMode="X"
+                        LegendPosition="Hidden"
+                        TooltipPosition="Top"
+                        TooltipTextSize="12"
+                        HeightRequest="450" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+
+            <!-- ============================================ -->
+            <!-- UNRELATED SCANNER CONSENSUS                  -->
+            <!-- ============================================ -->
+
+            <Border
+                IsVisible="{Binding HasUnrelatedConsensusData}"
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10"
+                Margin="0,6">
+
+                <VerticalStackLayout Spacing="10">
+
+                    <Label
+                        Text="Scanner Consensus - Unrelated Findings"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <Border
+                        Padding="10,7"
+                        BackgroundColor="{AppThemeBinding Light=#FFF3E0, Dark=#3A2B1E}"
+                        Stroke="#E88B20"
+                        StrokeThickness="1">
+
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5" />
+                        </Border.StrokeShape>
+
+                        <Label
+                            Text="Shows unrelated CWE findings reported by two or more distinct scanners. The Unrelated classification comes from the existing calculated Report relationship; this chart does not recalculate CWE relationships."
+                            FontSize="11"
+                            TextColor="{AppThemeBinding Light=#805000, Dark=#FFD59A}"
+                            LineBreakMode="WordWrap" />
+
+                    </Border>
+
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="12">
+
+                        <Border
+                            Grid.Column="0"
+                            Padding="10"
+                            Stroke="#D9D9D9"
+                            StrokeThickness="1">
+
+                            <VerticalStackLayout Spacing="2">
+
+                                <Label
+                                    Text="Consensus Groups"
+                                    FontSize="11"
+                                    TextColor="Gray" />
+
+                                <Label
+                                    Text="{Binding UnrelatedConsensusGroupCount}"
+                                    FontSize="22"
+                                    FontAttributes="Bold"
+                                    TextColor="{AppThemeBinding Light=#404040, Dark=#E0E0E0}" />
+
+                            </VerticalStackLayout>
+
+                        </Border>
+
+                        <Border
+                            Grid.Column="1"
+                            Padding="10"
+                            Stroke="#D9D9D9"
+                            StrokeThickness="1">
+
+                            <VerticalStackLayout Spacing="2">
+
+                                <Label
+                                    Text="Unrelated Findings"
+                                    FontSize="11"
+                                    TextColor="Gray" />
+
+                                <Label
+                                    Text="{Binding UnrelatedConsensusFindingCount}"
+                                    FontSize="22"
+                                    FontAttributes="Bold"
+                                    TextColor="{AppThemeBinding Light=#404040, Dark=#E0E0E0}" />
+
+                            </VerticalStackLayout>
+
+                        </Border>
+
+                    </Grid>
+
+                    <Label
+                        Text="Each bubble represents an unrelated scanner CWE reported against a Juliet ground-truth CWE. Bubble size represents finding count, while color represents the number of distinct scanners reporting the CWE pair."
+                        FontSize="12"
+                        TextColor="Gray"
+                        LineBreakMode="WordWrap" />
+
+                    <lvc:CartesianChart
+                        Series="{Binding UnrelatedConsensusSeries}"
+                        XAxes="{Binding UnrelatedConsensusXAxes}"
+                        YAxes="{Binding UnrelatedConsensusYAxes}"
+                        ZoomMode="Both"
+                        LegendPosition="Top"
+                        TooltipPosition="Top"
+                        TooltipTextSize="12"
+                        HeightRequest="650"
+                        HorizontalOptions="Fill" />
+
+                    <Label
+                        Text="Consensus Details"
+                        FontAttributes="Bold"
+                        FontSize="16"
+                        Margin="0,8,0,0" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+
+            <!-- ============================================ -->
+            <!-- RELATED FINDINGS                             -->
+            <!-- ============================================ -->
+
+            <Border
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10">
+
+                <VerticalStackLayout Spacing="10">
+
+                    <Label
+                        Text="Related Findings"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <Border
+                        Padding="10,7"
+                        BackgroundColor="{AppThemeBinding Light=#EAF4FF, Dark=#1E3042}"
+                        Stroke="#4A90C2"
+                        StrokeThickness="1">
+
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5" />
+                        </Border.StrokeShape>
+
+                        <Label
+                            Text="Noise exclusion: Individual scanner/CWE results with more than 10,000 findings are excluded from this chart. Only the noisy CWE result is excluded; the scanner and its other CWE results remain visible."
+                            FontSize="11"
+                            TextColor="{AppThemeBinding Light=#24577A, Dark=#B8DCF5}"
+                            LineBreakMode="WordWrap" />
+
+                    </Border>
+
+                    <Grid
+                        ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10">
+
+                        <VerticalStackLayout
+                            Grid.Column="0"
+                            Spacing="4">
+
+                            <Label
+                                Text="Relationship Filter"
+                                FontSize="12"
+                                TextColor="Gray" />
+
+                            <Picker
+                                Title="Select a relationship"
+                                ItemsSource="{Binding AvailableRelationships}"
+                                SelectedItem="{Binding SelectedRelationship}"
+                                HorizontalOptions="Fill" />
+
+                        </VerticalStackLayout>
+
+                        <HorizontalStackLayout
+                            Grid.Column="1"
+                            Spacing="8"
+                            VerticalOptions="End">
+
+                            <Button
+                                Text="Show All"
+                                Command="{Binding ShowAllRelatedFindingSeriesCommand}"
+                                Padding="12,6" />
+
+                            <Button
+                                Text="Hide All"
+                                Command="{Binding HideAllRelatedFindingSeriesCommand}"
+                                Padding="12,6" />
+
+                        </HorizontalStackLayout>
+
+                    </Grid>
+
+                    <Label
+                        Text="Click a scanner to show or hide its findings."
+                        FontSize="12"
+                        TextColor="Gray" />
+
+                    <FlexLayout
+                        BindableLayout.ItemsSource="{Binding RelatedFindingLegendItems}"
+                        Direction="Row"
+                        Wrap="Wrap"
+                        JustifyContent="Start"
+                        AlignItems="Center">
+
+                        <BindableLayout.ItemTemplate>
+
+                            <DataTemplate
+                                x:DataType="charts:ChartLegendItem">
+
+                                <Border
+                                    Margin="4"
+                                    Padding="10,6"
+                                    Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
+                                    StrokeThickness="1"
+                                    BackgroundColor="{AppThemeBinding Light=White, Dark=#2B2B2B}">
+
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="6" />
+                                    </Border.StrokeShape>
+
+                                    <Border.GestureRecognizers>
+
+                                        <TapGestureRecognizer
+                                            Command="{Binding ToggleCommand}" />
+
+                                    </Border.GestureRecognizers>
+
+                                    <HorizontalStackLayout Spacing="7">
+
+                                        <BoxView
+                                            WidthRequest="12"
+                                            HeightRequest="12"
+                                            CornerRadius="6"
+                                            Color="{Binding Color}"
+                                            VerticalOptions="Center" />
+
+                                        <Label
+                                            Text="{Binding Name}"
+                                            TextColor="{AppThemeBinding Light=#404040, Dark=#F0F0F0}"
+                                            VerticalOptions="Center" />
+
+                                        <CheckBox
+                                            IsChecked="{Binding IsVisible}"
+                                            InputTransparent="True"
+                                            VerticalOptions="Center" />
+
+                                    </HorizontalStackLayout>
+
+                                    <Border.Triggers>
+
+                                        <DataTrigger
+                                            TargetType="Border"
+                                            Binding="{Binding IsVisible}"
+                                            Value="False">
+
+                                            <Setter
+                                                Property="Opacity"
+                                                Value="0.4" />
+
+                                        </DataTrigger>
+
+                                    </Border.Triggers>
+
+                                </Border>
+
+                            </DataTemplate>
+
+                        </BindableLayout.ItemTemplate>
+
+                    </FlexLayout>
+
+                    <lvc:CartesianChart
+                        Series="{Binding RelatedFindingSeries}"
+                        XAxes="{Binding RelatedFindingXAxes}"
+                        YAxes="{Binding RelatedFindingYAxes}"
+                        ZoomMode="Both"
+                        LegendPosition="Hidden"
+                        TooltipPosition="Top"
+                        TooltipTextSize="12"
+                        HeightRequest="450" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+
+            <!-- ============================================ -->
+            <!-- JULIET CWE DETECTION HEATMAP                 -->
+            <!-- ============================================ -->
+
+            <Border
+                IsVisible="{Binding HasScannerCweHeatmapData}"
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10"
+                Margin="0,6">
+
+                <VerticalStackLayout Spacing="6">
+
+                    <Label
+                        Text="Juliet CWE Detection Heatmap By Scanner"
+                        FontAttributes="Bold"
+                        FontSize="18"
+                        HorizontalTextAlignment="Center" />
+
+                    <Label
+                        Text="Each cell shows the percentage of known Juliet tests detected by a scanner for a ground-truth CWE."
+                        FontSize="12"
+                        TextColor="Gray"
+                        HorizontalTextAlignment="Center" />
+
+                    <Grid
+                        ColumnDefinitions="Auto,*,Auto"
+                        ColumnSpacing="8"
+                        HorizontalOptions="Center">
+
+                        <Label
+                            Grid.Column="0"
+                            Text="0%"
+                            FontSize="11"
+                            TextColor="#555555"
+                            VerticalTextAlignment="Center" />
+
+                        <Grid
+                            Grid.Column="1"
+                            WidthRequest="260"
+                            HeightRequest="16">
+
+                            <Grid.Background>
+
+                                <LinearGradientBrush
+                                    StartPoint="0,0.5"
+                                    EndPoint="1,0.5">
+
+                                    <GradientStop
+                                        Color="#C62828"
+                                        Offset="0.0" />
+
+                                    <GradientStop
+                                        Color="#EF6C00"
+                                        Offset="0.25" />
+
+                                    <GradientStop
+                                        Color="#FDD835"
+                                        Offset="0.5" />
+
+                                    <GradientStop
+                                        Color="#7CB342"
+                                        Offset="0.75" />
+
+                                    <GradientStop
+                                        Color="#1B5E20"
+                                        Offset="1.0" />
+
+                                </LinearGradientBrush>
+
+                            </Grid.Background>
+
+                        </Grid>
+
+                        <Label
+                            Grid.Column="2"
+                            Text="100%"
+                            FontSize="11"
+                            TextColor="#555555"
+                            VerticalTextAlignment="Center" />
+
+                    </Grid>
+
+                    <Label
+                        Text="Low detection                             High detection"
+                        FontSize="11"
+                        TextColor="Gray"
+                        HorizontalTextAlignment="Center" />
+
+                    <lvc:CartesianChart
+                        Series="{Binding ScannerCweHeatmapSeries}"
+                        XAxes="{Binding ScannerCweHeatmapXAxes}"
+                        YAxes="{Binding ScannerCweHeatmapYAxes}"
+                        ZoomMode="Both"
+                        LegendPosition="Hidden"
+                        TooltipPosition="Top"
+                        TooltipTextSize="12"
+                        HeightRequest="750"
+                        HorizontalOptions="Fill" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+
+            <!-- ============================================ -->
+            <!-- FALSE NEGATIVE PARETO                        -->
+            <!-- ============================================ -->
+
+            <Border
+                Margin="0,6"
+                Padding="10"
+                Stroke="#D9D9D9"
+                StrokeThickness="1">
+
+                <VerticalStackLayout Spacing="10">
+
+                    <Label
+                        Text="False Negative Pareto Analysis"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <Grid
+                        ColumnDefinitions="*,*"
+                        ColumnSpacing="6">
+
+                        <Button
+                            Grid.Column="0"
+                            Text="Ground-truth Pareto"
+                            Command="{Binding SelectGroundTruthParetoCommand}"
+                            BackgroundColor="{Binding GroundTruthTabColor}"
+                            TextColor="White"
+                            CornerRadius="6"
+                            Padding="12,8" />
+
+                        <Button
+                            Grid.Column="1"
+                            Text="Declared-CWE Pareto"
+                            Command="{Binding SelectDeclaredCweParetoCommand}"
+                            BackgroundColor="{Binding DeclaredCweTabColor}"
+                            TextColor="White"
+                            CornerRadius="6"
+                            Padding="12,8" />
+
+                    </Grid>
+
+                    <!-- GROUND-TRUTH PARETO -->
+
+                    <VerticalStackLayout
+                        IsVisible="{Binding IsGroundTruthParetoSelected}"
+                        BindableLayout.ItemsSource="{Binding GroundTruthParetoCharts}"
+                        Spacing="12">
+
+                        <BindableLayout.ItemTemplate>
+
+                            <DataTemplate
+                                x:DataType="charts:ParetoChartModel">
+
+                                <Border
+                                    Stroke="#D9D9D9"
+                                    StrokeThickness="1"
+                                    Padding="10"
+                                    Margin="0,4">
+
+                                    <VerticalStackLayout Spacing="8">
+
+                                        <Label
+                                            Text="{Binding Title}"
+                                            FontAttributes="Bold"
+                                            FontSize="16" />
+
+                                        <lvc:CartesianChart
+                                            Series="{Binding Series}"
+                                            XAxes="{Binding XAxes}"
+                                            YAxes="{Binding YAxes}"
+                                            ZoomMode="X"
+                                            LegendPosition="Top"
+                                            TooltipPosition="Top"
+                                            TooltipTextSize="12"
+                                            HeightRequest="500" />
+
+                                    </VerticalStackLayout>
+
+                                </Border>
+
+                            </DataTemplate>
+
+                        </BindableLayout.ItemTemplate>
+
+                    </VerticalStackLayout>
+
+                    <!-- DECLARED-CWE PARETO -->
+
+                    <VerticalStackLayout
+                        IsVisible="{Binding IsDeclaredCweParetoSelected}"
+                        BindableLayout.ItemsSource="{Binding DeclaredCweParetoCharts}"
+                        Spacing="12">
+
+                        <BindableLayout.ItemTemplate>
+
+                            <DataTemplate
+                                x:DataType="charts:ParetoChartModel">
+
+                                <Border
+                                    Stroke="#D9D9D9"
+                                    StrokeThickness="1"
+                                    Padding="10"
+                                    Margin="0,4">
+
+                                    <VerticalStackLayout Spacing="8">
+
+                                        <Label
+                                            Text="{Binding Title}"
+                                            FontAttributes="Bold"
+                                            FontSize="16" />
+
+                                        <lvc:CartesianChart
+                                            Series="{Binding Series}"
+                                            XAxes="{Binding XAxes}"
+                                            YAxes="{Binding YAxes}"
+                                            ZoomMode="X"
+                                            LegendPosition="Top"
+                                            TooltipPosition="Top"
+                                            TooltipTextSize="12"
+                                            HeightRequest="500" />
+
+                                    </VerticalStackLayout>
+
+                                </Border>
+
+                            </DataTemplate>
+
+                        </BindableLayout.ItemTemplate>
+
+                    </VerticalStackLayout>
+
+                </VerticalStackLayout>
+
+            </Border>
+
+
+            <!-- ============================================ -->
+            <!-- RELATIONSHIP MIX                             -->
+            <!-- ============================================ -->
+
+            <Border
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10">
+
+                <VerticalStackLayout Spacing="10">
+
+                    <Label
+                        Text="Relationship Mix By Scanner"
+                        FontAttributes="Bold"
+                        FontSize="18" />
+
+                    <Border
+                        Padding="10,7"
+                        BackgroundColor="{AppThemeBinding Light=#EAF4FF, Dark=#1E3042}"
+                        Stroke="#4A90C2"
+                        StrokeThickness="1">
+
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5" />
+                        </Border.StrokeShape>
+
+                        <Label
+                            Text="Noise exclusion: Individual scanner/CWE results with more than 10,000 findings are excluded before relationship totals and percentages are calculated. Scanner totals, relationship percentages, and Final Total therefore represent the filtered data."
+                            FontSize="11"
+                            TextColor="{AppThemeBinding Light=#24577A, Dark=#B8DCF5}"
+                            LineBreakMode="WordWrap" />
+
+                    </Border>
+
+                    <Grid
+                        ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10">
+
+                        <Label
+                            Grid.Column="0"
+                            Text="Click a relationship to show or hide it"
+                            FontSize="12"
+                            TextColor="Gray"
+                            VerticalOptions="Center" />
+
+                        <HorizontalStackLayout
+                            Grid.Column="1"
+                            Spacing="8">
+
+                            <Button
+                                Text="Show All"
+                                Command="{Binding ShowAllRelationshipMixSeriesCommand}"
+                                Padding="12,6" />
+
+                            <Button
+                                Text="Hide All"
+                                Command="{Binding HideAllRelationshipMixSeriesCommand}"
+                                Padding="12,6" />
+
+                        </HorizontalStackLayout>
+
+                    </Grid>
+
+                    <FlexLayout
+                        BindableLayout.ItemsSource="{Binding RelationshipMixLegendItems}"
+                        Direction="Row"
+                        Wrap="Wrap"
+                        JustifyContent="Start"
+                        AlignItems="Center">
+
+                        <BindableLayout.ItemTemplate>
+
+                            <DataTemplate
+                                x:DataType="charts:ChartLegendItem">
+
+                                <Border
+                                    Margin="4"
+                                    Padding="10,6"
+                                    Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
+                                    StrokeThickness="1"
+                                    BackgroundColor="{AppThemeBinding Light=White, Dark=#2B2B2B}">
+
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="6" />
+                                    </Border.StrokeShape>
+
+                                    <Border.GestureRecognizers>
+
+                                        <TapGestureRecognizer
+                                            Command="{Binding ToggleCommand}" />
+
+                                    </Border.GestureRecognizers>
+
+                                    <HorizontalStackLayout Spacing="7">
+
+                                        <BoxView
+                                            WidthRequest="12"
+                                            HeightRequest="12"
+                                            CornerRadius="2"
+                                            Color="{Binding Color}"
+                                            VerticalOptions="Center" />
+
+                                        <Label
+                                            Text="{Binding Name}"
+                                            TextColor="{AppThemeBinding Light=#404040, Dark=#F0F0F0}"
+                                            VerticalOptions="Center" />
+
+                                        <CheckBox
+                                            IsChecked="{Binding IsVisible}"
+                                            InputTransparent="True"
+                                            VerticalOptions="Center" />
+
+                                    </HorizontalStackLayout>
+
+                                    <Border.Triggers>
+
+                                        <DataTrigger
+                                            TargetType="Border"
+                                            Binding="{Binding IsVisible}"
+                                            Value="False">
+
+                                            <Setter
+                                                Property="Opacity"
+                                                Value="0.4" />
+
+                                        </DataTrigger>
+
+                                    </Border.Triggers>
+
+                                </Border>
+
+                            </DataTemplate>
+
+                        </BindableLayout.ItemTemplate>
+
+                    </FlexLayout>
+
+                    <lvc:CartesianChart
+                        Series="{Binding RelationshipMixChartSeries}"
+                        XAxes="{Binding RelationshipMixXAxes}"
+                        YAxes="{Binding RelationshipMixYAxes}"
+                        ZoomMode="X"
+                        LegendPosition="Hidden"
+                        TooltipPosition="Top"
+                        TooltipTextSize="12"
+                        HeightRequest="550" />
+
+                    <BoxView
+                        HeightRequest="1"
+                        Margin="0,10"
+                        BackgroundColor="{AppThemeBinding Light=#E0E0E0, Dark=#444444}" />
+
+                    <Label
+                        Text="Relationship Mix By Scanner - Count"
+                        FontAttributes="Bold"
+                        FontSize="16" />
+
+                    <Label
+                        Text="Shows raw relationship counts including high-volume scanner/CWE results that are excluded from the percentage chart. The tooltip identifies how much of each relationship count comes from high-volume results."
+                        FontSize="12"
+                        TextColor="Gray"
+                        LineBreakMode="WordWrap" />
+
+                    <lvc:CartesianChart
+                        Series="{Binding RelationshipMixCountChartSeries}"
+                        XAxes="{Binding RelationshipMixCountXAxes}"
+                        YAxes="{Binding RelationshipMixCountYAxes}"
+                        ZoomMode="X"
+                        LegendPosition="Hidden"
+                        TooltipPosition="Top"
+                        TooltipTextSize="12"
+                        HeightRequest="550" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
+
+            <!-- ============================================ -->
+            <!-- SCANNER CWE DISTRIBUTION                     -->
+            <!-- ============================================ -->
+
+            <Border
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10">
+
+                <VerticalStackLayout Spacing="8">
+
+                    <Label
                         Text="Scanner CWE Distribution"
                         FontAttributes="Bold"
                         FontSize="18" />
-                        <Border
-    Padding="10,7"
-    BackgroundColor="{AppThemeBinding Light=#EAF4FF, Dark=#1E3042}"
-    Stroke="#4A90C2"
-    StrokeThickness="1">
 
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="5" />
-                            </Border.StrokeShape>
+                    <Border
+                        Padding="10,7"
+                        BackgroundColor="{AppThemeBinding Light=#EAF4FF, Dark=#1E3042}"
+                        Stroke="#4A90C2"
+                        StrokeThickness="1">
 
-                            <Label
-        Text="Noise exclusion: Individual scanner/CWE results with more than 10,000 findings are excluded from this distribution so extreme counts do not dominate the chart. The scanner and its remaining CWE results are still included."
-        FontSize="11"
-        TextColor="{AppThemeBinding Light=#24577A, Dark=#B8DCF5}"
-        LineBreakMode="WordWrap" />
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5" />
+                        </Border.StrokeShape>
 
-                        </Border>
-                        <lvc:PolarChart
+                        <Label
+                            Text="Noise exclusion: Individual scanner/CWE results with more than 10,000 findings are excluded from this distribution so extreme counts do not dominate the chart. The scanner and its remaining CWE results are still included."
+                            FontSize="11"
+                            TextColor="{AppThemeBinding Light=#24577A, Dark=#B8DCF5}"
+                            LineBreakMode="WordWrap" />
+
+                    </Border>
+
+                    <lvc:PolarChart
                         Series="{Binding PolarSeries}"
                         AngleAxes="{Binding PolarAngleAxes}"
                         RadiusAxes="{Binding PolarRadiusAxes}"
@@ -884,48 +972,52 @@ BackgroundColor="{AppThemeBinding Light=#F7F9FC, Dark=#252525}">
                         TooltipPosition="Top"
                         HeightRequest="450" />
 
-                    </VerticalStackLayout>
+                </VerticalStackLayout>
 
-                </Border>
+            </Border>
 
-                <Border
-    IsVisible="{Binding HasMitreTop25Data}"
-    Stroke="#D9D9D9"
-    StrokeThickness="1"
-    Padding="10"
-    Margin="8,6">
 
-                    <VerticalStackLayout
-        Spacing="6">
+            <!-- ============================================ -->
+            <!-- MITRE CWE TOP 25                             -->
+            <!-- ============================================ -->
 
-                        <Label
-            Text="2025 MITRE CWE Top 25 - Juliet C/C++ Detection Rate"
-            FontSize="18"
-            FontAttributes="Bold"
-            HorizontalTextAlignment="Center" />
+            <Border
+                IsVisible="{Binding HasMitreTop25Data}"
+                Stroke="#D9D9D9"
+                StrokeThickness="1"
+                Padding="10"
+                Margin="0,6">
 
-                        <Label
-            Text="Each line represents a scanner. Missing points indicate that the C/C++ benchmark has no opportunity for that CWE."
-            FontSize="12"
-            TextColor="Gray"
-            HorizontalTextAlignment="Center" />
+                <VerticalStackLayout Spacing="6">
 
-                        <lvc:CartesianChart
-            Series="{Binding MitreTop25Series}"
-            XAxes="{Binding MitreTop25XAxes}"
-            YAxes="{Binding MitreTop25YAxes}"
-            ZoomMode="X"
-            LegendPosition="Top"
-            TooltipPosition="Top"
-            HeightRequest="550" 
-            TooltipTextSize="12"/>
+                    <Label
+                        Text="2025 MITRE CWE Top 25 - Juliet C/C++ Detection Rate"
+                        FontSize="18"
+                        FontAttributes="Bold"
+                        HorizontalTextAlignment="Center" />
 
-                    </VerticalStackLayout>
+                    <Label
+                        Text="Each line represents a scanner. Missing points indicate that the C/C++ benchmark has no opportunity for that CWE."
+                        FontSize="12"
+                        TextColor="Gray"
+                        HorizontalTextAlignment="Center" />
 
-                </Border>
-        
+                    <lvc:CartesianChart
+                        Series="{Binding MitreTop25Series}"
+                        XAxes="{Binding MitreTop25XAxes}"
+                        YAxes="{Binding MitreTop25YAxes}"
+                        ZoomMode="X"
+                        LegendPosition="Top"
+                        TooltipPosition="Top"
+                        TooltipTextSize="12"
+                        HeightRequest="550" />
+
+                </VerticalStackLayout>
+
+            </Border>
+
         </VerticalStackLayout>
-    </Grid>
+
     </ScrollView>
 
 </ContentPage>

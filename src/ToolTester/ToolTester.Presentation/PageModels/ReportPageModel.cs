@@ -9,11 +9,13 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 using System.Collections.ObjectModel;
 using ToolTester.Application.Common.Interfaces;
+using ToolTester.Application.Reports.DTO;
 using ToolTester.Infrastructure.Services;
 using ToolTester.Presentation.Models;
 using ToolTester.Presentation.Models.Charts;
 using ToolTester.Presentation.Models.Reports;
 using ToolTester.Presentation.Services;
+using System.Diagnostics;
 namespace ToolTester.Presentation.PageModels;
 
 public partial class ReportPageModel : BaseViewModel
@@ -238,13 +240,15 @@ public partial class ReportPageModel : BaseViewModel
     private readonly IFalsePositiveQuery _falsePositiveQuery;
     private readonly IReportQueryService _reportQueryService;
     private readonly IScanDisplayNameProvider _scanNameProvider; // if not already present
+    private readonly IUnrelatedFindingConsensusService _unrelatedFindingConsensusService;
     public ReportPageModel(
           ModalErrorHandler errorHandler,
           IReportQueryService reportQueryService,
           IScanDisplayNameProvider scanNameProvider,
           BenchmarkReportService benchmarkService,
           IHeatmapQuery heatmapQuery,
-          IFalsePositiveQuery falsePositiveQuery)
+          IFalsePositiveQuery falsePositiveQuery,
+          IUnrelatedFindingConsensusService unrelatedFindingConsensusService)
     {
         _errorHandler = errorHandler ?? throw new ArgumentNullException(nameof(errorHandler));
         _reportQueryService = reportQueryService ?? throw new ArgumentNullException(nameof(reportQueryService));
@@ -252,6 +256,7 @@ public partial class ReportPageModel : BaseViewModel
         _benchmarkService = benchmarkService ?? throw new ArgumentNullException(nameof(benchmarkService));
         _heatmapQuery = heatmapQuery ?? throw new ArgumentNullException(nameof(heatmapQuery));
         _falsePositiveQuery = falsePositiveQuery;
+        _unrelatedFindingConsensusService = unrelatedFindingConsensusService;
     }
     public event EventHandler? ReportDataLoaded;
 
@@ -328,6 +333,67 @@ public partial class ReportPageModel : BaseViewModel
             ref _falsePositiveLegendItems,
             value);
     }
+    private ObservableCollection<UnrelatedFindingConsensus>
+    _unrelatedConsensusItems = [];
+
+    private ISeries[] _unrelatedConsensusSeries = [];
+
+    private Axis[] _unrelatedConsensusXAxes = [];
+
+    private Axis[] _unrelatedConsensusYAxes = [];
+    public ObservableCollection<UnrelatedFindingConsensus>
+    UnrelatedConsensusItems
+    {
+        get => _unrelatedConsensusItems;
+
+        private set => SetProperty(
+            ref _unrelatedConsensusItems,
+            value);
+    }
+
+    public ISeries[] UnrelatedConsensusSeries
+    {
+        get => _unrelatedConsensusSeries;
+
+        private set => SetProperty(
+            ref _unrelatedConsensusSeries,
+            value);
+    }
+
+    public Axis[] UnrelatedConsensusXAxes
+    {
+        get => _unrelatedConsensusXAxes;
+
+        private set => SetProperty(
+            ref _unrelatedConsensusXAxes,
+            value);
+    }
+
+    public Axis[] UnrelatedConsensusYAxes
+    {
+        get => _unrelatedConsensusYAxes;
+
+        private set => SetProperty(
+            ref _unrelatedConsensusYAxes,
+            value);
+    }
+
+    public bool HasUnrelatedConsensusData
+    {
+        get => _hasUnrelatedConsensusData;
+
+        private set => SetProperty(
+            ref _hasUnrelatedConsensusData,
+            value);
+    }
+
+    public int UnrelatedConsensusGroupCount =>
+        UnrelatedConsensusItems.Count;
+
+    public int UnrelatedConsensusFindingCount =>
+        UnrelatedConsensusItems.Sum(
+            item => item.FindingCount);
+    private bool _hasUnrelatedConsensusData;
     public ISeries[] FalsePositiveSeries
     {
         get => _falsePositiveSeries;
@@ -835,13 +901,304 @@ public partial class ReportPageModel : BaseViewModel
         await BuildHeapChart();
 
         await BuildFalsePositiveChart();
+        await BuildUnrelatedConsensusChart();
         BuildRelatedFindingChart();
         BuildParetoCharts();
         BuildRelationshipMixLiveChart();
         BuildRelationshipMixCountLiveChart();
         BuildPolarLiveChart();
     }
+    private async Task BuildUnrelatedConsensusChart()
+    {
+        var consensus =
+            await _unrelatedFindingConsensusService
+                .GetConsensusAsync(
+                    minimumScannerCount: 2);
 
+        var items =
+            consensus
+                .OrderBy(item =>
+                    item.GroundTruthCweId)
+                .ThenBy(item =>
+                    item.ScannerFoundCweId)
+                .ToArray();
+
+        UnrelatedConsensusItems =
+            new ObservableCollection<
+                UnrelatedFindingConsensus>(
+                    items);
+
+        OnPropertyChanged(
+            nameof(UnrelatedConsensusGroupCount));
+
+        OnPropertyChanged(
+            nameof(UnrelatedConsensusFindingCount));
+
+        if (items.Length == 0)
+        {
+            UnrelatedConsensusSeries = [];
+            UnrelatedConsensusXAxes = [];
+            UnrelatedConsensusYAxes = [];
+            HasUnrelatedConsensusData = false;
+
+            return;
+        }
+
+        var chartSeries =
+            new List<ISeries>();
+
+        /*
+         * Create a separate series for each consensus level.
+         *
+         * Example:
+         *
+         * 2 scanners
+         * 3 scanners
+         * 4 scanners
+         *
+         * This gives each consensus level its own color.
+         */
+        var consensusGroups =
+            items
+                .GroupBy(item =>
+                    item.ScannerCount)
+                .OrderBy(group =>
+                    group.Key)
+                .ToArray();
+#if DEBUG
+        DebugUnrelatedConsensus(consensus);
+#endif
+        var colorIndex = 0;
+
+        foreach (var consensusGroup in consensusGroups)
+        {
+            var scannerCount =
+                consensusGroup.Key;
+
+            var groupItems =
+                consensusGroup.ToArray();
+
+            /*
+             * Coordinate lookup is used by the tooltip.
+             *
+             * X = Ground Truth CWE
+             * Y = Scanner CWE
+             */
+            var lookup =
+                groupItems
+                    .GroupBy(item =>
+                        CoordinateKey(
+                            item.GroundTruthCweId,
+                            item.ScannerFoundCweId))
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.First());
+
+            var color =
+                GetChartColor(
+                    colorIndex++);
+
+            var series =
+                new ScatterSeries<WeightedPoint>
+                {
+                    Name =
+                        $"{scannerCount} Scanners",
+
+                    Values =
+                        groupItems
+                            .Select(item =>
+                                new WeightedPoint(
+                                    item.GroundTruthCweId,
+                                    item.ScannerFoundCweId,
+
+                                    /*
+                                     * Bubble weight represents the
+                                     * number of findings.
+                                     */
+                                    Math.Max(
+                                        item.FindingCount,
+                                        1)))
+                            .ToArray(),
+
+                    IsVisible =
+                        true,
+
+                    IsVisibleAtLegend =
+                        true,
+
+                    MinGeometrySize =
+                        8,
+
+                    GeometrySize =
+                        35,
+
+                    Fill =
+                        new SolidColorPaint(
+                            color.WithAlpha(150)),
+
+                    Stroke =
+                        new SolidColorPaint(
+                            color)
+                        {
+                            StrokeThickness = 1
+                        },
+
+                    YToolTipLabelFormatter =
+                        point =>
+                        {
+                            var key =
+                                CoordinateKey(
+                                    point.Coordinate
+                                        .SecondaryValue,
+                                    point.Coordinate
+                                        .PrimaryValue);
+
+                            if (!lookup.TryGetValue(
+                                    key,
+                                    out var item))
+                            {
+                                return
+                                    $"{scannerCount} scanners";
+                            }
+
+                            return
+                                $"Ground Truth CWE: " +
+                                $"CWE-{item.GroundTruthCweId}" +
+                                $"{Environment.NewLine}" +
+
+                                $"Scanner CWE: " +
+                                $"CWE-{item.ScannerFoundCweId}" +
+                                $"{Environment.NewLine}" +
+
+                                $"Consensus: " +
+                                $"{item.ScannerCount} scanners" +
+                                $"{Environment.NewLine}" +
+
+                                $"Scanners: " +
+                                $"{item.ScannerNamesLabel}" +
+                                $"{Environment.NewLine}" +
+
+                                $"Scans: " +
+                                $"{item.ScanCount:N0}" +
+                                $"{Environment.NewLine}" +
+
+                                $"Findings: " +
+                                $"{item.FindingCount:N0}";
+                        }
+                };
+
+            chartSeries.Add(
+                series);
+        }
+
+        UnrelatedConsensusSeries =
+            chartSeries.ToArray();
+
+        UnrelatedConsensusXAxes =
+        [
+            CreateNumericAxis(
+            name:
+                "Ground Truth CWE",
+
+            labeler:
+                value =>
+                    $"CWE-{value:N0}")
+        ];
+
+        UnrelatedConsensusYAxes =
+        [
+            CreateNumericAxis(
+            name:
+                "Scanner CWE",
+
+            labeler:
+                value =>
+                    $"CWE-{value:N0}")
+        ];
+
+        HasUnrelatedConsensusData =
+            chartSeries.Count > 0;
+    }
+    private static void DebugUnrelatedConsensus(
+    IEnumerable<UnrelatedFindingConsensus> consensus)
+    {
+        var items =
+            consensus
+                .OrderByDescending(item =>
+                    item.ScannerCount)
+                .ThenByDescending(item =>
+                    item.FindingCount)
+                .ThenBy(item =>
+                    item.GroundTruthCweId)
+                .ThenBy(item =>
+                    item.ScannerFoundCweId)
+                .ToArray();
+
+        Debug.WriteLine(
+            "============================================================");
+
+        Debug.WriteLine(
+            "UNRELATED SCANNER CONSENSUS - RELATIONSHIP REVIEW");
+
+        Debug.WriteLine(
+            "============================================================");
+
+        Debug.WriteLine(
+            $"Consensus groups: {items.Length}");
+
+        Debug.WriteLine(string.Empty);
+
+        foreach (var item in items)
+        {
+            Debug.WriteLine(
+                $"Ground Truth CWE-{item.GroundTruthCweId} | " +
+                $"Scanner CWE-{item.ScannerFoundCweId} | " +
+                $"Scanners={item.ScannerCount} | " +
+                $"Findings={item.FindingCount} | " +
+                $"Scans={item.ScanCount}");
+
+            foreach (var example in item.Examples)
+            {
+                Debug.WriteLine(
+                    $"  Scanner: {example.ScannerName}");
+
+                Debug.WriteLine(
+                    $"    ScanId: {example.ScanId}");
+
+                Debug.WriteLine(
+                    $"    TestId: {example.TestId}");
+
+                Debug.WriteLine(
+                    $"    File: " +
+                    $"{example.FilePath ?? "<null>"}");
+
+                Debug.WriteLine(
+                    $"    Line: " +
+                    $"{example.Line?.ToString() ?? "<null>"}");
+
+                Debug.WriteLine(
+                    $"    Rule: " +
+                    $"{DisplayDebugValue(example.RuleId)}");
+
+                Debug.WriteLine(
+                    $"    Title: " +
+                    $"{DisplayDebugValue(example.Title)}");
+            }
+
+            Debug.WriteLine(string.Empty);
+        }
+
+        Debug.WriteLine(
+            "============================================================");
+    }
+
+    private static string DisplayDebugValue(
+        string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "<empty>"
+            : value;
+    }
     private async Task BuildHeapChart()
     {
         var heatmapDto = await _heatmapQuery.GetHeatmapAsync();
@@ -2809,7 +3166,21 @@ new(1, 79, "Cross-site Scripting"),
 
         GroundTruthTabColor = Colors.DodgerBlue;
         DeclaredCweTabColor = Colors.Gray;
+        UnrelatedConsensusItems.Clear();
 
+        UnrelatedConsensusSeries = [];
+
+        UnrelatedConsensusXAxes = [];
+
+        UnrelatedConsensusYAxes = [];
+
+        HasUnrelatedConsensusData = false;
+
+        OnPropertyChanged(
+            nameof(UnrelatedConsensusGroupCount));
+
+        OnPropertyChanged(
+            nameof(UnrelatedConsensusFindingCount));
         OnPropertyChanged(
             nameof(HasLoadedData));
 
