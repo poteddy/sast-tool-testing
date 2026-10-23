@@ -241,6 +241,7 @@ public partial class ReportPageModel : BaseViewModel
     private readonly IReportQueryService _reportQueryService;
     private readonly IScanDisplayNameProvider _scanNameProvider; // if not already present
     private readonly IUnrelatedFindingConsensusService _unrelatedFindingConsensusService;
+    private readonly IClosedXmlReportExportService _excelReportExportService;
     public ReportPageModel(
           ModalErrorHandler errorHandler,
           IReportQueryService reportQueryService,
@@ -248,7 +249,8 @@ public partial class ReportPageModel : BaseViewModel
           BenchmarkReportService benchmarkService,
           IHeatmapQuery heatmapQuery,
           IFalsePositiveQuery falsePositiveQuery,
-          IUnrelatedFindingConsensusService unrelatedFindingConsensusService)
+          IUnrelatedFindingConsensusService unrelatedFindingConsensusService,
+          IClosedXmlReportExportService excelReportExportService)
     {
         _errorHandler = errorHandler ?? throw new ArgumentNullException(nameof(errorHandler));
         _reportQueryService = reportQueryService ?? throw new ArgumentNullException(nameof(reportQueryService));
@@ -257,6 +259,7 @@ public partial class ReportPageModel : BaseViewModel
         _heatmapQuery = heatmapQuery ?? throw new ArgumentNullException(nameof(heatmapQuery));
         _falsePositiveQuery = falsePositiveQuery;
         _unrelatedFindingConsensusService = unrelatedFindingConsensusService;
+        _excelReportExportService = excelReportExportService;
     }
     public event EventHandler? ReportDataLoaded;
 
@@ -3293,6 +3296,45 @@ new(1, 79, "Cross-site Scripting"),
         SetLegendVisibility(
             RelatedFindingLegendItems,
             false);
+    }
+    [RelayCommand]
+    private async Task ExportExcelReport()
+    {
+        if (IsLoading)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!HasLoadedData)
+            {
+                await InitializeAsync();
+            }
+
+            var fileName =
+                $"ToolTester-Report-" +
+                $"{DateTime.Now:yyyyMMdd-HHmmss}.xlsx";
+
+            var outputPath =
+                Path.Combine(
+                    FileSystem.AppDataDirectory,
+                    fileName);
+
+            await _excelReportExportService.ExportAsync(
+                this,
+                outputPath);
+
+            await Shell.Current.DisplayAlert(
+                "Report Exported",
+                $"The Excel report was created at:{Environment.NewLine}" +
+                outputPath,
+                "OK");
+        }
+        catch (Exception exception)
+        {
+            _errorHandler.HandleError(exception);
+        }
     }
     private static void SetLegendVisibility(
         IEnumerable<ChartLegendItem> legendItems,

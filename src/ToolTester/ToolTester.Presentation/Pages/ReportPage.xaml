@@ -30,10 +30,22 @@
                 TextColor="Red"
                 IsVisible="{Binding ErrorMessage}" />
 
-            <Button
-                Text="Refresh"
-                Command="{Binding RefreshCommand}" />
 
+            <Grid
+    ColumnDefinitions="*,*"
+    ColumnSpacing="8">
+
+                <Button
+        Grid.Column="0"
+        Text="Refresh"
+        Command="{Binding RefreshCommand}" />
+
+                <Button
+        Grid.Column="1"
+        Text="Export Excel Report"
+        Command="{Binding ExportExcelReportCommand}" />
+
+            </Grid>
             <Border
                 Stroke="{AppThemeBinding Light=#D9D9D9, Dark=#555555}"
                 StrokeThickness="1"

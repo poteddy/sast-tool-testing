@@ -30,6 +30,7 @@ namespace ToolTester.Presentation
             services.AddScoped<IFalsePositiveQuery, FalsePositiveQuery>();
             services.AddScoped<IToolDeclaredCoverageService, ToolDeclaredCoverageService>();
             services.AddScoped<IReportQueryService, ReportQueryService>();
+            services.AddSingleton<IClosedXmlReportExportService, ClosedXmlReportExportService>();
             return services;
         }
     }
