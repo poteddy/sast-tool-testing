@@ -419,13 +419,14 @@ public sealed class ApplicationDbContextSeed
             .Get<MitreCatalogSetting>()
             ?? throw new InvalidOperationException(
                 "MitreCatalogSetting is missing.");
+string resolvedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", settings.Path);
 
         ValidateRequiredFile(
-            settings.Path,
+            resolvedPath,
             "MITRE CWE catalog");
 
         var weaknessCatalog =
-            XMLExtensions.ReadXML(settings.Path);
+            XMLExtensions.ReadXML(resolvedPath);
 
         if (context.Database.IsInMemory())
         {
@@ -1219,9 +1220,10 @@ public sealed class ApplicationDbContextSeed
             .Get<JulietProjectSetting>()
             ?? throw new InvalidOperationException(
                 "JulietProjectSetting is missing.");
+string resolvedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", settings.Path);
 
         if (string.IsNullOrWhiteSpace(
-                settings.Path))
+                resolvedPath))
         {
             throw new InvalidOperationException(
                 "The Juliet project path is empty.");
@@ -1229,7 +1231,7 @@ public sealed class ApplicationDbContextSeed
 
         var julietFilePaths =
             _zipfileService.GetFilePaths(
-                settings.Path);
+                resolvedPath);
 
         if (julietFilePaths.Count == 0)
         {

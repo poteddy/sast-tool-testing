@@ -11,6 +11,10 @@ using ToolTester.Application.Common.Models;
 using ToolTester.Infrastructure;
 using ToolTester.Infrastructure.Persistance;
 
+#if MAUI_DEVFLOW
+using Microsoft.Maui.DevFlow.Agent;
+#endif
+
 namespace ToolTester.Presentation
 {
     public static class MauiProgram
@@ -19,6 +23,9 @@ namespace ToolTester.Presentation
         {
 
             var builder = MauiApp.CreateBuilder();
+#if MAUI_DEVFLOW
+            builder.AddMauiDevFlowAgent();
+#endif
             var a = Assembly.GetExecutingAssembly();
             var appSettings = $"{a.GetName().Name}.appsettings.json";
             using var stream = a.GetManifestResourceStream(appSettings);
@@ -26,6 +33,20 @@ namespace ToolTester.Presentation
             .AddJsonStream(stream)
             .Build();
             builder.Configuration.AddConfiguration(config);
+
+            var mitreCatalogPath = EnsureSeedAssetCopiedAsync("cwec_v4.17.xml")
+                .GetAwaiter()
+                .GetResult();
+            var julietProjectPath = EnsureSeedAssetCopiedAsync(
+                    "2017-10-01-juliet-test-suite-for-c-cplusplus-v1-3.zip")
+                .GetAwaiter()
+                .GetResult();
+            builder.Configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["MitreCatalogSetting:Path"] = mitreCatalogPath,
+                    ["JulietProjectSetting:Path"] = julietProjectPath
+                });
 
             builder
                 .UseMauiApp<App>()
@@ -64,10 +85,48 @@ namespace ToolTester.Presentation
             var context = app.Services.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureCreated();
             var seed = app.Services.GetRequiredService<IApplicationDbContextSeed>();
-            seed.SeedCWECatalog();
+            seed.SeedCWECatalog()
+                .GetAwaiter()
+                .GetResult();
             return app;
         }
 
-    }
+        private static async Task<string> EnsureSeedAssetCopiedAsync(
+            string assetName)
+        {
+            var destinationPath = Path.Combine(
+                FileSystem.AppDataDirectory,
+                assetName);
 
+            if (File.Exists(destinationPath))
+            {
+                return destinationPath;
+            }
+
+            Directory.CreateDirectory(FileSystem.AppDataDirectory);
+            var temporaryPath = $"{destinationPath}.tmp";
+            try
+            {
+                await using var source =
+                    await FileSystem.OpenAppPackageFileAsync(assetName)
+                        .ConfigureAwait(false);
+                await using (var destination = File.Create(temporaryPath))
+                {
+                    await source.CopyToAsync(destination)
+                        .ConfigureAwait(false);
+                }
+
+                File.Move(temporaryPath, destinationPath);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
+
+            return destinationPath;
+        }
+    }
 }

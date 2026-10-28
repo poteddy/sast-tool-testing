@@ -16,14 +16,7 @@ public static class DependencyInjection
       Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
       "tooltester.db");
 
-        services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlite($"Data Source={dbPath}"));
-
-        services.AddDbContextFactory<ApplicationDbContext>(options =>
-        options.UseSqlite($"Data Source={dbPath}"));
-
-        services.AddScoped<IApplicationDbContext>(
-        provider => provider.GetRequiredService<ApplicationDbContext>());
+        services.AddDbContext<ApplicationDbContext>(options =>D
 
         services.AddSingleton<IJulietPathNormalizer, JulietPathNormalizer>();
         services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>());
