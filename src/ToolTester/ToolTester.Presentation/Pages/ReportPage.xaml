@@ -572,7 +572,7 @@
                                     EndPoint="1,0.5">
 
                                     <GradientStop
-                                        Color="#C62828"
+                                        Color="#00C62828"
                                         Offset="0.0" />
 
                                     <GradientStop

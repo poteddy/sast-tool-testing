@@ -20,7 +20,14 @@ public sealed partial class Parser : IParser
     public Task<List<CWEs>> Get_findings(Stream fs) => GetFindingsAsync(fs);
     List<int> IParser.Get_findings(Stream fs)
     {
-        throw new NotImplementedException();
+        return Get_findings(fs)
+            .GetAwaiter()
+            .GetResult()
+            .Select(x => x.Cwe)
+            .Where(cwe => cwe is > 0)
+            .Select(cwe => cwe!.Value)
+            .Distinct()
+            .ToList();
     }
     public async Task<List<CWEs>> GetFindingsAsync(
         Stream stream,

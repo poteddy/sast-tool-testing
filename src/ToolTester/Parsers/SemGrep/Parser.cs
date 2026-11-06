@@ -83,7 +83,14 @@ namespace ToolTester.Parsers.SemGrep
 
         List<int> IParser.Get_findings(Stream fs)
         {
-            throw new NotImplementedException();
+            return Get_findings(fs)
+                .GetAwaiter()
+                .GetResult()
+                .Select(x => x.Cwe)
+                .Where(cwe => cwe is > 0)
+                .Select(cwe => cwe!.Value)
+                .Distinct()
+                .ToList();
         }
 
         protected virtual void Dispose(bool disposing)
