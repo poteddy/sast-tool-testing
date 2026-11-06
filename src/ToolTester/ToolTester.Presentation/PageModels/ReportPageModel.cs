@@ -16,7 +16,10 @@ using ToolTester.Presentation.Models.Charts;
 using ToolTester.Presentation.Models.Reports;
 using ToolTester.Presentation.Services;
 using System.Diagnostics;
+using Microsoft.Maui.ApplicationModel;
 namespace ToolTester.Presentation.PageModels;
+
+
 
 public partial class ReportPageModel : BaseViewModel
 {
@@ -123,6 +126,9 @@ public partial class ReportPageModel : BaseViewModel
     public ObservableCollection<ParetoChartModel>
         DeclaredCweParetoCharts
     { get; } = [];
+
+    public AppTheme CurrentTheme { get; set; } = AppTheme.Light;
+
     private ObservableCollection<ChartLegendItem> _relationshipMixLegendItems = [];
     private ObservableCollection<ChartLegendItem> _falsePositiveLegendItems = [];
     [ObservableProperty]
@@ -1205,7 +1211,8 @@ public partial class ReportPageModel : BaseViewModel
     private async Task BuildHeapChart()
     {
         var heatmapDto = await _heatmapQuery.GetHeatmapAsync();
-        var heatmapResult = heatmapDto.ToHeatmapResult(); // uses mapper above
+
+        var heatmapResult = heatmapDto.ToHeatmapResult(CurrentTheme); // uses mapper above
 
         ScannerCweHeatmapData = heatmapResult.Data;
         ScannerCweHeatmapSeries = heatmapResult.Series;

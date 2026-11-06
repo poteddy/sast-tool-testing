@@ -11,8 +11,20 @@ namespace ToolTester.Presentation.Services
     // Presentation-only mapper: converts HeatmapDto -> HeatmapResult (LiveCharts types).
     public static class HeatmapDtoMapper
     {
-        public static HeatmapResult ToHeatmapResult(this HeatmapDto dto)
+        public static HeatmapResult ToHeatmapResult(this HeatmapDto dto, Microsoft.Maui.ApplicationModel.AppTheme appthem)
         {
+            var isDarkTheme = appthem == AppTheme.Dark;
+            var zeroColor = isDarkTheme
+    ? new LvcColor(35, 35, 35)       // dark background
+    : new LvcColor(238, 238, 238);   // light background
+
+            var axisColor = isDarkTheme
+                ? new SKColor(190, 190, 190)
+                : new SKColor(70, 70, 70);
+
+            var separatorColor = isDarkTheme
+                ? new SKColor(65, 65, 65)
+                : new SKColor(225, 225, 225);
             var result = new HeatmapResult();
             if (dto == null || dto.Cells.Count == 0) return result;
 
@@ -53,11 +65,12 @@ namespace ToolTester.Presentation.Services
                     Values = heatmapValues,
                     HeatMap = new []
                     {
-                        new LvcColor(198,40,40),
-                        new LvcColor(239,108,0),
-                        new LvcColor(253,216,53),
-                        new LvcColor(124,179,66),
-                        new LvcColor(27,94,32)
+                          zeroColor,
+    new LvcColor(198, 40, 40),
+    new LvcColor(239, 108, 0),
+    new LvcColor(253, 216, 53),
+    new LvcColor(124, 179, 66),
+    new LvcColor(27, 94, 32)
                     },
                     YToolTipLabelFormatter = point =>
                     {

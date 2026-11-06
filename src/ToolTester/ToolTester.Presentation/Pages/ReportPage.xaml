@@ -568,31 +568,34 @@
                             <Grid.Background>
 
                                 <LinearGradientBrush
-                                    StartPoint="0,0.5"
-                                    EndPoint="1,0.5">
+    StartPoint="0,0.5"
+    EndPoint="1,0.5">
 
                                     <GradientStop
-                                        Color="#00C62828"
-                                        Offset="0.0" />
+            Color="{AppThemeBinding Light=#EEEEEE, Dark=#232323}"
+            Offset="0.0" />
 
                                     <GradientStop
-                                        Color="#EF6C00"
-                                        Offset="0.25" />
+        Color="#C62828"
+        Offset="0.20" />
 
                                     <GradientStop
-                                        Color="#FDD835"
-                                        Offset="0.5" />
+        Color="#EF6C00"
+        Offset="0.40" />
 
                                     <GradientStop
-                                        Color="#7CB342"
-                                        Offset="0.75" />
+        Color="#FDD835"
+        Offset="0.60" />
 
                                     <GradientStop
-                                        Color="#1B5E20"
-                                        Offset="1.0" />
+        Color="#7CB342"
+        Offset="0.80" />
+
+                                    <GradientStop
+        Color="#1B5E20"
+        Offset="1.0" />
 
                                 </LinearGradientBrush>
-
                             </Grid.Background>
 
                         </Grid>

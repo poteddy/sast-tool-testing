@@ -1,5 +1,6 @@
 using ToolTester.Presentation.PageModels;
-
+using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.Controls;
 namespace ToolTester.Presentation.Pages;
 
 public partial class ReportPage : ContentPage
@@ -13,6 +14,10 @@ public partial class ReportPage : ContentPage
 
         _viewModel = viewModel;
         BindingContext = viewModel;
+        var theme =
+           Microsoft.Maui.Controls.Application.Current?.RequestedTheme
+           ?? AppTheme.Light;
+        _viewModel.CurrentTheme =theme;
     }
 
     protected override async void OnAppearing()
@@ -22,6 +27,10 @@ public partial class ReportPage : ContentPage
         if (!_viewModel.HasLoadedData)
         {
             await _viewModel.LoadReportsCommand.ExecuteAsync(null);
+            var theme =
+          Microsoft.Maui.Controls.Application.Current?.RequestedTheme
+          ?? AppTheme.Light;
+            _viewModel.CurrentTheme = theme;
         }
     }
 }
